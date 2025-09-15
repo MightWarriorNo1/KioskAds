@@ -16,7 +16,7 @@ import {
   FileVideo,
   Trash2
 } from 'lucide-react';
-import SiteHeader from '../components/layouts/SiteHeader';
+import DashboardLayout from '../components/layouts/DashboardLayout';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import Input from '../components/ui/Input';
@@ -380,18 +380,15 @@ export default function CustomAdsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[rgb(var(--bg))] dark:bg-gradient-to-br dark:from-slate-900 dark:via-blue-900 dark:to-slate-800">
-      <SiteHeader />
-      
+    <DashboardLayout
+      title="Custom Ads & Creation"
+      subtitle="Professional ad creation services tailored to your needs"
+    >
       <div className="max-w-7xl mx-auto px-6 py-12">
-        {/* Header */}
+        {/* Service Description */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">
-            Custom Ads & Creation
-          </h1>
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-            Professional ad creation services tailored to your needs. Choose from graphic design, 
-            photography, or videography services to create stunning vertical ads for our kiosk network.
+            Choose from graphic design, photography, or videography services to create stunning vertical ads for our kiosk network.
           </p>
         </div>
 
@@ -803,7 +800,7 @@ export default function CustomAdsPage() {
           </Card>
         )}
       </div>
-    </div>
+    </DashboardLayout>
   );
 }
 

@@ -7,6 +7,8 @@ import {
   DollarSign, 
   CreditCard, 
   FileText,
+  PlusCircle,
+  Megaphone,
   Menu, 
   LogOut
 } from 'lucide-react';
@@ -18,9 +20,11 @@ const navigation = [
   { name: 'Dashboard', href: '/host', icon: BarChart3 },
   { name: 'Kiosk Manager', href: '/host/kiosks', icon: MapPin },
   { name: 'Ad Assignment', href: '/host/ads', icon: Calendar },
+  { name: 'Create Campaign', href: '/host/campaigns/new', icon: PlusCircle },
   { name: 'Revenue Tracker', href: '/host/revenue', icon: DollarSign },
   { name: 'Payout History', href: '/host/payouts', icon: CreditCard },
   { name: 'Proof-of-Play', href: '/host/proof-of-play', icon: FileText },
+  { name: 'Custom Ads', href: '/host/custom-ads', icon: Megaphone },
 ];
 
 interface HostLayoutProps {
@@ -96,9 +100,16 @@ export default function HostLayout({ children }: HostLayoutProps) {
           </div>
           
           {/* Right side controls */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
             {/* Theme Toggle */}
             <ThemeToggle variant="dropdown" size="md" />
+            <button
+              onClick={handleSignOut}
+              className="flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-slate-700 transition-colors"
+            >
+              <LogOut className="h-5 w-5" />
+              <span className="hidden sm:inline">Sign Out</span>
+            </button>
           </div>
         </div>
       </header>
@@ -133,16 +144,7 @@ export default function HostLayout({ children }: HostLayoutProps) {
               })}
             </nav>
 
-            {/* Logout Button at Bottom */}
-            <div className="p-4 border-t border-gray-200 dark:border-slate-700">
-              <button
-                onClick={handleSignOut}
-                className="flex items-center space-x-3 w-full px-4 py-3 rounded-lg text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200 group"
-              >
-                <LogOut className="h-5 w-5 transition-transform group-hover:scale-110" />
-                <span>Sign Out</span>
-              </button>
-            </div>
+            
           </div>
         </div>
 

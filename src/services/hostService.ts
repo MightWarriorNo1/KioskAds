@@ -144,6 +144,60 @@ export class HostService {
     }
   }
 
+  // Update existing ad (restrict edits when active; asset changes trigger re-approval)
+  static async updateAd(
+    adId: string,
+    updates: Partial<Pick<HostAd, 'name' | 'description' | 'media_url' | 'media_type' | 'duration'>>
+  ): Promise<HostAd> {
+    try {
+      // Fetch current ad to determine status and enforce rules
+      const { data: existing, error: fetchError } = await supabase
+        .from('host_ads')
+        .select('*')
+        .eq('id', adId)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (!existing) throw new Error('Ad not found');
+
+      const isActive = existing.status === 'active';
+
+      // If ad is active, only allow media_url/media_type (and optionally duration)
+      let allowedUpdates: Record<string, any> = { ...updates };
+      if (isActive) {
+        const { media_url, media_type, duration } = updates;
+        allowedUpdates = {};
+        if (typeof media_url === 'string') allowedUpdates.media_url = media_url;
+        if (typeof media_type === 'string') allowedUpdates.media_type = media_type;
+        if (typeof duration === 'number') allowedUpdates.duration = duration;
+
+        // If no asset-related fields are changing, block the update on active ads
+        if (Object.keys(allowedUpdates).length === 0) {
+          throw new Error('Active ads can only change the ad asset (media and duration)');
+        }
+
+        // Asset change requires re-approval
+        allowedUpdates.status = 'pending_review';
+      }
+
+      // Always update timestamp
+      allowedUpdates.updated_at = new Date().toISOString();
+
+      const { data, error } = await supabase
+        .from('host_ads')
+        .update(allowedUpdates)
+        .eq('id', adId)
+        .select('*')
+        .single();
+
+      if (error) throw error;
+      return data as HostAd;
+    } catch (error) {
+      console.error('Error updating host ad:', error);
+      throw error;
+    }
+  }
+
   // Get host's ads
   static async getHostAds(hostId: string, status?: string): Promise<HostAd[]> {
     try {
@@ -407,14 +461,14 @@ export class HostService {
 
       if (kioskError) throw kioskError;
 
-      // Get pending ads count
-      const { count: pendingAds, error: adsError } = await supabase
-        .from('host_ads')
+      // Get pending ads count (treat campaigns as ads for hosts)
+      const { count: pendingCampaigns, error: pendingCampErr } = await supabase
+        .from('campaigns')
         .select('*', { count: 'exact', head: true })
-        .eq('host_id', hostId)
-        .eq('status', 'pending_review');
+        .eq('user_id', hostId)
+        .eq('status', 'pending');
 
-      if (adsError) throw adsError;
+      if (pendingCampErr) throw pendingCampErr;
 
       // Get active assignments count
       const { count: activeAssignments, error: assignmentsError } = await supabase
@@ -442,7 +496,7 @@ export class HostService {
         active_kiosks: kioskStats?.[0]?.active_kiosks || 0,
         total_impressions: kioskStats?.[0]?.total_impressions || 0,
         total_revenue: kioskStats?.[0]?.total_revenue || 0,
-        pending_ads: pendingAds || 0,
+        pending_ads: pendingCampaigns || 0,
         active_assignments: activeAssignments || 0,
         monthly_revenue: monthlyRevenue.total_commission,
         weekly_revenue: weeklyRevenue.total_commission,

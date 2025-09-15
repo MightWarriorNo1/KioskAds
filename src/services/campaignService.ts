@@ -135,6 +135,7 @@ export class CampaignService {
     selected_kiosk_ids?: string[];
     volume_discount_applied?: number;
     total_discount_amount?: number;
+    status?: Campaign['status'];
   }): Promise<Campaign | null> {
     try {
       // Start a transaction
@@ -155,7 +156,7 @@ export class CampaignService {
           selected_kiosk_ids: campaignData.selected_kiosk_ids || campaignData.kiosk_ids,
           volume_discount_applied: campaignData.volume_discount_applied || 0,
           total_discount_amount: campaignData.total_discount_amount || 0,
-          status: 'pending'
+          status: campaignData.status || 'pending'
         }])
         .select()
         .single();
@@ -253,6 +254,45 @@ export class CampaignService {
       console.error('Error updating campaign:', error);
       return false;
     }
+  }
+
+  static async deleteCampaign(campaignId: string): Promise<boolean> {
+    try {
+      // Only delete if campaign is in draft status
+      const { data: campaign, error: fetchError } = await supabase
+        .from('campaigns')
+        .select('status')
+        .eq('id', campaignId)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (!campaign || campaign.status !== 'draft') {
+        throw new Error('Only draft campaigns can be deleted');
+      }
+
+      // Delete related mappings first (if any)
+      await supabase.from('campaign_media').delete().eq('campaign_id', campaignId);
+      await supabase.from('kiosk_campaigns').delete().eq('campaign_id', campaignId);
+
+      const { error } = await supabase
+        .from('campaigns')
+        .delete()
+        .eq('id', campaignId);
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error deleting campaign:', error);
+      return false;
+    }
+  }
+
+  static async pauseCampaign(campaignId: string): Promise<boolean> {
+    return this.updateCampaignStatus(campaignId, 'paused');
+  }
+
+  static async resumeCampaign(campaignId: string): Promise<boolean> {
+    return this.updateCampaignStatus(campaignId, 'active');
   }
 }
 

@@ -3,6 +3,7 @@ import { Plus, RefreshCw, ArrowRight, CheckCircle, MapPin, List, Layout } from '
 import { useLocation, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/layouts/DashboardLayout';
 import { CampaignService, Campaign } from '../services/campaignService';
+import { MediaService } from '../services/mediaService';
 import { useAuth } from '../contexts/AuthContext';
 import LeafletMap from '../components/MapContainer';
 
@@ -17,6 +18,7 @@ export default function CampaignsPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'map' | 'split'>('split');
+  const [mediaPreviews, setMediaPreviews] = useState<Record<string, { url: string; type: 'image' | 'video' }>>({});
 
   useEffect(() => {
     if (location.state?.message) {
@@ -37,6 +39,36 @@ export default function CampaignsPage() {
   useEffect(() => {
     fetchCampaigns();
   }, [user]);
+
+  // Load media previews for Draft, Pending, Active campaigns
+  useEffect(() => {
+    const loadPreviews = async () => {
+      try {
+        const candidates = campaigns.filter(c => ['draft', 'pending', 'active'].includes(c.status));
+        const results: Record<string, { url: string; type: 'image' | 'video' }> = {};
+        await Promise.all(
+          candidates.map(async (c) => {
+            try {
+              const media = await MediaService.getCampaignMedia(c.id);
+              if (media && media.length > 0) {
+                const asset = media[0];
+                const url = asset.metadata?.publicUrl || MediaService.getMediaPreviewUrl(asset.file_path);
+                results[c.id] = { url, type: asset.file_type };
+              }
+            } catch (e) {
+              // ignore per-campaign errors
+            }
+          })
+        );
+        setMediaPreviews(prev => ({ ...prev, ...results }));
+      } catch (_) {
+        // noop
+      }
+    };
+    if (campaigns.length > 0) {
+      void loadPreviews();
+    }
+  }, [campaigns]);
 
   const fetchCampaigns = async () => {
     if (!user) return;
@@ -236,6 +268,16 @@ export default function CampaignsPage() {
             <div className="grid md:grid-cols-2 gap-6">
               {filteredCampaigns.map((campaign) => (
                 <div key={campaign.id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+                  {/* Media Preview for Draft, Pending, Active */}
+                  {['draft', 'pending', 'active'].includes(campaign.status) && mediaPreviews[campaign.id]?.url && (
+                    <div className="mb-4 w-full aspect-[16/9] bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
+                      {mediaPreviews[campaign.id].type === 'image' ? (
+                        <img src={mediaPreviews[campaign.id].url} alt="Ad preview" className="w-full h-full object-cover" />
+                      ) : (
+                        <video src={mediaPreviews[campaign.id].url} className="w-full h-full object-cover" controls={false} muted playsInline />
+                      )}
+                    </div>
+                  )}
                   <div className="flex items-start justify-between mb-4">
                     <div>
                       <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
@@ -322,6 +364,16 @@ export default function CampaignsPage() {
                     <div className="divide-y divide-gray-200 dark:divide-gray-700">
                       {filteredCampaigns.map((campaign) => (
                         <div key={campaign.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                          {/* Row Media Preview */}
+                          {['draft', 'pending', 'active'].includes(campaign.status) && mediaPreviews[campaign.id]?.url && (
+                            <div className="mb-3 w-full aspect-[16/9] bg-gray-100 dark:bg-gray-700 rounded-md overflow-hidden">
+                              {mediaPreviews[campaign.id].type === 'image' ? (
+                                <img src={mediaPreviews[campaign.id].url} alt="Ad preview" className="w-full h-full object-cover" />
+                              ) : (
+                                <video src={mediaPreviews[campaign.id].url} className="w-full h-full object-cover" controls={false} muted playsInline />
+                              )}
+                            </div>
+                          )}
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex-1 min-w-0">
                               <h4 className="font-medium text-gray-900 dark:text-white truncate">

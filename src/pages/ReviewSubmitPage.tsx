@@ -6,6 +6,8 @@ import { CampaignService } from '../services/campaignService';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
 import { PricingService } from '../services/pricingService';
+import PurchaseModal from '../components/client/PurchaseModal';
+import { BillingService } from '../services/billingService';
 
 interface SelectedWeek {
   startDate: string;
@@ -33,6 +35,8 @@ export default function ReviewSubmitPage() {
   const campaignData = location.state;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [discountPercent, setDiscountPercent] = useState<number>(0);
+  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+  const [hasPaid, setHasPaid] = useState(false);
   
   // Redirect if no campaign data or user not authenticated
   React.useEffect(() => {
@@ -101,26 +105,17 @@ export default function ReviewSubmitPage() {
     });
   };
 
-  const handleSubmit = async () => {
+  const createCampaignAfterPayment = async () => {
     if (!user || !uploadedMediaAsset) return;
-
     setIsSubmitting(true);
-    
     try {
-      // Generate campaign name
       const campaignName = `${kiosks.length > 1 ? `${kiosks[0]?.name} +${kiosks.length - 1}` : kiosks[0]?.name} - ${selectedWeeks.length} week${selectedWeeks.length > 1 ? 's' : ''} campaign`;
-      
-      // Calculate campaign dates
       const startDate = selectedWeeks[0]?.startDate;
       const endDate = selectedWeeks[selectedWeeks.length - 1]?.endDate;
-      
       if (!startDate || !endDate) {
         throw new Error('Invalid campaign dates');
       }
-
       const totalCost = calculateTotalCost();
-
-      // Create campaign
       const newCampaign = await CampaignService.createCampaign({
         name: campaignName,
         description: `Campaign for ${kiosks.map(k => k.name).join(', ')} running for ${selectedWeeks.length} week${selectedWeeks.length > 1 ? 's' : ''}`,
@@ -134,18 +129,26 @@ export default function ReviewSubmitPage() {
         target_locations: Array.from(new Set(kiosks.map(k => k.city).filter(Boolean))),
         media_asset_id: uploadedMediaAsset.id
       });
-
       if (!newCampaign) {
         throw new Error('Failed to create campaign - please try again');
       }
-
+      // Record payment history as succeeded
+      try {
+        await BillingService.createPaymentRecord({
+          user_id: user.id,
+          campaign_id: newCampaign.id,
+          amount: totalCost,
+          status: 'succeeded',
+          description: `Payment for campaign ${campaignName}`
+        });
+      } catch (e) {
+        // Non-blocking
+        console.warn('Failed to record payment history', e);
+      }
       addNotification('success', 'Campaign Created!', `Your campaign "${campaignName}" has been created successfully and is now pending approval.`);
-      
-      // Navigate to campaigns page
       navigate('/client/campaigns');
     } catch (error) {
       console.error('Error creating campaign:', error);
-      
       let errorMessage = 'Failed to create campaign. Please try again.';
       if (error instanceof Error) {
         if (error.message.includes('row-level security policy')) {
@@ -156,11 +159,19 @@ export default function ReviewSubmitPage() {
           errorMessage = error.message;
         }
       }
-      
       addNotification('error', 'Campaign Creation Failed', errorMessage);
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSubmit = async () => {
+    if (!user || !uploadedMediaAsset) return;
+    if (!hasPaid) {
+      setIsPaymentOpen(true);
+      return;
+    }
+    await createCampaignAfterPayment();
   };
 
   return (
@@ -438,6 +449,40 @@ export default function ReviewSubmitPage() {
           )}
         </button>
       </div>
+      {/* Payment Modal */}
+      <PurchaseModal
+        isOpen={isPaymentOpen}
+        onClose={() => setIsPaymentOpen(false)}
+        package={{
+          id: 'campaign-payment',
+          title: 'Campaign Payment',
+          description: 'Pay to submit your campaign for review',
+          price: Number(calculateTotalCost().toFixed(2)),
+          rating: 5,
+          reviews: 0,
+          thumbnail: 'https://dummyimage.com/256x256/ededed/aaa&text=Campaign',
+          category: 'bundle',
+          tags: ['Campaign', 'Submission', 'Payment'],
+          deliveryTime: 'Instant'
+        }}
+        campaignDetails={{
+          name: `${kiosks.length > 1 ? `${kiosks[0]?.name} +${kiosks.length - 1}` : kiosks[0]?.name} - ${selectedWeeks.length} week${selectedWeeks.length > 1 ? 's' : ''} campaign`,
+          description: `Campaign for ${kiosks.map(k => k.name).join(', ')} running for ${selectedWeeks.length} week${selectedWeeks.length > 1 ? 's' : ''}`,
+          startDate: selectedWeeks[0]?.startDate || '',
+          endDate: selectedWeeks[selectedWeeks.length - 1]?.endDate || '',
+          kiosks: kiosks.map(k => ({ id: k.id, name: k.name })),
+          totalSlots: totalSlots,
+          totalCost: Number(calculateTotalCost().toFixed(2)),
+          assetUrl: uploadedMediaAsset?.metadata?.publicUrl,
+          assetType: uploadedMediaAsset?.file_type === 'image' ? 'image' : 'video'
+        }}
+        onPurchase={() => {
+          setHasPaid(true);
+          setIsPaymentOpen(false);
+          // Proceed to create campaign
+          void createCampaignAfterPayment();
+        }}
+      />
     </DashboardLayout>
   );
 }

@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calendar, MapPin, DollarSign, Activity, Eye, Play, Pause, Edit, Trash2, Save, X } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, DollarSign, Activity, Eye, Play, Pause, Edit, Trash2, Save, X, Upload, Image as ImageIcon, Video } from 'lucide-react';
 import DashboardLayout from '../components/layouts/DashboardLayout';
 import { CampaignService, Campaign } from '../services/campaignService';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
+import { MediaService } from '../services/mediaService';
+import { validateFile } from '../utils/fileValidation';
 
 export default function CampaignDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -25,6 +27,9 @@ export default function CampaignDetailsPage() {
     end_date: '',
     target_locations: [] as string[]
   });
+  const [campaignAssets, setCampaignAssets] = useState<any[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useState<HTMLInputElement | null>(null)[0] as React.MutableRefObject<HTMLInputElement | null>;
 
   useEffect(() => {
     if (id && user) {
@@ -42,6 +47,12 @@ export default function CampaignDetailsPage() {
       
       if (foundCampaign) {
         setCampaign(foundCampaign);
+        try {
+          const assets = await MediaService.getCampaignAssets(foundCampaign.id);
+          setCampaignAssets(assets);
+        } catch (e) {
+          console.warn('Could not load campaign assets:', e);
+        }
       } else {
         addNotification('error', 'Campaign Not Found', 'The requested campaign could not be found.');
         navigate('/client/campaigns');
@@ -51,6 +62,32 @@ export default function CampaignDetailsPage() {
       addNotification('error', 'Error', 'Failed to load campaign details.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAssetUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!campaign || !user) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploading(true);
+      const validation = await validateFile(file);
+      if (!validation.isValid) {
+        throw new Error(validation.errors.join(', '));
+      }
+
+      const media = await MediaService.uploadMediaToCampaign(file, validation, user.id, campaign.id);
+      setCampaignAssets(prev => [media, ...prev]);
+      // Submitted media goes into processing; admin review queue already fetches uploading/processing
+      // Notify user
+      addNotification('success', 'Asset Submitted', 'Your asset was uploaded and sent for review.');
+    } catch (error) {
+      console.error('Asset upload failed:', error);
+      addNotification('error', 'Upload Failed', error instanceof Error ? error.message : 'Failed to upload asset');
+    } finally {
+      setUploading(false);
+      if (e.target) e.target.value = '';
     }
   };
 
@@ -95,27 +132,43 @@ export default function CampaignDetailsPage() {
     
     setActionLoading('edit');
     try {
-      const success = await CampaignService.updateCampaign(campaign.id, {
-        name: editForm.name,
-        description: editForm.description,
-        budget: editForm.budget,
-        daily_budget: editForm.daily_budget || undefined,
-        start_date: editForm.start_date,
-        end_date: editForm.end_date,
-        target_locations: editForm.target_locations
-      });
+      // Locking rules: pending is locked; draft can only change dates and ad asset
+      const updatePayload = campaign.status === 'draft'
+        ? {
+            start_date: editForm.start_date,
+            end_date: editForm.end_date
+          }
+        : campaign.status === 'pending'
+          ? {}
+          : {
+              name: editForm.name,
+              description: editForm.description,
+              budget: editForm.budget,
+              daily_budget: editForm.daily_budget || undefined,
+              start_date: editForm.start_date,
+              end_date: editForm.end_date,
+              target_locations: editForm.target_locations
+            };
+
+      if (campaign.status === 'pending') {
+        addNotification('warning', 'Locked', 'Pending campaigns are locked and cannot be edited.');
+        setActionLoading(null);
+        return;
+      }
+
+      const success = await CampaignService.updateCampaign(campaign.id, updatePayload);
 
       if (success) {
         // Update local campaign state
         setCampaign({
           ...campaign,
-          name: editForm.name,
-          description: editForm.description,
-          budget: editForm.budget,
-          daily_budget: editForm.daily_budget || undefined,
+          name: campaign.status === 'draft' ? campaign.name : editForm.name,
+          description: campaign.status === 'draft' ? campaign.description : editForm.description,
+          budget: campaign.status === 'draft' ? campaign.budget : editForm.budget,
+          daily_budget: campaign.status === 'draft' ? campaign.daily_budget : (editForm.daily_budget || undefined),
           start_date: editForm.start_date,
           end_date: editForm.end_date,
-          target_locations: editForm.target_locations,
+          target_locations: campaign.status === 'draft' ? (campaign.target_locations || []) : editForm.target_locations,
           updated_at: new Date().toISOString()
         });
         
@@ -145,11 +198,25 @@ export default function CampaignDetailsPage() {
     });
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!campaign) return;
-    
+    if (campaign.status !== 'draft') {
+      addNotification('warning', 'Locked', 'Only draft campaigns can be deleted.');
+      return;
+    }
     if (window.confirm(`Are you sure you want to delete "${campaign.name}"? This action cannot be undone.`)) {
-      addNotification('info', 'Coming Soon', 'Campaign deletion feature is coming soon.');
+      setActionLoading('delete');
+      try {
+        const success = await CampaignService.deleteCampaign(campaign.id);
+        if (success) {
+          addNotification('success', 'Deleted', 'Draft campaign deleted.');
+          navigate('/client/campaigns');
+        } else {
+          addNotification('error', 'Deletion Failed', 'Failed to delete draft campaign.');
+        }
+      } finally {
+        setActionLoading(null);
+      }
     }
   };
 
@@ -314,18 +381,21 @@ export default function CampaignDetailsPage() {
                     </button>
                   )}
                   
-                  <button
-                    onClick={handleEdit}
-                    className="p-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                    title="Edit Campaign"
-                  >
-                    <Edit className="h-5 w-5" />
-                  </button>
+                  {campaign.status === 'draft' && (
+                    <button
+                      onClick={handleEdit}
+                      className="p-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                      title="Edit Draft"
+                    >
+                      <Edit className="h-5 w-5" />
+                    </button>
+                  )}
                   
                   <button
                     onClick={handleDelete}
-                    className="p-2 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                    title="Delete Campaign"
+                    className="p-2 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50"
+                    title={campaign.status === 'draft' ? 'Delete Draft' : 'Only drafts can be deleted'}
+                    disabled={campaign.status !== 'draft' || actionLoading === 'delete'}
                   >
                     <Trash2 className="h-5 w-5" />
                   </button>
@@ -487,6 +557,48 @@ export default function CampaignDetailsPage() {
               </>
             )}
           </div>
+        </div>
+
+        {/* Ad Assets (Active Campaigns) */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Ad Assets</h3>
+            {campaign.status === 'active' && (
+              <label className="inline-flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer">
+                <Upload className="h-4 w-4 mr-2" />
+                Upload New Asset
+                <input type="file" accept="image/jpeg,image/png,video/mp4" className="hidden" onChange={handleAssetUpload} />
+              </label>
+            )}
+          </div>
+
+          {campaignAssets.length === 0 ? (
+            <div className="text-gray-500 dark:text-gray-400 text-sm">No assets uploaded yet.</div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {campaignAssets.map(asset => (
+                <div key={asset.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 flex items-center gap-3">
+                  <div className="flex-shrink-0">
+                    {asset.file_type === 'image' ? (
+                      <ImageIcon className="h-6 w-6 text-blue-500" />
+                    ) : (
+                      <Video className="h-6 w-6 text-purple-500" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-gray-900 dark:text-white truncate">{asset.file_name}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Status: {asset.status}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {uploading && (
+            <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">Uploading...</div>
+          )}
+          {campaign.status !== 'active' && (
+            <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">Asset uploads are available when the campaign is active.</div>
+          )}
         </div>
 
         {/* Performance Metrics */}

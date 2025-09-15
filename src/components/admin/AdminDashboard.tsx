@@ -7,14 +7,18 @@ import RecentActivity from '../shared/RecentActivity';
 import QuickActions from '../shared/QuickActions';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
+import { useNavigate } from 'react-router-dom';
 
 export default function AdminDashboard() {
+  const navigate = useNavigate();
   const [metrics, setMetrics] = useState<AdminMetrics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activities, setActivities] = useState<Array<{ action: string; time: string; type: 'success' | 'info' | 'warning' | 'error'; }>>([]);
   const { addNotification } = useNotification();
 
   useEffect(() => {
     loadMetrics();
+    loadRecentActivity();
   }, []);
 
   const loadMetrics = async () => {
@@ -27,6 +31,15 @@ export default function AdminDashboard() {
       addNotification('error', 'Error', 'Failed to load dashboard metrics');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadRecentActivity = async () => {
+    try {
+      const data = await AdminService.getRecentAdminActivity(10);
+      setActivities(data);
+    } catch (error) {
+      console.error('Error loading recent activity:', error);
     }
   };
 
@@ -147,13 +160,16 @@ export default function AdminDashboard() {
                     <div className="text-sm text-gray-500 dark:text-gray-400">{qa.description}</div>
                   </div>
                 </div>
-                <Button variant="secondary" size="sm">Open</Button>
+                <Button variant="secondary" size="sm" onClick={() => navigate(qa.href)}>Open</Button>
               </div>
             ))}
           </div>
         </Card>
         <Card className="lg:col-span-2 animate-fade-in-up" title="Recent Activity" subtitle="Latest platform updates">
-          <RecentActivity activities={recentActivities} />
+          <RecentActivity 
+            activities={activities}
+            onViewAllClick={() => navigate('/admin/activity')}
+          />
         </Card>
       </div>
 

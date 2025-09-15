@@ -1,14 +1,17 @@
 import { useState, useEffect } from 'react';
-import { Archive, RefreshCw, RotateCcw, Trash2, Eye, Clock, HardDrive, AlertCircle } from 'lucide-react';
+import { Archive, RefreshCw, RotateCcw, Trash2, Eye, Clock, HardDrive, AlertCircle, X } from 'lucide-react';
 import { useNotification } from '../../contexts/NotificationContext';
 import { AdminService, AssetLifecycleItem } from '../../services/adminService';
 import { GoogleDriveService } from '../../services/googleDriveService';
+import { MediaService } from '../../services/mediaService';
 
 export default function AssetLifecycleManagement() {
   const [assets, setAssets] = useState<AssetLifecycleItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [processingAsset, setProcessingAsset] = useState<string | null>(null);
+  const [selectedAsset, setSelectedAsset] = useState<AssetLifecycleItem | null>(null);
+  const [showViewModal, setShowViewModal] = useState(false);
   const { addNotification } = useNotification();
 
   useEffect(() => {
@@ -60,6 +63,16 @@ export default function AssetLifecycleManagement() {
     } finally {
       setProcessingAsset(null);
     }
+  };
+
+  const handleViewAsset = (asset: AssetLifecycleItem) => {
+    setSelectedAsset(asset);
+    setShowViewModal(true);
+  };
+
+  const closeViewModal = () => {
+    setShowViewModal(false);
+    setSelectedAsset(null);
   };
 
   const processAssetLifecycle = async () => {
@@ -363,7 +376,10 @@ export default function AssetLifecycleManagement() {
                               <span>Restore</span>
                             </button>
                           )}
-                          <button className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 flex items-center space-x-1">
+                          <button 
+                            onClick={() => handleViewAsset(asset)}
+                            className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 flex items-center space-x-1"
+                          >
                             <Eye className="h-4 w-4" />
                             <span>View</span>
                           </button>
@@ -404,6 +420,155 @@ export default function AssetLifecycleManagement() {
           </div>
         </div>
       </div>
+
+      {/* Asset View Modal */}
+      {showViewModal && selectedAsset && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                Asset Details
+              </h3>
+              <button
+                onClick={closeViewModal}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              <div className="grid lg:grid-cols-2 gap-6">
+                {/* Asset Preview */}
+                <div>
+                  <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                    Preview
+                  </h4>
+                  <div className="bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
+                    {selectedAsset.media_asset.file_type === 'video' ? (
+                      <video
+                        src={MediaService.getMediaPreviewUrl(selectedAsset.media_asset.file_path)}
+                        controls
+                        className="w-full h-auto max-h-96"
+                      />
+                    ) : (
+                      <img
+                        src={MediaService.getMediaPreviewUrl(selectedAsset.media_asset.file_path)}
+                        alt={selectedAsset.media_asset.file_name}
+                        className="w-full h-auto max-h-96 object-contain"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* Asset Details */}
+                <div>
+                  <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                    Details
+                  </h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        File Name
+                      </label>
+                      <p className="text-gray-900 dark:text-white">
+                        {selectedAsset.media_asset.file_name}
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        File Type
+                      </label>
+                      <p className="text-gray-900 dark:text-white capitalize">
+                        {selectedAsset.media_asset.file_type}
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        Status
+                      </label>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(selectedAsset.status)} text-white`}>
+                        {selectedAsset.status}
+                      </span>
+                    </div>
+
+                    {selectedAsset.campaign && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                          Campaign
+                        </label>
+                        <p className="text-gray-900 dark:text-white">
+                          {selectedAsset.campaign.name}
+                        </p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          Ends: {new Date(selectedAsset.campaign.end_date).toLocaleDateString()}
+                        </p>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        Google Drive Folder
+                      </label>
+                      <p className="text-gray-900 dark:text-white">
+                        {selectedAsset.google_drive_folder || 'Not specified'}
+                      </p>
+                    </div>
+
+                    {selectedAsset.archived_at && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                          Archived Date
+                        </label>
+                        <p className="text-gray-900 dark:text-white">
+                          {new Date(selectedAsset.archived_at).toLocaleString()}
+                        </p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          {getDaysSinceArchived(selectedAsset.archived_at)} days ago
+                        </p>
+                      </div>
+                    )}
+
+                    {selectedAsset.restored_at && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                          Restored Date
+                        </label>
+                        <p className="text-gray-900 dark:text-white">
+                          {new Date(selectedAsset.restored_at).toLocaleString()}
+                        </p>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        Created Date
+                      </label>
+                      <p className="text-gray-900 dark:text-white">
+                        {new Date(selectedAsset.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end p-6 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={closeViewModal}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

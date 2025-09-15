@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { MapPin, Clock, Upload, Check, Star } from 'lucide-react';
+import { MapPin, Clock, Upload, Check, Star ,Aperture, Camera, Videotape} from 'lucide-react';
 import SiteHeader from '../components/layouts/SiteHeader';
 
 export default function LandingPage() {
@@ -13,7 +13,7 @@ export default function LandingPage() {
       <section className="relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-6 py-20 md:py-28 grid md:grid-cols-2 gap-12 items-center">
           <div>
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary-100 text-primary-700 dark:bg-gray-800 dark:text-primary-300 mb-4">
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-md font-medium bg-primary-100 text-primary-700 dark:bg-gray-800 dark:text-primary-300 mb-4">
               Ad Management Platform
             </span>
             <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-6">
@@ -27,7 +27,7 @@ export default function LandingPage() {
               <Link to="/custom-ads" className="btn-secondary px-6 py-3">Custom Ads</Link>
               <Link to="/kiosks" className="btn-secondary px-6 py-3">Learn more</Link>
             </div>
-            <div className="flex items-center gap-6 text-sm text-gray-600 dark:text-gray-300">
+            <div className="flex items-center gap-6 text-md text-gray-600 dark:text-gray-300">
               <div className="flex items-center gap-2"><Star className="w-4 h-4 text-primary-600" /><span>Trusted by local brands</span></div>
               <div className="flex items-center gap-2"><Clock className="w-4 h-4 text-primary-600" /><span>Launch in minutes</span></div>
               <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-primary-600" /><span>Prime locations</span></div>
@@ -64,63 +64,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Custom Ads Section */}
-      <section className="px-6 py-20">
-        <div className="max-w-7xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4 text-black dark:text-white">Need Professional Ad Creation?</h2>
-          <p className="text-xl mb-8 max-w-3xl mx-auto  text-black dark:text-white/90">
-            Our expert team can create stunning vertical ads for you. Choose from graphic design, 
-            custom photography, or professional videography services.
-          </p>
-          <div className="grid md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-6 text-center hover:scale-105 transition-transform duration-300">
-              <div className="relative mb-6">
-                <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center mx-auto mb-4 shadow-lg">
-                  <Upload className="h-8 w-8 text-white" />
-                </div>
-                <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                  <Check className="h-3 w-3 text-white" />
-                </div>
-              </div>
-              <h3 className="text-lg font-semibold mb-2 text-black dark:text-white">Graphic Design</h3>
-              <p className="text-sm text-black dark:text-white/80 mb-3">Using your assets</p>
-              <div className="text-2xl font-bold text-black dark:text-white">$125</div>
-            </div>
-            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-6 text-center hover:scale-105 transition-transform duration-300">
-              <div className="relative mb-6">
-                <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center mx-auto mb-4 shadow-lg">
-                  <Clock className="h-8 w-8 text-white" />
-                </div>
-                <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                  <Check className="h-3 w-3 text-white" />
-                </div>
-              </div>
-              <h3 className="text-lg font-semibold mb-2 text-black dark:text-white">Photography</h3>
-              <p className="text-sm text-black dark:text-white/80 mb-3">Custom photo session</p>
-              <div className="text-2xl font-bold text-black dark:text-white">$199</div>
-            </div>
-            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-6 text-center hover:scale-105 transition-transform duration-300">
-              <div className="relative mb-6">
-                <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center mx-auto mb-4 shadow-lg">
-                  <Check className="h-8 w-8 text-white" />
-                </div>
-                <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                  <Check className="h-3 w-3 text-white" />
-                </div>
-              </div>
-              <h3 className="text-lg font-semibold mb-2 text-black dark:text-white">Videography</h3>
-              <p className="text-sm text-black dark:text-white/80 mb-3">Professional video</p>
-              <div className="text-2xl font-bold text-black dark:text-white">$399</div>
-            </div>
-          </div>
-          <Link to="/custom-ads" className="btn-primary px-8 py-3">
-            Get Custom Ads
-          </Link>
-        </div>
-      </section>
-
-      {/* How It Works Section */}
-      <section className="px-6 py-20">
+{/* How It Works Section */}
+<section className="px-6 py-20">
         <div className="max-w-7xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">How it works</h2>
           <p className="text-xl mb-16 max-w-3xl mx-auto  text-black dark:text-white/90">
@@ -160,6 +105,63 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* Custom Ads Section */}
+      <section className="px-6 py-20">
+        <div className="max-w-7xl mx-auto text-center">
+          <h2 className="text-3xl md:text-4xl font-bold mb-4 text-black dark:text-white">Need Professional Ad Creation?</h2>
+          <p className="text-xl mb-8 max-w-3xl mx-auto  text-black dark:text-white/90">
+            Our expert team can create stunning vertical ads for you. Choose from graphic design, 
+            custom photography, or professional videography services.
+          </p>
+          <div className="grid md:grid-cols-3 gap-6 mb-8">
+            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-6 text-center hover:scale-105 transition-transform duration-300">
+              <div className="relative mb-6">
+                <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center mx-auto mb-4 shadow-lg">
+                  <Aperture className="h-8 w-8 text-white" />
+                </div>
+                <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                  <Check className="h-3 w-3 text-white" />
+                </div>
+              </div>
+              <h3 className="text-lg font-semibold mb-2 text-black dark:text-white">Graphic DesignAd</h3>
+              <p className="text-sm text-black dark:text-white/80 mb-3">Using your assets</p>
+              <div className="text-2xl font-bold text-black dark:text-white">$125</div>
+            </div>
+            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-6 text-center hover:scale-105 transition-transform duration-300">
+              <div className="relative mb-6">
+                <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center mx-auto mb-4 shadow-lg">
+                  <Camera className="h-8 w-8 text-white" />
+                </div>
+                <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                  <Check className="h-3 w-3 text-white" />
+                </div>
+              </div>
+              <h3 className="text-lg font-semibold mb-2 text-black dark:text-white">PhotographyAd</h3>
+              <p className="text-sm text-black dark:text-white/80 mb-3">Custom photo session</p>
+              <div className="text-2xl font-bold text-black dark:text-white">$199</div>
+            </div>
+            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-6 text-center hover:scale-105 transition-transform duration-300">
+              <div className="relative mb-6">
+                <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center mx-auto mb-4 shadow-lg">
+                  <Videotape className="h-8 w-8 text-white" />
+                </div>
+                <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                  <Check className="h-3 w-3 text-white" />
+                </div>
+              </div>
+              <h3 className="text-lg font-semibold mb-2 text-black dark:text-white">VideographyAd</h3>
+              <p className="text-sm text-black dark:text-white/80 mb-3">Professional video</p>
+              <div className="text-2xl font-bold text-black dark:text-white">$399</div>
+            </div>
+          </div>
+          <Link to="/custom-ads" className="btn-primary px-8 py-3">
+            Get Custom Ads
+          </Link>
+        </div>
+      </section>
+
+      
 
       {/* Pricing Section */}
       <section 

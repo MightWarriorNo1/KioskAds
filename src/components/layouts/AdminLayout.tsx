@@ -8,11 +8,10 @@ import {
   Tag, 
   Settings as SettingsIcon, 
   Menu, 
-  X,
   LogOut,
   User,
   Settings,
-  Bell,
+  Target,
   Package,
   Megaphone,
   Plug,
@@ -28,6 +27,7 @@ import ThemeToggle from '../shared/ThemeToggle';
 const navigation = [
   { name: 'Dashboard', href: '/admin', icon: BarChart3 },
   { name: 'Ad Review Queue', href: '/admin/review', icon: Shield },
+  { name: 'Campaigns', href: '/admin/campaigns', icon: Target},
   { name: 'Creative Orders', href: '/admin/creative-orders', icon: Package },
   { name: 'User Management', href: '/admin/users', icon: Users },
   { name: 'Kiosk Management', href: '/admin/kiosks', icon: MapPin },
@@ -72,10 +72,16 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               />
             </div>
             
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
               {/* Theme Toggle */}
               <ThemeToggle variant="dropdown" size="md" />
-              
+              <button
+                onClick={() => signOut()}
+                className="hidden lg:flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-slate-700 transition-colors"
+              >
+                <LogOut className="h-5 w-5" />
+                <span>Sign Out</span>
+              </button>
               
               {/* Mobile User Menu */}
               <div className="lg:hidden relative">
@@ -101,15 +107,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                     >
                       Settings
                     </Link>
-                    <button
-                      onClick={() => {
-                        signOut();
-                        setUserMenuOpen(false);
-                      }}
-                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                    >
-                      Sign Out
-                    </button>
+                    
                   </div>
                 )}
               </div>
@@ -147,47 +145,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             })}
           </nav>
 
-          {/* User Profile */}
-          <div className="bg-white dark:bg-slate-800 p-4 border-r border-white">
-            <div className="relative">
-              <button
-                onClick={() => setUserMenuOpen(!userMenuOpen)}
-                className="flex items-center space-x-3 w-full p-3 rounded-lg hover:bg-white transition-colors group"
-              >
-                <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
-                  <User className="h-4 w-4 text-white" />
-                </div>
-                <div className="flex-1 min-w-0 text-left">
-                  <p className="text-sm font-medium text-gray-900 truncate">{user?.name}</p>
-                  <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
-                </div>
-              </button>
-              
-              {/* User Menu Dropdown */}
-              {userMenuOpen && (
-                <div className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-10">
-                  <Link
-                    to="/admin/settings"
-                    className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                    onClick={() => setUserMenuOpen(false)}
-                  >
-                    <Settings className="h-4 w-4" />
-                    <span>Settings</span>
-                  </Link>
-                  <button
-                    onClick={() => {
-                      signOut();
-                      setUserMenuOpen(false);
-                    }}
-                    className="flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full transition-colors"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    <span>Sign Out</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
+          
         </div>
       </div>
 

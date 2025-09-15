@@ -173,7 +173,7 @@ export const GoogleDriveConfiguration: React.FC<GoogleDriveConfigurationProps> =
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-lg font-medium text-gray-900">Google Drive Configuration</h3>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white">Google Drive Configuration</h3>
           <p className="text-sm text-gray-500">
             Configure Google Drive integration for automated ad distribution to kiosks
           </p>
@@ -197,7 +197,7 @@ export const GoogleDriveConfiguration: React.FC<GoogleDriveConfigurationProps> =
               <div className="flex justify-between items-start">
                 <div className="flex-1">
                   <div className="flex items-center space-x-2">
-                    <h4 className="font-medium text-gray-900">{config.name}</h4>
+                    <h4 className="font-medium text-gray-900 dark:text-white">{config.name}</h4>
                     <span
                       className={`px-2 py-1 text-xs rounded-full ${
                         config.is_active
@@ -353,9 +353,9 @@ export const GoogleDriveConfiguration: React.FC<GoogleDriveConfigurationProps> =
 
       {/* Folder Management */}
       {selectedConfig && !isEditing && (
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 rounded-lg p-6">
           <div className="flex justify-between items-center mb-4">
-            <h4 className="text-lg font-medium text-gray-900">Kiosk Folder Management</h4>
+            <h4 className="text-lg font-medium text-gray-900 dark:text-white">Kiosk Folder Management</h4>
             <div className="space-x-2">
               <button
                 onClick={loadFolderStatus}
@@ -377,14 +377,14 @@ export const GoogleDriveConfiguration: React.FC<GoogleDriveConfigurationProps> =
             {folderStatus.map((folder) => (
               <div
                 key={folder.kioskId}
-                className="flex justify-between items-center p-3 bg-gray-50 rounded-md"
+                className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-md"
               >
                 <div>
-                  <span className="font-medium text-gray-900">{folder.kioskName}</span>
-                  <div className="text-sm text-gray-500">
+                  <span className="font-medium text-gray-900 dark:text-white">{folder.kioskName}</span>
+                  <div className="text-sm text-gray-500 dark:text-gray-50">
                     Active: {folder.activeFolderId || 'Not created'}
                   </div>
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm text-gray-500 dark:text-gray-50">
                     Archive: {folder.archiveFolderId || 'Not created'}
                   </div>
                 </div>
@@ -413,9 +413,9 @@ export const GoogleDriveConfiguration: React.FC<GoogleDriveConfigurationProps> =
       )}
 
       {/* Instructions */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="font-medium text-blue-900 mb-2">Setup Instructions</h4>
-        <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+      <div className="bg-blue-50 dark:bg-gray-800 border border-blue-200 rounded-lg p-4">
+        <h4 className="font-medium text-blue-900 dark:text-white mb-2">Setup Instructions</h4>
+        <ol className="text-sm text-blue-800 dark:text-white space-y-1 list-decimal list-inside">
           <li>Create a Google Cloud Project and enable the Google Drive API</li>
           <li>Create OAuth 2.0 credentials and download the JSON file</li>
           <li>Use the OAuth playground to generate a refresh token</li>

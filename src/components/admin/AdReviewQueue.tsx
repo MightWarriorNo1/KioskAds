@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react';
-import { CheckSquare, X, Eye, Clock, AlertCircle, Check, RefreshCw } from 'lucide-react';
+import { CheckSquare, X, Eye, Clock, AlertCircle, Check, RefreshCw, MapPin } from 'lucide-react';
 import { useNotification } from '../../contexts/NotificationContext';
 import { AdminService, AdReviewItem } from '../../services/adminService';
 import { MediaService } from '../../services/mediaService';
+import LeafletMap from '../MapContainer';
 
 export default function AdReviewQueue() {
   const [ads, setAds] = useState<AdReviewItem[]>([]);
   const [hostAds, setHostAds] = useState<any[]>([]);
-  const [pendingCampaigns, setPendingCampaigns] = useState<any[]>([]);
+  const [pendingClientCampaigns, setPendingClientCampaigns] = useState<any[]>([]);
+  const [pendingHostCampaigns, setPendingHostCampaigns] = useState<any[]>([]);
+  const [mapKioskData, setMapKioskData] = useState<any[]>([]);
   const [selectedAd, setSelectedAd] = useState<AdReviewItem | null>(null);
   const [selectedHostAd, setSelectedHostAd] = useState<any | null>(null);
   const [selectedCampaign, setSelectedCampaign] = useState<any | null>(null);
@@ -15,7 +18,7 @@ export default function AdReviewQueue() {
   const [reviewing, setReviewing] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectionModal, setShowRejectionModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'client' | 'host'>('client');
+  const [activeTab, setActiveTab] = useState<'client' | 'host' | 'all' | 'map'>('client');
   const { addNotification } = useNotification();
 
   // Helper function to determine if an item is a campaign
@@ -23,18 +26,39 @@ export default function AdReviewQueue() {
     return !!(item.budget && item.start_date && item.end_date && !item.file_name);
   };
 
+  // Determine if an item is a host ad (vs client media asset or campaign)
+  const isHostAdItem = (item: any): boolean => {
+    return !!(item?.host || item?.media_url || item?.media_type);
+  };
+
   useEffect(() => {
     loadAdReviewQueue();
   }, []);
 
+  // Clear selections when switching tabs to avoid null access issues
+  useEffect(() => {
+    if (activeTab === 'client') {
+      setSelectedHostAd(null);
+    } else if (activeTab === 'host') {
+      setSelectedAd(null);
+      setSelectedCampaign(null);
+    } else {
+      // For 'all' and 'map', clear specific selections
+      setSelectedAd(null);
+      setSelectedCampaign(null);
+      setSelectedHostAd(null);
+    }
+  }, [activeTab]);
+
   const loadAdReviewQueue = async () => {
     try {
       setLoading(true);
-      const { clientAds, hostAds, pendingCampaigns } = await AdminService.getAllAdsForReview();
-      console.log('Loaded data:', { clientAds: clientAds.length, hostAds: hostAds.length, pendingCampaigns: pendingCampaigns.length });
+      const { clientAds, hostAds, pendingClientCampaigns, pendingHostCampaigns } = await AdminService.getAllAdsForReview();
+      console.log('Loaded data:', { clientAds: clientAds.length, hostAds: hostAds.length, pendingClientCampaigns: pendingClientCampaigns.length, pendingHostCampaigns: pendingHostCampaigns.length });
       setAds(clientAds);
       setHostAds(hostAds);
-      setPendingCampaigns(pendingCampaigns);
+      setPendingClientCampaigns(pendingClientCampaigns);
+      setPendingHostCampaigns(pendingHostCampaigns);
     } catch (error) {
       console.error('Error loading ad review queue:', error);
       addNotification('error', 'Error', 'Failed to load ad review queue');
@@ -42,6 +66,64 @@ export default function AdReviewQueue() {
       setLoading(false);
     }
   };
+
+  // Build map kiosk markers for all items in queue
+  useEffect(() => {
+    const buildMapKiosks = async () => {
+      try {
+        const campaignIds = Array.from(new Set([
+          ...pendingClientCampaigns.map((c: any) => c.id),
+          ...pendingHostCampaigns.map((c: any) => c.id),
+          ...ads.map((a: any) => a.campaign?.id).filter(Boolean)
+        ]));
+        const hostAdIds = hostAds.map((h: any) => h.id);
+
+        const [byCampaign, byHostAd] = await Promise.all([
+          AdminService.getKiosksByCampaignIds(campaignIds),
+          AdminService.getKiosksByHostAdIds(hostAdIds)
+        ]);
+
+        const kioskMap = new Map<string, any>();
+
+        const addKiosk = (k: any) => {
+          if (!k) return;
+          const id = String(k.id);
+          if (kioskMap.has(id)) return;
+          const lat = k.coordinates?.lat;
+          const lng = k.coordinates?.lng;
+          if (typeof lat !== 'number' || typeof lng !== 'number') return;
+          kioskMap.set(id, {
+            id,
+            name: k.name,
+            city: k.city,
+            price: `$${k.price}/week`,
+            originalPrice: undefined,
+            traffic: (k.traffic_level === 'high' ? 'High Traffic' : k.traffic_level === 'medium' ? 'Medium Traffic' : 'Low Traffic') as 'Low Traffic' | 'Medium Traffic' | 'High Traffic',
+            hasWarning: k.status !== 'active',
+            position: [lat, lng] as [number, number],
+            address: k.address,
+            description: k.description
+          });
+        };
+
+        // From campaigns
+        Object.values(byCampaign || {}).forEach((arr: any) => {
+          (arr || []).forEach(addKiosk);
+        });
+        // From host ads
+        Object.values(byHostAd || {}).forEach((arr: any) => {
+          (arr || []).forEach(addKiosk);
+        });
+
+        setMapKioskData(Array.from(kioskMap.values()));
+      } catch (e) {
+        console.warn('Could not build map kiosks for review queue:', e);
+        setMapKioskData([]);
+      }
+    };
+
+    void buildMapKiosks();
+  }, [ads, hostAds, pendingClientCampaigns, pendingHostCampaigns]);
 
   const handleApprove = async (adId: string) => {
     try {
@@ -111,7 +193,8 @@ export default function AdReviewQueue() {
     try {
       setReviewing(campaignId);
       await AdminService.reviewCampaign(campaignId, 'approve');
-      setPendingCampaigns(prev => prev.filter(campaign => campaign.id !== campaignId));
+      setPendingClientCampaigns(prev => prev.filter((campaign: any) => campaign.id !== campaignId));
+      setPendingHostCampaigns(prev => prev.filter((campaign: any) => campaign.id !== campaignId));
       addNotification('success', 'Campaign Approved', 'The campaign has been approved and is now active. Client has been notified via email.');
       setSelectedCampaign(null);
     } catch (error) {
@@ -126,7 +209,8 @@ export default function AdReviewQueue() {
     try {
       setReviewing(campaignId);
       await AdminService.reviewCampaign(campaignId, 'reject', reason);
-      setPendingCampaigns(prev => prev.filter(campaign => campaign.id !== campaignId));
+      setPendingClientCampaigns(prev => prev.filter((campaign: any) => campaign.id !== campaignId));
+      setPendingHostCampaigns(prev => prev.filter((campaign: any) => campaign.id !== campaignId));
       addNotification('info', 'Campaign Rejected', 'The campaign has been rejected and client has been notified via email.');
       setSelectedCampaign(null);
       setShowRejectionModal(false);
@@ -159,13 +243,10 @@ export default function AdReviewQueue() {
     }
   };
 
-  const getFilePreview = (fileType: string, filePath: string) => {
-    if (fileType === 'image') {
-      return MediaService.getMediaPreviewUrl(filePath);
-    } else {
-      // For videos, we could show a thumbnail or placeholder
-      return 'https://images.pexels.com/photos/3945313/pexels-photo-3945313.jpeg?auto=compress&cs=tinysrgb&w=400';
-    }
+  const getFilePreview = (_fileType: string, filePath: string) => {
+    // For both images and videos, return the actual public URL so videos can be played
+    if (!filePath) return '';
+    return MediaService.getMediaPreviewUrl(filePath);
   };
 
   return (
@@ -191,8 +272,8 @@ export default function AdReviewQueue() {
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Client Ads</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">{ads.filter(a => a.status === 'processing').length}</p>
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Client Campaigns</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">{pendingClientCampaigns.length}</p>
             </div>
             <div className="p-3 bg-yellow-50 rounded-lg">
               <Clock className="h-6 w-6 text-yellow-600" />
@@ -204,7 +285,7 @@ export default function AdReviewQueue() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Pending Campaigns</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">{pendingCampaigns.length}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">{pendingClientCampaigns.length + pendingHostCampaigns.length}</p>
             </div>
             <div className="p-3 bg-orange-50 rounded-lg">
               <CheckSquare className="h-6 w-6 text-orange-600" />
@@ -228,7 +309,7 @@ export default function AdReviewQueue() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Queue</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">{ads.length + hostAds.length + pendingCampaigns.length}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">{ads.length + hostAds.length + pendingClientCampaigns.length + pendingHostCampaigns.length}</p>
             </div>
             <div className="p-3 bg-purple-50 rounded-lg">
               <AlertCircle className="h-6 w-6 text-purple-600" />
@@ -254,7 +335,7 @@ export default function AdReviewQueue() {
                         : 'text-gray-600 hover:text-gray-900'
                     }`}
                   >
-                    Client Ads ({ads.length + pendingCampaigns.length})
+                    Client Campaigns ({pendingClientCampaigns.length})
                   </button>
                   <button
                     onClick={() => setActiveTab('host')}
@@ -264,7 +345,28 @@ export default function AdReviewQueue() {
                         : 'text-gray-600 hover:text-gray-900'
                     }`}
                   >
-                    Host Ads ({hostAds.length})
+                    Host Ads ({hostAds.length + pendingHostCampaigns.length})
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('all')}
+                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                      activeTab === 'all'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    All ({ads.length + hostAds.length + pendingClientCampaigns.length + pendingHostCampaigns.length})
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('map')}
+                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors flex items-center space-x-1 ${
+                      activeTab === 'map'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <MapPin className="h-4 w-4" />
+                    <span>Map</span>
                   </button>
                 </div>
               </div>
@@ -276,42 +378,57 @@ export default function AdReviewQueue() {
                   <RefreshCw className="h-8 w-8 text-gray-400 animate-spin mx-auto mb-4" />
                   <p className="text-gray-500 dark:text-gray-400">Loading ad review queue...</p>
                 </div>
-              ) : (activeTab === 'client' ? [...ads, ...pendingCampaigns] : hostAds).length === 0 ? (
+              ) : activeTab === 'map' ? (
+                <div className="p-0">
+                  <div className="h-[450px] w-full">
+                    <LeafletMap className="h-full w-full" kioskData={mapKioskData} />
+                  </div>
+                </div>
+              ) : ((activeTab === 'client'
+                    ? pendingClientCampaigns
+                    : activeTab === 'host'
+                      ? [...hostAds, ...pendingHostCampaigns]
+                      : [...ads, ...pendingClientCampaigns, ...hostAds, ...pendingHostCampaigns]).length === 0) ? (
                 <div className="p-6 text-center">
                   <CheckSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No {activeTab + ' ads'} to review</h3>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No {(activeTab === 'all' ? '' : activeTab + ' ')}ads to review</h3>
                   <p className="text-gray-500 dark:text-gray-400">All caught up! Check back later for new submissions.</p>
                 </div>
               ) : (
-                (activeTab === 'client' ? [...ads, ...pendingCampaigns] : hostAds).map((item) => (
+                (activeTab === 'client'
+                  ? pendingClientCampaigns
+                  : activeTab === 'host'
+                    ? [...hostAds, ...pendingHostCampaigns]
+                    : [...ads, ...pendingClientCampaigns, ...hostAds, ...pendingHostCampaigns]
+                ).map((item) => (
                   <div
                     key={item.id}
                     className={`p-6 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors ${
-                      (activeTab === 'client' ? (selectedAd?.id === item.id || selectedCampaign?.id === item.id) : 
-                       selectedHostAd?.id === item.id) ? 'bg-purple-50 dark:bg-purple-900/20 border-l-4 border-purple-500' : ''
+                      (() => {
+                        const campaign = isCampaign(item);
+                        const hostItem = activeTab === 'all' ? isHostAdItem(item) : (activeTab === 'host');
+                        if (campaign) return selectedCampaign?.id === item.id;
+                        if (hostItem) return selectedHostAd?.id === item.id;
+                        return selectedAd?.id === item.id;
+                      })() ? 'bg-purple-50 dark:bg-purple-900/20 border-l-4 border-purple-500' : ''
                     }`}
                     onClick={() => {
                       try {
                         console.log('Item clicked:', item);
-                        if (activeTab === 'client') {
-                          // Check if it's a campaign or an ad
-                          if (isCampaign(item)) {
-                            console.log('Selected campaign:', item);
-                            // It's a campaign
-                            setSelectedCampaign(item);
-                            setSelectedAd(null);
-                          } else {
-                            console.log('Selected ad:', item);
-                            // It's an ad
-                            setSelectedAd(item);
-                            setSelectedCampaign(null);
-                          }
+                        const campaign = isCampaign(item);
+                        const hostItem = activeTab === 'all' ? isHostAdItem(item) : (activeTab === 'host');
+                        if (campaign) {
+                          setSelectedCampaign(item);
+                          setSelectedAd(null);
                           setSelectedHostAd(null);
-                        } else {
-                          console.log('Selected host ad:', item);
+                        } else if (hostItem) {
                           setSelectedHostAd(item);
                           setSelectedAd(null);
                           setSelectedCampaign(null);
+                        } else {
+                          setSelectedAd(item);
+                          setSelectedCampaign(null);
+                          setSelectedHostAd(null);
                         }
                       } catch (error) {
                         console.error('Error handling item click:', error);
@@ -321,38 +438,80 @@ export default function AdReviewQueue() {
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
-                        {(activeTab === 'client' && isCampaign(item)) ? (
-                          <div className="w-16 h-28 bg-gradient-to-br from-purple-100 to-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <CheckSquare className="h-8 w-8 text-purple-600" />
-                          </div>
-                        ) : (
-                          <div className="w-16 h-28 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
-                            <img 
-                              src={activeTab === 'client' ? getFilePreview(item.file_type, item.file_path) : item.media_url} 
-                              alt="Preview" 
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        )}
+                        {(() => {
+                          if (isCampaign(item)) {
+                            // Prefer aggregated assets array; fallback to campaign_media if present
+                            const media = (item.assets && item.assets[0]) || (item.campaign_media && item.campaign_media[0]?.media) || null;
+                            if (media && media.file_path) {
+                              const src = getFilePreview(media.file_type, media.file_path);
+                              const isVideo = media.file_type === 'video';
+                              return (
+                                <div className="w-16 h-28 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+                                  {isVideo ? (
+                                    <video src={src} className="w-full h-full object-cover" muted loop autoPlay />
+                                  ) : (
+                                    <img src={src} alt="Preview" className="w-full h-full object-cover" />
+                                  )}
+                                </div>
+                              );
+                            }
+                            return (
+                              <div className="w-16 h-28 bg-gradient-to-br from-purple-100 to-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <CheckSquare className="h-8 w-8 text-purple-600" />
+                              </div>
+                            );
+                          }
+                          const hostItem = activeTab === 'all' ? isHostAdItem(item) : (activeTab === 'host');
+                          const isVideo = hostItem ? item.media_type === 'video' : item.file_type === 'video';
+                          const src = hostItem ? item.media_url : getFilePreview(item.file_type, item.file_path);
+                          return (
+                            <div className="w-16 h-28 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+                              {isVideo ? (
+                                <video
+                                  src={src}
+                                  className="w-full h-full object-cover"
+                                  muted
+                                  loop
+                                  autoPlay
+                                />
+                              ) : (
+                                <img 
+                                  src={src}
+                                  alt="Preview" 
+                                  className="w-full h-full object-cover"
+                                />
+                              )}
+                            </div>
+                          );
+                        })()}
                         <div>
                           <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
-                            {(activeTab === 'client' && isCampaign(item)) ? item.name : 
-                             (activeTab === 'client' ? item.file_name : item.name)}
+                            {(() => {
+                              if (isCampaign(item)) return item.name;
+                              const hostItem = activeTab === 'all' ? isHostAdItem(item) : (activeTab === 'host');
+                              return hostItem ? item.name : item.file_name;
+                            })()}
                           </h4>
                           <p className="text-sm text-gray-600 dark:text-gray-400">
-                            by {(activeTab === 'client' && isCampaign(item)) ? item.user.full_name :
-                                (activeTab === 'client' ? item.user.full_name : item.host.full_name)} 
-                            ({(activeTab === 'client' && isCampaign(item)) ? (item.user.company_name || item.user.email) :
-                              (activeTab === 'client' ? (item.user.company_name || item.user.email) : (item.host.company_name || item.host.email))})
+                            {(() => {
+                              if (isCampaign(item)) {
+                                return <>by {item.user?.full_name} ({item.user?.company_name || item.user?.email})</>;
+                              }
+                              const hostItem = activeTab === 'all' ? isHostAdItem(item) : (activeTab === 'host');
+                              if (hostItem) {
+                                return <>by {item.host?.full_name} ({item.host?.company_name || item.host?.email})</>;
+                              }
+                              return <>by {item.user?.full_name} ({item.user?.company_name || item.user?.email})</>;
+                            })()}
                           </p>
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            {(activeTab === 'client' && isCampaign(item)) ? 'Created' : 'Uploaded'} {new Date(item.created_at).toLocaleDateString()}
+                            {isCampaign(item) ? 'Created' : 'Uploaded'} {new Date(item.created_at).toLocaleDateString()}
                           </p>
                           <div className="flex items-center space-x-2 mt-2">
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(item.status)}`}>
                               {item.status}
                             </span>
-                            {(activeTab === 'client' && isCampaign(item)) ? (
+                            {isCampaign(item) ? (
                               <>
                                 <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
                                   ${item.budget}
@@ -364,14 +523,17 @@ export default function AdReviewQueue() {
                             ) : (
                               <>
                                 <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                                  {activeTab === 'client' ? item.file_type : item.media_type}
+                                  {(() => {
+                                    const hostItem = activeTab === 'all' ? isHostAdItem(item) : (activeTab === 'host');
+                                    return hostItem ? item.media_type : item.file_type;
+                                  })()}
                                 </span>
-                                {activeTab === 'client' && item.campaign && (
+                                {!isHostAdItem(item) && item.campaign && (
                                   <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
                                     {item.campaign.name}
                                   </span>
                                 )}
-                                {activeTab === 'host' && item.duration && (
+                                {isHostAdItem(item) && item.duration && (
                                   <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
                                     {item.duration}s
                                   </span>
@@ -379,7 +541,7 @@ export default function AdReviewQueue() {
                               </>
                             )}
                           </div>
-                          {activeTab === 'client' && !isCampaign(item) && item.validation_errors && item.validation_errors.length > 0 && (
+                          {!isHostAdItem(item) && !isCampaign(item) && item.validation_errors && item.validation_errors.length > 0 && (
                             <div className="mt-2">
                               <span className="text-xs text-red-600 font-medium">Validation Errors:</span>
                               <ul className="text-xs text-red-600 mt-1">
@@ -412,11 +574,19 @@ export default function AdReviewQueue() {
                     <CheckSquare className="h-16 w-16 text-purple-600" />
                   </div>
                 ) : (
-                  <img 
-                    src={activeTab === 'client' ? getFilePreview(selectedAd!.file_type, selectedAd!.file_path) : selectedHostAd!.media_url} 
-                    alt="Preview" 
-                    className="w-full h-full object-cover"
-                  />
+                  ((activeTab === 'client' ? selectedAd?.file_type : selectedHostAd?.media_type) === 'video') ? (
+                    <video
+                      src={activeTab === 'client' ? (selectedAd ? getFilePreview(selectedAd.file_type, selectedAd.file_path) : '') : (selectedHostAd?.media_url || '')}
+                      className="w-full h-full object-contain bg-black"
+                      controls
+                    />
+                  ) : (
+                    <img 
+                      src={activeTab === 'client' ? (selectedAd ? getFilePreview(selectedAd.file_type, selectedAd.file_path) : '') : (selectedHostAd?.media_url || '')} 
+                      alt="Preview" 
+                      className="w-full h-full object-contain bg-black"
+                    />
+                  )
                 )}
               </div>
 
@@ -425,7 +595,7 @@ export default function AdReviewQueue() {
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Name:</span>
                   <p className="text-sm text-gray-900 dark:text-white">
                     {selectedCampaign ? selectedCampaign!.name : 
-                     (activeTab === 'client' ? selectedAd!.file_name : selectedHostAd!.name)}
+                     (activeTab === 'client' ? (selectedAd?.file_name || '') : (selectedHostAd?.name || ''))}
                   </p>
                 </div>
                 <div>
@@ -434,17 +604,17 @@ export default function AdReviewQueue() {
                   </span>
                   <p className="text-sm text-gray-900 dark:text-white">
                     {selectedCampaign ? selectedCampaign!.user.full_name :
-                     (activeTab === 'client' ? selectedAd!.user.full_name : selectedHostAd!.host.full_name)}
+                     (activeTab === 'client' ? (selectedAd?.user.full_name || '') : (selectedHostAd?.host.full_name || ''))}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     {selectedCampaign ? selectedCampaign!.user.email :
-                     (activeTab === 'client' ? selectedAd!.user.email : selectedHostAd!.host.email)}
+                     (activeTab === 'client' ? (selectedAd?.user.email || '') : (selectedHostAd?.host.email || ''))}
                   </p>
                   {(selectedCampaign ? selectedCampaign!.user.company_name :
-                    (activeTab === 'client' ? selectedAd!.user.company_name : selectedHostAd!.host.company_name)) && (
+                    (activeTab === 'client' ? selectedAd?.user.company_name : selectedHostAd?.host.company_name)) && (
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       {selectedCampaign ? selectedCampaign!.user.company_name :
-                       (activeTab === 'client' ? selectedAd!.user.company_name : selectedHostAd!.host.company_name)}
+                       (activeTab === 'client' ? (selectedAd?.user.company_name || '') : (selectedHostAd?.host.company_name || ''))}
                     </p>
                   )}
                 </div>
@@ -480,29 +650,29 @@ export default function AdReviewQueue() {
                     <div>
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Type:</span>
                       <p className="text-sm text-gray-900 dark:text-white capitalize">
-                        {activeTab === 'client' ? selectedAd!.file_type : selectedHostAd!.media_type}
+                        {activeTab === 'client' ? (selectedAd?.file_type || '') : (selectedHostAd?.media_type || '')}
                       </p>
                     </div>
-                    {activeTab === 'client' && selectedAd!.campaign && (
+                    {activeTab === 'client' && selectedAd && selectedAd.campaign && (
                       <div>
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Campaign:</span>
-                        <p className="text-sm text-gray-900 dark:text-white">{selectedAd!.campaign.name}</p>
+                        <p className="text-sm text-gray-900 dark:text-white">{selectedAd.campaign.name}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {new Date(selectedAd!.campaign.start_date).toLocaleDateString()} - {new Date(selectedAd!.campaign.end_date).toLocaleDateString()}
+                          {new Date(selectedAd.campaign.start_date).toLocaleDateString()} - {new Date(selectedAd.campaign.end_date).toLocaleDateString()}
                         </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Budget: ${selectedAd!.campaign.budget}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Budget: ${selectedAd.campaign.budget}</p>
                       </div>
                     )}
-                    {activeTab === 'host' && selectedHostAd!.duration && (
+                    {activeTab === 'host' && selectedHostAd?.duration && (
                       <div>
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Duration:</span>
-                        <p className="text-sm text-gray-900 dark:text-white">{selectedHostAd!.duration} seconds</p>
+                        <p className="text-sm text-gray-900 dark:text-white">{selectedHostAd.duration} seconds</p>
                       </div>
                     )}
-                    {activeTab === 'host' && selectedHostAd!.description && (
+                    {activeTab === 'host' && selectedHostAd?.description && (
                       <div>
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Description:</span>
-                        <p className="text-sm text-gray-900 dark:text-white">{selectedHostAd!.description}</p>
+                        <p className="text-sm text-gray-900 dark:text-white">{selectedHostAd.description}</p>
                       </div>
                     )}
                   </>
@@ -513,7 +683,7 @@ export default function AdReviewQueue() {
                   </span>
                   <p className="text-sm text-gray-900 dark:text-white">
                     {new Date((selectedCampaign ? selectedCampaign! : 
-                               activeTab === 'client' ? selectedAd! : selectedHostAd!).created_at).toLocaleDateString()}
+                               activeTab === 'client' ? (selectedAd || { created_at: new Date().toISOString() }) : (selectedHostAd || { created_at: new Date().toISOString() })).created_at).toLocaleDateString()}
                   </p>
                 </div>
                 {activeTab === 'client' && selectedAd && selectedAd.validation_errors && selectedAd.validation_errors.length > 0 && (
@@ -526,47 +696,56 @@ export default function AdReviewQueue() {
                     </ul>
                   </div>
                 )}
-                {activeTab === 'host' && selectedHostAd!.rejection_reason && (
+                {activeTab === 'host' && selectedHostAd?.rejection_reason && (
                   <div>
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Previous Rejection Reason:</span>
-                    <p className="text-sm text-red-600 dark:text-red-400 mt-1">{selectedHostAd!.rejection_reason}</p>
+                    <p className="text-sm text-red-600 dark:text-red-400 mt-1">{selectedHostAd.rejection_reason}</p>
                   </div>
                 )}
               </div>
 
               {/* Action Buttons */}
               <div className="space-y-3">
-                <button
-                  onClick={() => {
-                    if (selectedCampaign) {
-                      handleApproveCampaign(selectedCampaign!.id);
-                    } else if (activeTab === 'client') {
-                      handleApprove(selectedAd!.id);
-                    } else {
-                      handleApproveHostAd(selectedHostAd!.id);
-                    }
-                  }}
-                  disabled={reviewing === (selectedCampaign ? selectedCampaign!.id :
-                                          activeTab === 'client' ? selectedAd!.id : selectedHostAd!.id)}
-                  className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2 disabled:opacity-50"
-                >
-                  {reviewing === (selectedCampaign ? selectedCampaign!.id :
-                                 activeTab === 'client' ? selectedAd!.id : selectedHostAd!.id) ? (
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Check className="h-4 w-4" />
-                  )}
-                  <span>Approve</span>
-                </button>
-                <button
-                  onClick={openRejectionModal}
-                  disabled={reviewing === (selectedCampaign ? selectedCampaign!.id :
-                                          activeTab === 'client' ? selectedAd!.id : selectedHostAd!.id)}
-                  className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center space-x-2 disabled:opacity-50"
-                >
-                  <X className="h-4 w-4" />
-                  <span>Reject</span>
-                </button>
+                {(() => {
+                  const selectedId = selectedCampaign?.id || (activeTab === 'client' ? selectedAd?.id : selectedHostAd?.id);
+                  const isDisabled = !selectedId || reviewing === selectedId;
+                  return (
+                    <button
+                      onClick={() => {
+                        if (selectedCampaign) {
+                          handleApproveCampaign(selectedCampaign.id);
+                        } else if (activeTab === 'client' && selectedAd) {
+                          handleApprove(selectedAd.id);
+                        } else if (activeTab === 'host' && selectedHostAd) {
+                          handleApproveHostAd(selectedHostAd.id);
+                        }
+                      }}
+                      disabled={isDisabled}
+                      className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2 disabled:opacity-50"
+                    >
+                      {reviewing === selectedId ? (
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Check className="h-4 w-4" />
+                      )}
+                      <span>Approve</span>
+                    </button>
+                  );
+                })()}
+                {(() => {
+                  const selectedId = selectedCampaign?.id || (activeTab === 'client' ? selectedAd?.id : selectedHostAd?.id);
+                  const isDisabled = !selectedId || reviewing === selectedId;
+                  return (
+                    <button
+                      onClick={openRejectionModal}
+                      disabled={isDisabled}
+                      className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center space-x-2 disabled:opacity-50"
+                    >
+                      <X className="h-4 w-4" />
+                      <span>Reject</span>
+                    </button>
+                  );
+                })()}
               </div>
             </div>
           ) : (

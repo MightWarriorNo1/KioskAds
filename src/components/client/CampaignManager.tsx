@@ -273,20 +273,24 @@ export default function CampaignManager() {
                             <Play className="h-4 w-4" />
                           </button>
                         ) : null}
-                        <button 
-                          onClick={() => handleEditCampaign(campaign.id, campaign.name)}
-                          className="text-blue-600 hover:text-blue-800"
-                          title="Edit campaign"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button 
-                          onClick={() => handleDeleteCampaign(campaign.id, campaign.name)}
-                          className="text-red-600 hover:text-red-800"
-                          title="Delete campaign"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {campaign.status === 'draft' && (
+                          <>
+                            <button 
+                              onClick={() => handleEditCampaign(campaign.id, campaign.name)}
+                              className="text-blue-600 hover:text-blue-800"
+                              title="Edit campaign"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteCampaign(campaign.id, campaign.name)}
+                              className="text-red-600 hover:text-red-800"
+                              title="Delete draft"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

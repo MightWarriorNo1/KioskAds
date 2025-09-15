@@ -7,7 +7,8 @@ export class MediaService {
   static async uploadMedia(
     file: File,
     validation: ValidationResult,
-    userId: string
+    userId: string,
+    campaignId?: string
   ): Promise<MediaAsset> {
     try {
       // Generate unique filename
@@ -34,6 +35,7 @@ export class MediaService {
       // Create media asset record in database
       const mediaAsset: Inserts<'media_assets'> = {
         user_id: userId,
+        ...(campaignId ? { campaign_id: campaignId } : {} as any),
         file_name: file.name,
         file_path: fileName,
         file_size: file.size,
@@ -64,6 +66,16 @@ export class MediaService {
       console.error('Media upload error:', error);
       throw error;
     }
+  }
+
+  // Upload media directly associated with a campaign
+  static async uploadMediaToCampaign(
+    file: File,
+    validation: ValidationResult,
+    userId: string,
+    campaignId: string
+  ): Promise<MediaAsset> {
+    return this.uploadMedia(file, validation, userId, campaignId);
   }
 
   // Get user's media assets
@@ -195,6 +207,26 @@ export class MediaService {
       return data || [];
     } catch (error) {
       console.error('Error fetching campaign media:', error);
+      throw error;
+    }
+  }
+
+  // Get media assets by campaign directly from media_assets
+  static async getCampaignAssets(campaignId: string): Promise<MediaAsset[]> {
+    try {
+      const { data, error } = await supabase
+        .from('media_assets')
+        .select('*')
+        .eq('campaign_id', campaignId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        throw new Error(`Failed to fetch campaign assets: ${error.message}`);
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching campaign assets:', error);
       throw error;
     }
   }

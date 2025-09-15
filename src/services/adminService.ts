@@ -141,6 +141,7 @@ export interface AssetLifecycleItem {
   media_asset: {
     id: string;
     file_name: string;
+    file_path: string;
     file_type: 'image' | 'video';
     user_id: string;
   };
@@ -162,6 +163,33 @@ export interface EmailTemplate {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface AdminCampaignItem {
+  id: string;
+  user_id: string;
+  name: string;
+  description?: string;
+  status: 'draft' | 'pending' | 'active' | 'paused' | 'completed' | 'rejected';
+  start_date: string;
+  end_date: string;
+  budget: number;
+  daily_budget?: number;
+  target_locations?: string[];
+  created_at: string;
+  updated_at: string;
+  total_spent?: number;
+  total_cost?: number;
+  total_slots?: number;
+  impressions?: number;
+  clicks?: number;
+  user: {
+    id: string;
+    full_name: string;
+    email: string;
+    company_name?: string;
+    role?: 'client' | 'host' | 'admin';
+  };
 }
 
 export interface SystemSetting {
@@ -234,6 +262,124 @@ export class AdminService {
     }
   }
 
+  // Get kiosks linked to given campaign IDs
+  static async getKiosksByCampaignIds(campaignIds: string[]): Promise<Record<string, any[]>> {
+    if (!campaignIds || campaignIds.length === 0) return {};
+    try {
+      const { data, error } = await supabase
+        .from('kiosk_campaigns')
+        .select(`
+          campaign_id,
+          kiosk_id,
+          kiosks: kiosks(*)
+        `)
+        .in('campaign_id', campaignIds);
+
+      if (error) throw error;
+
+      const result: Record<string, any[]> = {};
+      (data || []).forEach((row: any) => {
+        if (!result[row.campaign_id]) result[row.campaign_id] = [];
+        if (row.kiosks) result[row.campaign_id].push(row.kiosks);
+      });
+      return result;
+    } catch (error) {
+      console.error('Error fetching kiosks by campaign IDs:', error);
+      return {};
+    }
+  }
+
+  // Get kiosks linked to given host ad IDs
+  static async getKiosksByHostAdIds(hostAdIds: string[]): Promise<Record<string, any[]>> {
+    if (!hostAdIds || hostAdIds.length === 0) return {};
+    try {
+      const { data, error } = await supabase
+        .from('host_ad_assignments')
+        .select(`
+          ad_id,
+          kiosk_id,
+          kiosks: kiosks(*)
+        `)
+        .in('ad_id', hostAdIds);
+
+      if (error) throw error;
+
+      const result: Record<string, any[]> = {};
+      (data || []).forEach((row: any) => {
+        if (!result[row.ad_id]) result[row.ad_id] = [];
+        if (row.kiosks) result[row.ad_id].push(row.kiosks);
+      });
+      return result;
+    } catch (error) {
+      console.error('Error fetching kiosks by host ad IDs:', error);
+      return {};
+    }
+  }
+
+  // Get all campaigns for admin view
+  static async getAllCampaigns(): Promise<AdminCampaignItem[]> {
+    try {
+      // Step 1: get campaigns
+      const { data: campaigns, error: campaignsError } = await supabase
+        .from('campaigns')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (campaignsError) throw campaignsError;
+
+      if (!campaigns || campaigns.length === 0) return [];
+
+      // Step 2: fetch user profiles for these campaigns
+      const userIds = Array.from(new Set(campaigns.map((c: any) => c.user_id).filter(Boolean)));
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, company_name, role')
+        .in('id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      const profileById = new Map((profiles || []).map((p: any) => [p.id, p]));
+
+      // Step 3: merge into AdminCampaignItem shape
+      const merged: AdminCampaignItem[] = (campaigns as any[]).map((c) => {
+        const user = profileById.get(c.user_id) || null;
+        return {
+          id: c.id,
+          user_id: c.user_id,
+          name: c.name,
+          description: c.description,
+          status: c.status,
+          start_date: c.start_date,
+          end_date: c.end_date,
+          budget: Number(c.budget),
+          daily_budget: c.daily_budget != null ? Number(c.daily_budget) : undefined,
+          target_locations: c.target_locations,
+          created_at: c.created_at,
+          updated_at: c.updated_at,
+          total_spent: c.total_spent != null ? Number(c.total_spent) : undefined,
+          total_cost: c.total_cost != null ? Number(c.total_cost) : undefined,
+          total_slots: c.total_slots != null ? Number(c.total_slots) : undefined,
+          impressions: c.impressions != null ? Number(c.impressions) : undefined,
+          clicks: c.clicks != null ? Number(c.clicks) : undefined,
+          user: user
+            ? {
+                id: user.id,
+                full_name: user.full_name,
+                email: user.email,
+                company_name: user.company_name,
+                role: user.role
+              }
+            : undefined as any
+        } as AdminCampaignItem;
+      });
+
+      return merged;
+    } catch (error) {
+      console.error('Error fetching all campaigns:', error);
+      throw error;
+    }
+  }
+
   // Get ad review queue (client media assets)
   static async getAdReviewQueue(): Promise<AdReviewItem[]> {
     try {
@@ -278,17 +424,43 @@ export class AdminService {
   // Get pending campaigns for review
   static async getPendingCampaigns(): Promise<any[]> {
     try {
-      const { data, error } = await supabase
+      // Fetch pending campaigns with user role
+      const { data: campaigns, error: campaignsError } = await supabase
         .from('campaigns')
         .select(`
           *,
-          user:profiles!campaigns_user_id_fkey(id, full_name, email, company_name)
+          user:profiles!campaigns_user_id_fkey(id, full_name, email, company_name, role)
         `)
         .eq('status', 'pending')
         .order('created_at', { ascending: true });
 
-      if (error) throw error;
-      return data || [];
+      if (campaignsError) throw campaignsError;
+      const list = campaigns || [];
+
+      if (list.length === 0) return [];
+
+      // Fetch media assets linked to these campaigns via media_assets.campaign_id
+      const campaignIds = list.map((c: any) => c.id);
+      const { data: assets, error: assetsError } = await supabase
+        .from('media_assets')
+        .select('id, file_type, file_path, status, campaign_id')
+        .in('campaign_id', campaignIds);
+
+      if (assetsError) throw assetsError;
+      const assetsByCampaign = new Map<string, any[]>([]);
+      (assets || []).forEach((a: any) => {
+        const arr = assetsByCampaign.get(a.campaign_id) || [];
+        arr.push(a);
+        assetsByCampaign.set(a.campaign_id, arr);
+      });
+
+      // Attach assets array to each campaign
+      const enriched = list.map((c: any) => ({
+        ...c,
+        assets: assetsByCampaign.get(c.id) || []
+      }));
+
+      return enriched;
     } catch (error) {
       console.error('Error fetching pending campaigns:', error);
       throw error;
@@ -299,7 +471,8 @@ export class AdminService {
   static async getAllAdsForReview(): Promise<{
     clientAds: AdReviewItem[];
     hostAds: any[];
-    pendingCampaigns: any[];
+    pendingClientCampaigns: any[];
+    pendingHostCampaigns: any[];
   }> {
     try {
       const [clientAds, hostAds, pendingCampaigns] = await Promise.all([
@@ -308,7 +481,10 @@ export class AdminService {
         this.getPendingCampaigns()
       ]);
 
-      return { clientAds, hostAds, pendingCampaigns };
+      const pendingClientCampaigns = (pendingCampaigns || []).filter((c: any) => c?.user?.role !== 'host');
+      const pendingHostCampaigns = (pendingCampaigns || []).filter((c: any) => c?.user?.role === 'host');
+
+      return { clientAds, hostAds, pendingClientCampaigns, pendingHostCampaigns };
     } catch (error) {
       console.error('Error fetching all ads for review:', error);
       throw error;
@@ -373,6 +549,26 @@ export class AdminService {
       if (error) throw error;
       if (!data) {
         throw new Error('Host ad review update failed: host ad not found or not permitted');
+      }
+
+      // If approved, reactivate ads that were previously active (due to asset change) and have current assignments
+      if (action === 'approve') {
+        // Check if the ad has any active window assignments (now to future)
+        const nowIso = new Date().toISOString();
+        const { data: assignments } = await supabase
+          .from('host_ad_assignments')
+          .select('id')
+          .eq('ad_id', hostAdId)
+          .lte('start_date', nowIso)
+          .gte('end_date', nowIso);
+
+        if (assignments && assignments.length > 0) {
+          // Set ad status to active
+          await supabase
+            .from('host_ads')
+            .update({ status: 'active', updated_at: new Date().toISOString() })
+            .eq('id', hostAdId);
+        }
       }
 
       // Log admin action
@@ -731,7 +927,7 @@ export class AdminService {
         .from('asset_lifecycle')
         .select(`
           *,
-          media_asset:media_assets!asset_lifecycle_media_asset_id_fkey(id, file_name, file_type, user_id),
+          media_asset:media_assets!asset_lifecycle_media_asset_id_fkey(id, file_name, file_path, file_type, user_id),
           campaign:campaigns!asset_lifecycle_campaign_id_fkey(id, name, end_date)
         `)
         .order('created_at', { ascending: false });

@@ -274,7 +274,7 @@ export default function UserManagement() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">User Management</h1>
           <p className="text-gray-600 mt-2">Manage clients, hosts, and admins with CSV import/export functionality</p>
         </div>
         <div className="flex space-x-3">
@@ -400,9 +400,6 @@ export default function UserManagement() {
                     Role
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                    Subscription
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                     Joined
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
@@ -446,16 +443,6 @@ export default function UserManagement() {
                         'bg-blue-100 text-blue-800'
                       }`}>
                         {user.role}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        user.subscription_tier === 'enterprise' ? 'bg-purple-100 text-purple-800' :
-                        user.subscription_tier === 'premium' ? 'bg-blue-100 text-blue-800' :
-                        user.subscription_tier === 'basic' ? 'bg-green-100 text-green-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {user.subscription_tier}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

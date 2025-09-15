@@ -29,7 +29,7 @@ function getMonthGrid(date: Date) {
 export default function SelectWeeksPage() {
   const navigate = useNavigate();
   const location = useLocation() as { state?: any };
-  const kiosks = (location.state?.kiosks || []).slice(0, 1); // currently schedule one calendar flow; extend later per kiosk
+  const kiosks = (location.state?.kiosks || []);
   const kiosk = kiosks[0] || location.state?.kiosk; // backward compatibility
   const weeklyRate = getWeeklyRate(kiosk?.price);
 
@@ -189,42 +189,40 @@ export default function SelectWeeksPage() {
       <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-white dark:bg-gray-800 mb-8">
         <div className="mb-6">
           <div className="text-sm text-gray-600 dark:text-gray-300">Choose Weeks</div>
-          <div className="text-lg font-semibold text-gray-900 dark:text-white">{kiosk?.name || 'Selected Kiosk'}</div>
-          <div className="text-sm text-gray-500 dark:text-gray-400">{kiosk?.city || 'Location'}</div>
+          {kiosks.length > 1 ? (
+            <div className="text-lg font-semibold text-gray-900 dark:text-white">{kiosks.length} kiosks selected</div>
+          ) : (
+            <>
+              <div className="text-lg font-semibold text-gray-900 dark:text-white">{kiosk?.name || 'Selected Kiosk'}</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">{kiosk?.city || 'Location'}</div>
+            </>
+          )}
         </div>
-        
-        {/* Selected kiosks compact summary if multiple */}
-        {Array.isArray(location.state?.kiosks) && location.state?.kiosks.length > 1 && (
-          <div className="mb-6 p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900/50 text-xs text-gray-700 dark:text-gray-300">
-            <div className="font-semibold mb-2">Multiple kiosks selected</div>
-            <div className="flex flex-wrap gap-2">
-              {location.state.kiosks.map((k: any) => (
-                <span key={k.id} className="inline-flex items-center gap-2 px-2 py-1 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                  <MapPin className="h-3 w-3" /> {k.name}
-                </span>
-              ))}
-            </div>
+
+        {/* Display all selected kiosks */}
+        {kiosks.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
+            {kiosks.map((k: any) => (
+              <div key={k.id} className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 border border-blue-200 dark:border-gray-600 rounded-xl p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+                      <MapPin className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-blue-800 dark:text-blue-200">{k.name}</div>
+                      <div className="text-sm text-blue-600 dark:text-blue-400">{k.city}</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xl font-bold text-blue-600 dark:text-blue-400">{k.price || '$0/week'}</div>
+                    <div className="text-sm text-blue-500 dark:text-blue-400">per week</div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
-        
-        {/* Enhanced Kiosk Summary */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 border border-blue-200 dark:border-gray-600 rounded-xl p-4 mb-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
-                <MapPin className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div>
-                <div className="font-semibold text-blue-800 dark:text-blue-200">{kiosk?.name || 'Selected Kiosk'}</div>
-                <div className="text-sm text-blue-600 dark:text-blue-400">{kiosk?.city || 'Location'}</div>
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="text-xl font-bold text-blue-600 dark:text-blue-400">{kiosk?.price || '$0/week'}</div>
-              <div className="text-sm text-blue-500 dark:text-blue-400">per week</div>
-            </div>
-          </div>
-        </div>
         
         <div className="rounded border border-gray-200 dark:border-gray-700 p-4 text-sm text-gray-600 dark:text-gray-300 mb-6">
           Weekly Selection — Select weeks (Monday to Sunday) for your campaign.

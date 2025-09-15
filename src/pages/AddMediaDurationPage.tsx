@@ -361,7 +361,7 @@ export default function AddMediaDurationPage() {
                 Select Number of Ad Slots
               </p>
               <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-                Each slot at {kiosk?.name || 'Metroflex Gym'} runs for 15 seconds. Base rate is ${baseRate.toFixed(2)} per slot.
+                Each slot at {kiosk?.name || 'Selected Kiosk'} runs for 15 seconds. Base rate is ${baseRate.toFixed(2)} per slot.
               </p>
               <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
                 Select Ad Slots For All Selected Weeks
@@ -369,28 +369,7 @@ export default function AddMediaDurationPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-              <div>
-                <h4 className="font-medium text-gray-900 dark:text-white mb-3 text-sm md:text-base">Slot Configuration</h4>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Slots per week:
-                    </label>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="number"
-                        min="1"
-                        value={slotsPerWeek}
-                        onChange={(e) => setSlotsPerWeek(Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-16 md:w-20 px-2 md:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm md:text-base"
-                      />
-                      <span className="text-xs md:text-sm text-gray-600 dark:text-gray-300">
-                        {slotsPerWeek * 15} seconds per week
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+             
 
               <div>
                 <h4 className="font-medium text-gray-900 dark:text-white mb-3 text-sm md:text-base">Selected Weeks</h4>

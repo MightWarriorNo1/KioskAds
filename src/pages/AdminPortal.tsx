@@ -3,6 +3,7 @@ import { Routes, Route } from 'react-router-dom';
 import AdminLayout from '../components/layouts/AdminLayout';
 import AdminDashboard from '../components/admin/AdminDashboard';
 import AdReviewQueue from '../components/admin/AdReviewQueue';
+import AdminCampaigns from '../components/admin/AdminCampaigns';
 import UserManagement from '../components/admin/UserManagement';
 import KioskManagement from '../components/admin/KioskManagement';
 import CouponManager from '../components/admin/CouponManager';
@@ -20,6 +21,7 @@ export default function AdminPortal() {
       <Routes>
         <Route path="/" element={<AdminDashboard />} />
         <Route path="/review" element={<AdReviewQueue />} />
+        <Route path="/campaigns" element={<AdminCampaigns />} />
         <Route path="/creative-orders" element={<CreativeOrdersManagement />} />
         <Route path="/users" element={<UserManagement />} />
         <Route path="/kiosks" element={<KioskManagement />} />

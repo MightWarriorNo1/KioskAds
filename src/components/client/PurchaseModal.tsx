@@ -17,18 +17,31 @@ interface CreativePackage {
   deliveryTime: string;
 }
 
+interface CampaignPaymentDetails {
+  name: string;
+  description?: string;
+  startDate: string;
+  endDate: string;
+  kiosks: { id: string; name: string }[] | string[];
+  totalSlots: number;
+  totalCost: number;
+  assetUrl?: string;
+  assetType?: 'image' | 'video';
+}
+
 interface PurchaseModalProps {
   isOpen: boolean;
   onClose: () => void;
   package: CreativePackage | null;
   onPurchase: (packageId: string, paymentData: PaymentData) => void;
+  campaignDetails?: CampaignPaymentDetails;
 }
 
 interface PaymentData {}
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string);
 
-export default function PurchaseModal({ isOpen, onClose, package: pkg, onPurchase }: PurchaseModalProps) {
+export default function PurchaseModal({ isOpen, onClose, package: pkg, onPurchase, campaignDetails }: PurchaseModalProps) {
   const [step, setStep] = useState<'details' | 'payment' | 'success'>('details');
   const [isProcessing, setIsProcessing] = useState(false);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -88,37 +101,68 @@ export default function PurchaseModal({ isOpen, onClose, package: pkg, onPurchas
         <div className="p-6">
           {step === 'details' && (
             <div className="space-y-6">
-              {/* Package Details */}
+              {/* Header Details */}
               <div className="flex space-x-4">
                 <div className="w-24 h-24 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
                   <img 
-                    src={pkg.thumbnail} 
-                    alt={pkg.title}
+                    src={campaignDetails?.assetUrl || pkg.thumbnail} 
+                    alt={campaignDetails ? campaignDetails.name : pkg.title}
                     className="w-full h-full object-cover"
                   />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900">{pkg.title}</h3>
-                  <p className="text-gray-600 text-sm mt-1">{pkg.description}</p>
+                  <h3 className="text-lg font-semibold text-gray-900">{campaignDetails ? campaignDetails.name : pkg.title}</h3>
+                  <p className="text-gray-600 text-sm mt-1">{campaignDetails?.description || pkg.description}</p>
                   <div className="flex items-center space-x-4 mt-2">
                     <span className="text-2xl font-bold text-gray-900">${pkg.price}</span>
-                    <span className="text-sm text-gray-500">{pkg.deliveryTime}</span>
+                    {!campaignDetails && (
+                      <span className="text-sm text-gray-500">{pkg.deliveryTime}</span>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Features */}
-              <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Package Includes:</h4>
-                <ul className="space-y-1">
-                  {pkg.tags.map((tag, index) => (
-                    <li key={index} className="flex items-center text-sm text-gray-600">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                      {tag}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              {/* Campaign Details */}
+              {campaignDetails ? (
+                <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="text-sm text-gray-600">
+                      <span className="font-medium text-gray-800">Dates: </span>
+                      <span>{new Date(campaignDetails.startDate).toLocaleDateString()} - {new Date(campaignDetails.endDate).toLocaleDateString()}</span>
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      <span className="font-medium text-gray-800">Total slots: </span>
+                      <span>{campaignDetails.totalSlots}</span>
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      <span className="font-medium text-gray-800">Kiosks: </span>
+                      <span>
+                        {Array.isArray(campaignDetails.kiosks)
+                          ? (typeof campaignDetails.kiosks[0] === 'string'
+                              ? (campaignDetails.kiosks as string[]).join(', ')
+                              : (campaignDetails.kiosks as { id: string; name: string }[]).map(k => k.name).join(', '))
+                          : ''}
+                      </span>
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      <span className="font-medium text-gray-800">Total cost: </span>
+                      <span>${campaignDetails.totalCost.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Package Includes:</h4>
+                  <ul className="space-y-1">
+                    {pkg.tags.map((tag, index) => (
+                      <li key={index} className="flex items-center text-sm text-gray-600">
+                        <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                        {tag}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {/* Actions */}
               <div className="flex items-center justify-end space-x-3 pt-6 border-t border-gray-200">

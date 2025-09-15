@@ -22,7 +22,7 @@ interface KioskData {
 
 export default function KioskSelectionPage() {
   const navigate = useNavigate();
-  const [viewMode, setViewMode] = useState<'map' | 'list'>('list');
+  const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedKioskIds, setSelectedKioskIds] = useState<string[]>([]);
   const [showContentModal, setShowContentModal] = useState(false);
@@ -310,8 +310,8 @@ export default function KioskSelectionPage() {
             <div className="text-base md:text-lg font-semibold text-gray-900 dark:text-white mb-1">Content Limitations</div>
             <div className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mb-4">Please review these content restrictions before proceeding</div>
             <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 md:p-4 mb-4 bg-gray-50 dark:bg-gray-800">
-              <div className="font-semibold text-gray-900 dark:text-white mb-1 text-sm md:text-base">Important Notice</div>
-              <div className="text-xs md:text-sm text-gray-600 dark:text-gray-300">Your business and advertisements must comply with the following limitations. Non-compliant ads will be rejected during the approval process.</div>
+              <div className="font-semibold text-gray-900 dark:text-white mb-1 text-md md:text-base">Important Notice</div>
+              <div className="text-md md:text-sm text-gray-600 dark:text-gray-300">Your business and advertisements must comply with the following limitations. Non-compliant ads will be rejected during the approval process.</div>
             </div>
             <div className="text-gray-900 dark:text-gray-100 text-xs md:text-sm space-y-1 mb-6">
               <div>No Gyms</div>

@@ -371,6 +371,7 @@ export default function AdUpload({ onUploadComplete, onCancel }: AdUploadProps) 
                 min="1"
                 max="15"
                 value={formData.duration}
+                disabled={user?.role !== 'admin'}
                 onChange={(e) => setFormData(prev => ({ ...prev, duration: parseInt(e.target.value) || 15 }))}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
               />

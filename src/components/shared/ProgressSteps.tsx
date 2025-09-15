@@ -43,7 +43,7 @@ export default function ProgressSteps({ steps, currentStep }: ProgressStepsProps
         <div className="flex items-center justify-center space-x-2 overflow-x-auto px-2">
           {steps.map((step, index) => (
             <div key={step.number} className="flex items-center flex-shrink-0">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold ${
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold ${
                 step.completed 
                   ? 'bg-green-600 text-white' 
                   : step.current 

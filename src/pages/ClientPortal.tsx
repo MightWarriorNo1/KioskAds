@@ -16,6 +16,7 @@ import KiosksPage from './KiosksPage';
 import CampaignDetailsPage from './CampaignDetailsPage';
 import ProofOfPlayPage from './ProofOfPlayPage';
 import SingleProofOfPlayPage from './SingleProofOfPlayPage';
+import CustomAdsPage from './CustomAdsPage';
 
 export default function ClientPortal() {
   return (
@@ -36,6 +37,7 @@ export default function ClientPortal() {
       <Route path="/help" element={<HelpCenterPage />} />
       <Route path="/contact" element={<ContactPage />} />
       <Route path="/kiosks" element={<KiosksPage />} />
+      <Route path="/custom-ads" element={<CustomAdsPage />} />
     </Routes>
   );
 }

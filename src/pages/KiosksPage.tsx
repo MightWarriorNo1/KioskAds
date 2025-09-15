@@ -71,7 +71,7 @@ function KiosksPage() {
 
   const kioskData = [
     {
-      name: "Metroflex Gym",
+      name: "Local Fitness Center",
       city: "Murrieta",
       price: "$50/week",
       originalPrice: "$80/week",

@@ -140,13 +140,6 @@ export default function AdAssignment() {
         </div>
         <div className="flex items-center gap-3">
           <Button
-            variant="secondary"
-            onClick={() => navigate('/host/ads/upload')}
-          >
-            <Upload className="h-4 w-4 mr-2" />
-            Upload New Ad
-          </Button>
-          <Button
             onClick={() => setShowNewAssignment(true)}
             disabled={ads.length === 0 || kiosks.length === 0}
           >

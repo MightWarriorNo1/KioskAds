@@ -178,7 +178,7 @@ export const UploadManagement: React.FC<UploadManagementProps> = ({
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-lg font-medium text-gray-900">Upload Management</h3>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white">Upload Management</h3>
           <p className="text-sm text-gray-500">
             Manage automated ad uploads and sync jobs to Google Drive
           </p>
@@ -211,8 +211,8 @@ export const UploadManagement: React.FC<UploadManagementProps> = ({
       {activeTab === 'uploads' && (
         <div className="space-y-6">
           {/* Schedule New Upload */}
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
-            <h4 className="text-lg font-medium text-gray-900 mb-4">Schedule New Upload</h4>
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 rounded-lg p-6">
+            <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Schedule New Upload</h4>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -253,7 +253,7 @@ export const UploadManagement: React.FC<UploadManagementProps> = ({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Upload Type
                 </label>
                 <select
@@ -293,10 +293,10 @@ export const UploadManagement: React.FC<UploadManagementProps> = ({
           </div>
 
           {/* Upload Jobs List */}
-          <div className="bg-white border border-gray-200 rounded-lg">
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 rounded-lg">
             <div className="px-6 py-4 border-b border-gray-200">
               <div className="flex justify-between items-center">
-                <h4 className="text-lg font-medium text-gray-900">Upload Jobs</h4>
+                <h4 className="text-lg font-medium text-gray-900 dark:text-white">Upload Jobs</h4>
                 <button
                   onClick={loadUploadJobs}
                   className="px-3 py-1 text-sm text-blue-600 hover:text-blue-700 transition-colors"

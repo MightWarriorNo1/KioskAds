@@ -4,6 +4,7 @@ import { useNotification } from '../../contexts/NotificationContext';
 import { AdminService } from '../../services/adminService';
 import { supabase } from '../../lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
+import LeafletMap from '../MapContainer';
 
 interface Kiosk {
   id: string;
@@ -36,6 +37,11 @@ export default function KioskManagement() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [selectedKiosk, setSelectedKiosk] = useState<Kiosk | null>(null);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [editForm, setEditForm] = useState<Partial<Kiosk>>({});
 
   useEffect(() => {
     loadKiosks();
@@ -89,6 +95,63 @@ export default function KioskManagement() {
 
   const handleAssignFolders = (kioskId: string) => {
     navigate(`/admin/kiosk-folders?kiosk=${kioskId}`);
+  };
+
+  const handleShowLocation = (kiosk: Kiosk) => {
+    setSelectedKiosk(kiosk);
+    setShowLocationModal(true);
+  };
+
+  const handleShowSettings = (kiosk: Kiosk) => {
+    setSelectedKiosk(kiosk);
+    setEditForm({
+      name: kiosk.name,
+      location: kiosk.location,
+      address: kiosk.address,
+      city: kiosk.city,
+      state: kiosk.state,
+      traffic_level: kiosk.traffic_level,
+      base_rate: kiosk.base_rate,
+      price: kiosk.price,
+      status: kiosk.status,
+      description: kiosk.description,
+      coordinates: { lat: kiosk.coordinates.lat, lng: kiosk.coordinates.lng }
+    });
+    setShowSettingsModal(true);
+  };
+
+  const handleSaveSettings = async () => {
+    if (!selectedKiosk) return;
+    try {
+      setSavingSettings(true);
+      const { error } = await supabase
+        .from('kiosks')
+        .update({
+          name: editForm.name,
+          location: editForm.location,
+          address: editForm.address,
+          city: editForm.city,
+          state: editForm.state,
+          traffic_level: editForm.traffic_level,
+          base_rate: editForm.base_rate,
+          price: editForm.price,
+          status: editForm.status,
+          description: editForm.description,
+          coordinates: editForm.coordinates
+        })
+        .eq('id', selectedKiosk.id);
+
+      if (error) throw error;
+      addNotification('success', 'Saved', 'Kiosk settings updated');
+      setShowSettingsModal(false);
+      setSelectedKiosk(null);
+      await loadKiosks();
+    } catch (err) {
+      console.error('Error saving kiosk settings:', err);
+      addNotification('error', 'Error', 'Failed to save kiosk settings');
+    } finally {
+      setSavingSettings(false);
+    }
   };
 
   const importKiosks = async () => {
@@ -424,10 +487,10 @@ export default function KioskManagement() {
                           >
                             <Folder className="h-4 w-4" />
                           </button>
-                          <button className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300">
+                          <button onClick={() => handleShowLocation(kiosk)} className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300">
                             <MapPin className="h-4 w-4" />
                           </button>
-                          <button className="text-purple-600 hover:text-purple-900 dark:text-purple-400 dark:hover:text-purple-300">
+                          <button onClick={() => handleShowSettings(kiosk)} className="text-purple-600 hover:text-purple-900 dark:text-purple-400 dark:hover:text-purple-300">
                             <Settings className="h-4 w-4" />
                           </button>
                         </div>
@@ -510,6 +573,114 @@ export default function KioskManagement() {
                   <span>{importing ? 'Importing...' : 'Import'}</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Location Modal */}
+      {showLocationModal && selectedKiosk && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-3xl h-[70vh] mx-4 flex flex-col">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Location - {selectedKiosk.name}</h3>
+              <button onClick={() => { setShowLocationModal(false); setSelectedKiosk(null); }} className="text-gray-400 hover:text-gray-600">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="flex-1">
+              <LeafletMap
+                center={[selectedKiosk.coordinates.lat, selectedKiosk.coordinates.lng] as any}
+                zoom={14}
+                kioskData={[{
+                  id: selectedKiosk.id,
+                  name: selectedKiosk.name,
+                  city: `${selectedKiosk.city}, ${selectedKiosk.state}`,
+                  price: `$${selectedKiosk.price.toFixed(2)}`,
+                  traffic: selectedKiosk.traffic_level === 'high' ? 'High Traffic' : selectedKiosk.traffic_level === 'medium' ? 'Medium Traffic' : 'Low Traffic',
+                  position: [selectedKiosk.coordinates.lat, selectedKiosk.coordinates.lng] as any,
+                  address: selectedKiosk.address
+                }]}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Settings Modal */}
+      {showSettingsModal && selectedKiosk && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-2xl mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Edit Settings - {selectedKiosk.name}</h3>
+              <button onClick={() => { setShowSettingsModal(false); setSelectedKiosk(null); }} className="text-gray-400 hover:text-gray-600">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
+                <input value={editForm.name || ''} onChange={(e) => setEditForm(f => ({ ...f, name: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Location</label>
+                <input value={editForm.location || ''} onChange={(e) => setEditForm(f => ({ ...f, location: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address</label>
+                <input value={editForm.address || ''} onChange={(e) => setEditForm(f => ({ ...f, address: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">City</label>
+                <input value={editForm.city || ''} onChange={(e) => setEditForm(f => ({ ...f, city: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">State</label>
+                <input value={editForm.state || ''} onChange={(e) => setEditForm(f => ({ ...f, state: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Traffic</label>
+                <select value={editForm.traffic_level || 'low'} onChange={(e) => setEditForm(f => ({ ...f, traffic_level: e.target.value as Kiosk['traffic_level'] }))} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded">
+                  <option value="low">low</option>
+                  <option value="medium">medium</option>
+                  <option value="high">high</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Base Rate</label>
+                <input type="number" step="0.01" value={editForm.base_rate ?? 0} onChange={(e) => setEditForm(f => ({ ...f, base_rate: Number(e.target.value) }))} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Price</label>
+                <input type="number" step="0.01" value={editForm.price ?? 0} onChange={(e) => setEditForm(f => ({ ...f, price: Number(e.target.value) }))} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+                <select value={editForm.status || 'active'} onChange={(e) => setEditForm(f => ({ ...f, status: e.target.value as Kiosk['status'] }))} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded">
+                  <option value="active">active</option>
+                  <option value="inactive">inactive</option>
+                  <option value="maintenance">maintenance</option>
+                </select>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+                <textarea value={editForm.description || ''} onChange={(e) => setEditForm(f => ({ ...f, description: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Latitude</label>
+                <input type="number" step="0.000001" value={editForm.coordinates?.lat ?? 0} onChange={(e) => setEditForm(f => ({ ...f, coordinates: { lat: Number(e.target.value), lng: f.coordinates?.lng ?? 0 } as Kiosk['coordinates'] }))} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Longitude</label>
+                <input type="number" step="0.000001" value={editForm.coordinates?.lng ?? 0} onChange={(e) => setEditForm(f => ({ ...f, coordinates: { lat: f.coordinates?.lat ?? 0, lng: Number(e.target.value) } as Kiosk['coordinates'] }))} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded" />
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end space-x-3">
+              <button onClick={() => { setShowSettingsModal(false); setSelectedKiosk(null); }} className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 rounded hover:bg-gray-200 dark:hover:bg-gray-500">Cancel</button>
+              <button onClick={handleSaveSettings} disabled={savingSettings} className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 flex items-center space-x-2">
+                {savingSettings && <RefreshCw className="h-4 w-4 animate-spin" />}
+                <span>{savingSettings ? 'Saving...' : 'Save'}</span>
+              </button>
             </div>
           </div>
         </div>

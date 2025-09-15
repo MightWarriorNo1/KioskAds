@@ -182,7 +182,7 @@ export default function DashboardHome() {
         <div className="grid md:grid-cols-2 gap-6">
           {/* Create New Campaign */}
           <Card>
-            <h3 className="text-xl font-bold text-gray-900 mb-3">Create New Campaign</h3>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">Create New Campaign</h3>
             <p className="mb-6">Set up a new advertising campaign on our kiosks</p>
             <Link to="/client/new-campaign" className="inline-flex">
               <Button leftIcon={<Plus className="h-4 w-4" />}>New Campaign</Button>
@@ -191,7 +191,7 @@ export default function DashboardHome() {
 
           {/* Browse Kiosk Locations */}
           <Card>
-            <h3 className="text-xl font-bold text-gray-900 mb-3">Browse Kiosk Locations</h3>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">Browse Kiosk Locations</h3>
             <p className="mb-6">View all available kiosk locations for advertising</p>
             <Link to="/client/kiosks" className="inline-flex">
               <Button leftIcon={<MapPin className="h-4 w-4" />}>View Kiosks</Button>

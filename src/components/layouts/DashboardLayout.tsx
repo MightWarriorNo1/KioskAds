@@ -9,7 +9,8 @@ import {
   HelpCircle,
   LogOut,
   Target,
-  Menu
+  Menu,
+  Megaphone
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import Logo from '../shared/Logo';
@@ -44,6 +45,7 @@ export default function DashboardLayout({
     { name: 'Billing', href: '/client/billing', icon: FileText },
     { name: 'Profile', href: '/client/profile', icon: User },
     { name: 'Help Center', href: '/client/help', icon: HelpCircle },
+    { name: 'Custom Ads', href: '/client/custom-ads', icon: Megaphone },
   ];
 
   const isActive = (href: string) => {
@@ -91,16 +93,7 @@ export default function DashboardLayout({
           </div>
         </nav>
 
-        {/* Logout - Fixed at bottom */}
-        <div className="p-4 border-t border-gray-200 dark:border-gray-800 mt-auto">
-          <button
-            onClick={handleLogout}
-            className="flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-200/5 w-full transition-colors"
-          >
-            <LogOut className="h-5 w-5" />
-            <span>Log out</span>
-          </button>
-        </div>
+        
       </div>
 
       {/* Main Content - With left margin to account for fixed sidebar */}
@@ -140,8 +133,17 @@ export default function DashboardLayout({
             </Link>
           </div>
           
-          {/* Right side - Theme Toggle */}
-          <ThemeToggle variant="dropdown" size="md" />
+          {/* Right side - Theme Toggle + Logout */}
+          <div className="flex items-center gap-2">
+            <ThemeToggle variant="dropdown" size="md" />
+            <button
+              onClick={handleLogout}
+              className="flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-200/5 transition-colors"
+            >
+              <LogOut className="h-5 w-5" />
+              <span className="hidden sm:inline">Log out</span>
+            </button>
+          </div>
         </div>
 
         {/* Page Content */}
