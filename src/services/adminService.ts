@@ -329,7 +329,7 @@ export class AdminService {
         })
         .eq('id', mediaAssetId)
         .select('id')
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       if (!data) {
@@ -368,7 +368,7 @@ export class AdminService {
         })
         .eq('id', hostAdId)
         .select('id')
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       if (!data) {
@@ -406,7 +406,7 @@ export class AdminService {
         })
         .eq('id', campaignId)
         .select('id')
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       if (!data) {

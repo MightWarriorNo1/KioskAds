@@ -192,38 +192,16 @@ export class CampaignService {
           throw mediaError;
         }
 
-        // Update media asset with campaign ID (this may trigger asset_lifecycle creation)
+        // Update media asset with campaign ID only. Keep status as 'processing' until admin review.
         const { error: updateMediaError } = await supabase
           .from('media_assets')
           .update({ 
-            campaign_id: campaign.id,
-            status: 'approved'
+            campaign_id: campaign.id
           })
           .eq('id', campaignData.media_asset_id);
 
         if (updateMediaError) {
-          console.error('Error updating media asset:', updateMediaError);
-          
-          // If it's an RLS policy error, try a different approach
-          if (updateMediaError.message.includes('row-level security policy')) {
-            console.warn('RLS policy error on media asset update, trying without status change...');
-            
-            // Try updating just the campaign_id without changing status
-            const { error: retryError } = await supabase
-              .from('media_assets')
-              .update({ 
-                campaign_id: campaign.id
-              })
-              .eq('id', campaignData.media_asset_id);
-              
-            if (retryError) {
-              console.warn('Campaign created but media asset linking failed:', retryError.message);
-            } else {
-              console.log('Media asset linked to campaign successfully (without status change)');
-            }
-          } else {
-            console.warn('Campaign created but media asset update failed:', updateMediaError.message);
-          }
+          console.warn('Campaign created but media asset linking failed:', updateMediaError.message);
         }
       }
 
