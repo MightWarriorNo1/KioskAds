@@ -76,46 +76,6 @@ export default function EnhancedKioskSelection({
 
   return (
     <div className={`space-y-6 ${className}`}>
-      {/* Search and View Controls */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="flex-1">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search kiosks by name, location, or address..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-        </div>
-        
-        <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-          <button
-            onClick={() => setViewMode('list')}
-            className={`px-4 py-2 text-sm font-medium transition-colors flex items-center space-x-2 ${
-              viewMode === 'list'
-                ? 'bg-blue-600 text-white'
-                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-            }`}
-          >
-            <List className="h-4 w-4" />
-            <span>List</span>
-          </button>
-          <button
-            onClick={() => setViewMode('map')}
-            className={`px-4 py-2 text-sm font-medium transition-colors flex items-center space-x-2 ${
-              viewMode === 'map'
-                ? 'bg-blue-600 text-white'
-                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-            }`}
-          >
-            <MapPin className="h-4 w-4" />
-            <span>Map</span>
-          </button>
-        </div>
-      </div>
 
       {/* Kiosk List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

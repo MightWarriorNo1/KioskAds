@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { CheckSquare, X, Eye, Clock, AlertCircle, Check, RefreshCw } from 'lucide-react';
 import { useNotification } from '../../contexts/NotificationContext';
 import { AdminService, AdReviewItem } from '../../services/adminService';
+import { MediaService } from '../../services/mediaService';
 
 export default function AdReviewQueue() {
   const [ads, setAds] = useState<AdReviewItem[]>([]);
@@ -160,7 +161,7 @@ export default function AdReviewQueue() {
 
   const getFilePreview = (fileType: string, filePath: string) => {
     if (fileType === 'image') {
-      return filePath; // Assuming filePath is a URL
+      return MediaService.getMediaPreviewUrl(filePath);
     } else {
       // For videos, we could show a thumbnail or placeholder
       return 'https://images.pexels.com/photos/3945313/pexels-photo-3945313.jpeg?auto=compress&cs=tinysrgb&w=400';

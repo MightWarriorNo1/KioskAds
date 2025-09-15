@@ -320,16 +320,21 @@ export class AdminService {
     try {
       const status = action === 'approve' ? 'approved' : 'rejected';
       
-      const { error } = await supabase
+      const { error, data } = await supabase
         .from('media_assets')
         .update({ 
           status,
           updated_at: new Date().toISOString(),
           ...(action === 'reject' && rejectionReason ? { validation_errors: [rejectionReason] } : {})
         })
-        .eq('id', mediaAssetId);
+        .eq('id', mediaAssetId)
+        .select('id')
+        .single();
 
       if (error) throw error;
+      if (!data) {
+        throw new Error('Ad review update failed: media asset not found or not permitted');
+      }
 
       // Log admin action
       await this.logAdminAction('review_ad', 'media_asset', mediaAssetId, {
@@ -354,16 +359,21 @@ export class AdminService {
     try {
       const status = action === 'approve' ? 'approved' : 'rejected';
       
-      const { error } = await supabase
+      const { error, data } = await supabase
         .from('host_ads')
         .update({ 
           status,
           updated_at: new Date().toISOString(),
           ...(action === 'reject' && rejectionReason ? { rejection_reason: rejectionReason } : {})
         })
-        .eq('id', hostAdId);
+        .eq('id', hostAdId)
+        .select('id')
+        .single();
 
       if (error) throw error;
+      if (!data) {
+        throw new Error('Host ad review update failed: host ad not found or not permitted');
+      }
 
       // Log admin action
       await this.logAdminAction('review_host_ad', 'host_ad', hostAdId, {
@@ -388,15 +398,20 @@ export class AdminService {
     try {
       const status = action === 'approve' ? 'active' : 'rejected';
       
-      const { error } = await supabase
+      const { error, data } = await supabase
         .from('campaigns')
         .update({ 
           status,
           updated_at: new Date().toISOString()
         })
-        .eq('id', campaignId);
+        .eq('id', campaignId)
+        .select('id')
+        .single();
 
       if (error) throw error;
+      if (!data) {
+        throw new Error('Campaign review update failed: campaign not found or not permitted');
+      }
 
       // Log admin action
       await this.logAdminAction('review_campaign', 'campaign', campaignId, {

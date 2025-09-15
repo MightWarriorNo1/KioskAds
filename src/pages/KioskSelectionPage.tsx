@@ -68,6 +68,36 @@ export default function KioskSelectionPage() {
     setPricing(newPricing);
   };
 
+  const handleMapKioskSelect = (kiosk: KioskData) => {
+    if (!kiosk.id) return;
+    setSelectedKioskIds((prev) => {
+      if (prev.includes(kiosk.id as string)) return prev;
+      return [...prev, kiosk.id as string];
+    });
+  };
+
+  const handleRemoveSelectedKiosk = (kioskId: string) => {
+    setSelectedKioskIds((prev) => prev.filter((id) => id !== kioskId));
+  };
+
+  const selectedKiosks = kiosks.filter((k) => selectedKioskIds.includes(k.id));
+
+  const kioskMapData: KioskData[] = kiosks.map((kiosk) => ({
+    id: kiosk.id,
+    name: kiosk.name,
+    city: kiosk.city,
+    price: `$${kiosk.price.toFixed(2)}`,
+    traffic:
+      kiosk.traffic_level === 'high'
+        ? 'High Traffic'
+        : kiosk.traffic_level === 'medium'
+        ? 'Medium Traffic'
+        : 'Low Traffic',
+    position: [kiosk.coordinates.lat, kiosk.coordinates.lng] as LatLngTuple,
+    address: kiosk.address,
+    description: kiosk.description,
+  }));
+
   if (isLoading) {
     return (
       <DashboardLayout
@@ -203,14 +233,65 @@ export default function KioskSelectionPage() {
         </div>
       </div>
 
-      {/* Enhanced Kiosk Selection */}
+      {/* Enhanced Kiosk Selection / Map */}
       <div className="mb-6 md:mb-8">
-        <EnhancedKioskSelection
-          kiosks={kiosks}
+        {viewMode === 'map' ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-2 h-[420px] md:h-[560px] w-full">
+              <LeafletMap
+                center={[33.5689, -117.1865]}
+                zoom={11}
+                className="h-full w-full"
+                kioskData={kioskMapData}
                 selectedKioskIds={selectedKioskIds}
-          onSelectionChange={handleKioskSelectionChange}
-          onPricingChange={handlePricingChange}
-        />
+                onKioskSelect={handleMapKioskSelect}
+              />
+            </div>
+            <div className="md:col-span-1 max-h-[420px] md:max-h-[560px] overflow-y-auto">
+              <EnhancedKioskSelection
+                kiosks={kiosks}
+                selectedKioskIds={selectedKioskIds}
+                onSelectionChange={handleKioskSelectionChange}
+                onPricingChange={handlePricingChange}
+              />
+            </div>
+            <div className="md:col-span-2">
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm md:text-base font-semibold text-gray-900 dark:text-white">Selected Kiosks</h3>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">{selectedKioskIds.length}</span>
+                </div>
+                {selectedKiosks.length === 0 ? (
+                  <div className="text-xs md:text-sm text-gray-500 dark:text-gray-400">No kiosks selected yet. Click a marker and choose "Select this kiosk".</div>
+                ) : (
+                  <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {selectedKiosks.map((kiosk) => (
+                      <li key={kiosk.id} className="py-2 flex items-center justify-between">
+                        <div className="min-w-0 mr-3">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white truncate">{kiosk.name}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{kiosk.city}</div>
+                        </div>
+                        <button
+                          onClick={() => handleRemoveSelectedKiosk(kiosk.id)}
+                          className="text-xs px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+                        >
+                          Remove
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <EnhancedKioskSelection
+            kiosks={kiosks}
+            selectedKioskIds={selectedKioskIds}
+            onSelectionChange={handleKioskSelectionChange}
+            onPricingChange={handlePricingChange}
+          />
+        )}
       </div>
 
       {/* Continue Button */}
@@ -243,7 +324,7 @@ export default function KioskSelectionPage() {
             </div>
             <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
               <button onClick={() => setShowContentModal(false)} className="px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm md:text-base">Cancel</button>
-              <button onClick={() => navigate('/client/select-weeks', { state: { kiosks: selectedKiosks, pricing } })} className="px-4 py-2 rounded-lg bg-black dark:bg-gray-900 text-white text-sm md:text-base">I Understand & Accept</button>
+              <button onClick={() => navigate('/client/select-weeks', { state: { kioskIds: selectedKioskIds, pricing } })} className="px-4 py-2 rounded-lg bg-black dark:bg-gray-900 text-white text-sm md:text-base">I Understand & Accept</button>
             </div>
           </div>
         </div>
