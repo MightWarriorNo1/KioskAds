@@ -18,7 +18,8 @@ import {
   ArrowRight,
   ArrowLeft,
   Eye,
-  Edit
+  Edit,
+  Plus
 } from 'lucide-react';
 import DashboardLayout from '../components/layouts/DashboardLayout';
 import Button from '../components/ui/Button';
@@ -93,6 +94,7 @@ export default function CustomAdsPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedService, setSelectedService] = useState<ServiceTile | null>(null);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [showOrderForm, setShowOrderForm] = useState(false);
   const [formData, setFormData] = useState<OrderFormData>({
     firstName: '',
     lastName: '',
@@ -161,6 +163,7 @@ export default function CustomAdsPage() {
       setShowDisclaimer(true);
     } else {
       setCurrentStep(2);
+      setShowOrderForm(true);
     }
   };
 
@@ -179,6 +182,7 @@ export default function CustomAdsPage() {
   const handleStartOver = () => {
     setCurrentStep(1);
     setSelectedService(null);
+    setShowOrderForm(false);
     setFormData({
       firstName: '',
       lastName: '',
@@ -197,6 +201,7 @@ export default function CustomAdsPage() {
   const handleDisclaimerConfirm = () => {
     setShowDisclaimer(false);
     setCurrentStep(2);
+    setShowOrderForm(true);
   };
 
   const handleDisclaimerCancel = () => {

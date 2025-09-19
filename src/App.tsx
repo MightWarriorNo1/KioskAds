@@ -21,56 +21,56 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (
-    <ErrorBoundary>
-      <ThemeProvider>
-        <AuthProvider>
-          <NotificationProvider>
-            <Router>
-            <div className="min-h-screen bg-[rgb(var(--surface))] dark:bg-gray-900">
-              <Routes>
-                <Route path="/" element={<LandingPage />} />
-                <Route path="/signin" element={<SignIn />} />
-                <Route path="/signup" element={<SignUp />} />
-                <Route path="/contact" element={<ContactPage />} />
-                <Route path="/privacy" element={<PrivacyPolicy />} />
-                <Route path="/terms" element={<TermsOfService />} />
-                <Route path="/custom-ads" element={<CustomAdsPage />} />
-                <Route path="/hosting" element={<HostLanding />} />
-                <Route path="/kiosks" element={<KiosksPage />} />
-                <Route path="/auth/callback" element={<AuthCallback />} />
-                <Route path="/confirm-email" element={<AuthCallback />} />
-                <Route 
-                  path="/client/*" 
-                  element={
-                    <ProtectedRoute allowedRoles={['client']}>
-                      <ClientPortal />
-                    </ProtectedRoute>
-                  } 
-                />
-                <Route 
-                  path="/host/*" 
-                  element={
-                    <ProtectedRoute allowedRoles={['host']}>
-                      <HostPortal />
-                    </ProtectedRoute>
-                  } 
-                />
-                <Route 
-                  path="/admin/*" 
-                  element={
-                    <ProtectedRoute allowedRoles={['admin']}>
-                      <AdminPortal />
-                    </ProtectedRoute>
-                  } 
-                />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </div>
-            </Router>
-          </NotificationProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </ErrorBoundary>
+    <ThemeProvider>
+      <AuthProvider>
+        <NotificationProvider>
+          <Router>
+            <ErrorBoundary>
+              <div className="min-h-screen bg-[rgb(var(--surface))] dark:bg-gray-900">
+                <Routes>
+                  <Route path="/" element={<LandingPage />} />
+                  <Route path="/signin" element={<SignIn />} />
+                  <Route path="/signup" element={<SignUp />} />
+                  <Route path="/contact" element={<ContactPage />} />
+                  <Route path="/privacy" element={<PrivacyPolicy />} />
+                  <Route path="/terms" element={<TermsOfService />} />
+                  <Route path="/custom-ads" element={<CustomAdsPage />} />
+                  <Route path="/hosting" element={<HostLanding />} />
+                  <Route path="/kiosks" element={<KiosksPage />} />
+                  <Route path="/auth/callback" element={<AuthCallback />} />
+                  <Route path="/confirm-email" element={<AuthCallback />} />
+                  <Route 
+                    path="/client/*" 
+                    element={
+                      <ProtectedRoute allowedRoles={['client']}>
+                        <ClientPortal />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/host/*" 
+                    element={
+                      <ProtectedRoute allowedRoles={['host']}>
+                        <HostPortal />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/admin/*" 
+                    element={
+                      <ProtectedRoute allowedRoles={['admin']}>
+                        <AdminPortal />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </div>
+            </ErrorBoundary>
+          </Router>
+        </NotificationProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

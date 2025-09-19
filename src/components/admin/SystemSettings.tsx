@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Settings, Mail, CreditCard, Cloud, Key, Globe, Save, DollarSign, Database, Tag, TrendingUp, ChevronUp, ChevronDown } from 'lucide-react';
+import { Settings, Mail, CreditCard, Cloud, Key, Globe, Save, DollarSign, Database, Tag, TrendingUp, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AdminService } from '../../services/adminService';
 import S3Configuration from './S3Configuration';
 import TrackingTagsManagement from './TrackingTagsManagement';
@@ -17,7 +17,10 @@ export default function SystemSettings() {
   const [canScrollUp, setCanScrollUp] = useState(false);
   const [canScrollDown, setCanScrollDown] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const tabNavRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -36,6 +39,7 @@ export default function SystemSettings() {
   useEffect(() => {
     // Check scroll position when tab changes
     setTimeout(checkScrollPosition, 100);
+    setTimeout(checkTabScrollPosition, 100);
   }, [activeTab]);
 
   const checkScrollPosition = () => {
@@ -60,6 +64,29 @@ export default function SystemSettings() {
     const container = scrollContainerRef.current;
     if (container) {
       container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+    }
+  };
+
+  const checkTabScrollPosition = () => {
+    const container = tabNavRef.current;
+    if (container) {
+      const { scrollLeft, scrollWidth, clientWidth } = container;
+      setCanScrollLeft(scrollLeft > 0);
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 1);
+    }
+  };
+
+  const scrollTabsLeft = () => {
+    const container = tabNavRef.current;
+    if (container) {
+      container.scrollBy({ left: -200, behavior: 'smooth' });
+    }
+  };
+
+  const scrollTabsRight = () => {
+    const container = tabNavRef.current;
+    if (container) {
+      container.scrollBy({ left: 200, behavior: 'smooth' });
     }
   };
 
@@ -97,25 +124,54 @@ export default function SystemSettings() {
       {/* Tabs */}
       <div className="bg-white dark:bg-gray-800 rounded-lg sm:rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="border-b border-gray-200 dark:border-gray-700">
-          <nav className="flex overflow-x-auto scrollbar-hide px-2 sm:px-6">
-            <div className="flex space-x-2 sm:space-x-8 min-w-max">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`py-3 sm:py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm flex items-center space-x-1 sm:space-x-2 whitespace-nowrap ${
-                    activeTab === tab.id
-                    ? 'border-purple-500 text-purple-600'
-                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'
-                  }`}
-                >
-                  <tab.icon className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                  <span className="hidden sm:inline">{tab.name}</span>
-                  <span className="sm:hidden">{tab.name.split(' ')[0]}</span>
-                </button>
-              ))}
-            </div>
-          </nav>
+          <div className="relative tab-nav">
+            <nav 
+              ref={tabNavRef}
+              onScroll={checkTabScrollPosition}
+              className="flex overflow-x-auto scrollbar-hide px-4 sm:px-6"
+            >
+              <div className="flex space-x-1 sm:space-x-4 min-w-max">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`py-3 sm:py-4 px-3 sm:px-4 border-b-2 font-medium text-xs sm:text-sm flex items-center space-x-1 sm:space-x-2 whitespace-nowrap transition-colors ${
+                      activeTab === tab.id
+                      ? 'border-purple-500 text-purple-600 dark:text-purple-400'
+                      : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'
+                    }`}
+                  >
+                    <tab.icon className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                    <span className="hidden sm:inline">{tab.name}</span>
+                    <span className="sm:hidden">
+                      {tab.name.length > 8 ? tab.name.split(' ')[0] : tab.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </nav>
+            
+            {/* Tab scroll indicators */}
+            {canScrollLeft && (
+              <button
+                onClick={scrollTabsLeft}
+                className="tab-scroll-indicator left-2"
+                title="Scroll left"
+              >
+                <ChevronLeft className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+              </button>
+            )}
+            
+            {canScrollRight && (
+              <button
+                onClick={scrollTabsRight}
+                className="tab-scroll-indicator right-2"
+                title="Scroll right"
+              >
+                <ChevronRight className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="relative scroll-container">

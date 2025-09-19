@@ -526,3 +526,81 @@ html {
 .dark .tabs-scroll-fade-right::after {
   background: linear-gradient(to left, rgba(31, 41, 55, 1), transparent);
 }
+
+/* Tab navigation enhancements */
+.tab-nav {
+  position: relative;
+  overflow: hidden;
+}
+
+.tab-nav::before,
+.tab-nav::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 30px;
+  pointer-events: none;
+  z-index: 10;
+  transition: opacity 0.3s ease;
+}
+
+.tab-nav::before {
+  left: 0;
+  background: linear-gradient(to right, rgba(255, 255, 255, 1), transparent);
+}
+
+.tab-nav::after {
+  right: 0;
+  background: linear-gradient(to left, rgba(255, 255, 255, 1), transparent);
+}
+
+.dark .tab-nav::before {
+  background: linear-gradient(to right, rgba(31, 41, 55, 1), transparent);
+}
+
+.dark .tab-nav::after {
+  background: linear-gradient(to left, rgba(31, 41, 55, 1), transparent);
+}
+
+.tab-nav.scroll-left::before {
+  opacity: 0;
+}
+
+.tab-nav.scroll-right::after {
+  opacity: 0;
+}
+
+/* Tab scroll indicators */
+.tab-scroll-indicator {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 20;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.tab-scroll-indicator:hover {
+  background: rgba(255, 255, 255, 1);
+  transform: translateY(-50%) scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.dark .tab-scroll-indicator {
+  background: rgba(31, 41, 55, 0.9);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark .tab-scroll-indicator:hover {
+  background: rgba(31, 41, 55, 1);
+}

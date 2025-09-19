@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Monitor, CheckSquare, DollarSign, AlertTriangle, TrendingUp, Upload } from 'lucide-react';
+import { Users, Monitor, CheckSquare, DollarSign, AlertTriangle, TrendingUp, Upload, Mail, Send } from 'lucide-react';
 import { AdminService, AdminMetrics } from '../../services/adminService';
 import { useNotification } from '../../contexts/NotificationContext';
 import MetricsCard from '../shared/MetricsCard';
@@ -14,6 +14,7 @@ export default function AdminDashboard() {
   const [metrics, setMetrics] = useState<AdminMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [activities, setActivities] = useState<Array<{ action: string; time: string; type: 'success' | 'info' | 'warning' | 'error'; }>>([]);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const { addNotification } = useNotification();
 
   useEffect(() => {
@@ -40,6 +41,19 @@ export default function AdminDashboard() {
       setActivities(data);
     } catch (error) {
       console.error('Error loading recent activity:', error);
+    }
+  };
+
+  const triggerDailyEmail = async () => {
+    try {
+      setIsSendingEmail(true);
+      await AdminService.sendDailyPendingReviewEmail();
+      addNotification('success', 'Success', 'Daily pending review email sent successfully');
+    } catch (error) {
+      console.error('Error sending daily email:', error);
+      addNotification('error', 'Error', 'Failed to send daily email');
+    } finally {
+      setIsSendingEmail(false);
     }
   };
 
@@ -100,6 +114,14 @@ export default function AdminDashboard() {
       href: '/admin/users',
       icon: Users,
       color: 'blue'
+    },
+    {
+      title: 'Send Daily Email',
+      description: 'Trigger daily pending review email',
+      onClick: triggerDailyEmail,
+      icon: Send,
+      color: 'green',
+      loading: isSendingEmail
     }
   ];
 
