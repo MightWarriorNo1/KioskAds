@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   Camera, 
@@ -14,7 +14,11 @@ import {
   DollarSign,
   FileImage,
   FileVideo,
-  Trash2
+  Trash2,
+  ArrowRight,
+  ArrowLeft,
+  Eye,
+  Edit
 } from 'lucide-react';
 import DashboardLayout from '../components/layouts/DashboardLayout';
 import Button from '../components/ui/Button';
@@ -28,6 +32,7 @@ import PaymentMethodSelector from '../components/PaymentMethodSelector';
 import { PaymentMethod } from '../types/database';
 import { validateFile } from '../utils/fileValidation';
 import ReCAPTCHA from 'react-google-recaptcha';
+import ProgressSteps from '../components/shared/ProgressSteps';
 
 interface ServiceTile {
   id: string;
@@ -85,9 +90,9 @@ const services: ServiceTile[] = [
 ];
 
 export default function CustomAdsPage() {
+  const [currentStep, setCurrentStep] = useState(1);
   const [selectedService, setSelectedService] = useState<ServiceTile | null>(null);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
-  const [showOrderForm, setShowOrderForm] = useState(false);
   const [formData, setFormData] = useState<OrderFormData>({
     firstName: '',
     lastName: '',
@@ -106,11 +111,25 @@ export default function CustomAdsPage() {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
   const [isLoadingPaymentMethods, setIsLoadingPaymentMethods] = useState(false);
+  const [orderSubmitted, setOrderSubmitted] = useState(false);
+  const [submittedOrderId, setSubmittedOrderId] = useState<string | null>(null);
   const { user }=useAuth();
   const navigate=useNavigate();
+  const location = useLocation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string);
   const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
+
+  const steps = [
+    { number: 1, name: 'Service Selection', current: currentStep === 1, completed: currentStep > 1 },
+    { number: 2, name: 'Description & Details', current: currentStep === 2, completed: currentStep > 2 },
+    { number: 3, name: 'File Upload', current: currentStep === 3, completed: currentStep > 3 },
+    { number: 4, name: 'Review & Submit', current: currentStep === 4, completed: currentStep > 4 },
+  ];
+
+  // Determine which portal we're in based on the current path
+  const isHostPortal = location.pathname.startsWith('/host');
+  const isClientPortal = location.pathname.startsWith('/client');
 
   const loadPaymentMethods = async () => {
     if (!user) return;
@@ -141,13 +160,43 @@ export default function CustomAdsPage() {
     if (service.requiresLocation) {
       setShowDisclaimer(true);
     } else {
-      setShowOrderForm(true);
+      setCurrentStep(2);
     }
+  };
+
+  const handleNextStep = () => {
+    if (currentStep < 4) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const handlePrevStep = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const handleStartOver = () => {
+    setCurrentStep(1);
+    setSelectedService(null);
+    setFormData({
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      address: '',
+      details: '',
+      files: []
+    });
+    setFormErrors({});
+    setFileValidationErrors([]);
+    setOrderSubmitted(false);
+    setSubmittedOrderId(null);
   };
 
   const handleDisclaimerConfirm = () => {
     setShowDisclaimer(false);
-    setShowOrderForm(true);
+    setCurrentStep(2);
   };
 
   const handleDisclaimerCancel = () => {
@@ -270,6 +319,36 @@ export default function CustomAdsPage() {
     }
   };
 
+  const handleFinalSubmit = async () => {
+    if (!selectedService || !user) return;
+
+    setIsUploading(true);
+    
+    try {
+      // Create the order
+      const orderId = await CustomAdsService.createOrder({
+        userId: user.id,
+        serviceKey: selectedService.id,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+        address: formData.address,
+        details: formData.details,
+        files: formData.files,
+        totalAmount: selectedService.price,
+      });
+
+      setSubmittedOrderId(orderId);
+      setOrderSubmitted(true);
+    } catch (error) {
+      console.error('Error creating order:', error);
+      alert('Error creating order. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handlePaymentMethodSelect = (methodId: string | null) => {
     setSelectedPaymentMethodId(methodId);
   };
@@ -379,70 +458,123 @@ export default function CustomAdsPage() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  return (
-    <DashboardLayout
-      title="Custom Ads & Creation"
-      subtitle="Professional ad creation services tailored to your needs"
-    >
-      <div className="max-w-7xl mx-auto px-6 py-12">
-        {/* Service Description */}
+  // Render content based on portal context
+  const content = (
+    <div className="max-w-7xl mx-auto px-6 py-12">
+      {/* Progress Steps */}
+      {currentStep > 1 && (
+        <div className="mb-8">
+          <ProgressSteps steps={steps} currentStep={currentStep} />
+        </div>
+      )}
+
+      {/* Order Submitted Success */}
+      {orderSubmitted && (
+        <Card className="text-center py-12 mb-8">
+          <div className="w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Check className="w-8 h-8 text-green-600 dark:text-green-400" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+            Order Submitted Successfully!
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            Your custom ad order has been received and is being processed. 
+            You'll receive email notifications as your order progresses.
+          </p>
+          <div className="space-y-2 mb-6">
+            <p className="text-sm text-gray-500">
+              <strong>Order ID:</strong> {submittedOrderId}
+            </p>
+            <p className="text-sm text-gray-500">
+              <strong>Service:</strong> {selectedService?.title}
+            </p>
+            <p className="text-sm text-gray-500">
+              <strong>Total:</strong> ${selectedService?.price}
+            </p>
+          </div>
+          <div className="flex gap-3 justify-center">
+            <Button
+              onClick={() => window.location.href = isHostPortal ? '/host/custom-ads' : '/client/custom-ads'}
+              className="flex items-center gap-2"
+            >
+              <Eye className="w-4 h-4" />
+              View My Orders
+            </Button>
+            <Button
+              onClick={handleStartOver}
+              variant="secondary"
+              className="flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Create Another Order
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Service Description */}
+      {!orderSubmitted && (
         <div className="text-center mb-12">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+            Custom Ad Creation Services
+          </h1>
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
             Choose from graphic design, photography, or videography services to create stunning vertical ads for our kiosk network.
           </p>
         </div>
+      )}
 
-        {/* Service Tiles */}
-        {!showOrderForm && (
-          <div className="grid md:grid-cols-3 gap-8 mb-12">
-            {services.map((service) => (
-              <Card key={service.id} className="text-center hover:shadow-elevated transition-all duration-300 hover:scale-105">
-                <div className="p-8">
-                  <div className="w-16 h-16 rounded-full bg-primary-50 text-primary-700 dark:bg-gray-800 dark:text-primary-300 flex items-center justify-center mx-auto mb-6">
-                    {service.icon}
-                  </div>
-                  <h3 className="text-2xl font-bold mb-4">{service.title}</h3>
-                  <p className="text-gray-600 dark:text-gray-300 mb-6">{service.description}</p>
-                  
-                  <div className="space-y-2 mb-6">
-                    <div className="flex items-center justify-center gap-2 text-lg font-semibold text-primary-600">
-                      <DollarSign className="w-5 h-5" />
-                      <span>${service.price}</span>
-                    </div>
-                    <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
-                      <Clock className="w-4 h-4" />
-                      <span>{service.turnaround}</span>
-                    </div>
-                    {service.timeLimit && (
-                      <div className="text-sm text-gray-500">
-                        {service.timeLimit}
-                      </div>
-                    )}
-                    {service.videoLength && (
-                      <div className="text-sm text-gray-500">
-                        {service.videoLength}
-                      </div>
-                    )}
-                    {service.requiresLocation && (
-                      <div className="flex items-center justify-center gap-2 text-sm text-amber-600">
-                        <MapPin className="w-4 h-4" />
-                        <span>50-mile radius required</span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <Button 
-                    onClick={() => handleServiceSelect(service)}
-                    className="w-full"
-                    size="lg"
-                  >
-                    Order Now
-                  </Button>
+      {/* Step 1: Service Selection */}
+      {!orderSubmitted && currentStep === 1 && (
+        <div className="grid md:grid-cols-3 gap-8 mb-12">
+          {services.map((service) => (
+            <Card key={service.id} className="text-center hover:shadow-elevated transition-all duration-300 hover:scale-105">
+              <div className="p-8">
+                <div className="w-16 h-16 rounded-full bg-primary-50 text-primary-700 dark:bg-gray-800 dark:text-primary-300 flex items-center justify-center mx-auto mb-6">
+                  {service.icon}
                 </div>
-              </Card>
-            ))}
-          </div>
-        )}
+                <h3 className="text-2xl font-bold mb-4">{service.title}</h3>
+                <p className="text-gray-600 dark:text-gray-300 mb-6">{service.description}</p>
+                
+                <div className="space-y-2 mb-6">
+                  <div className="flex items-center justify-center gap-2 text-lg font-semibold text-primary-600">
+                    <DollarSign className="w-5 h-5" />
+                    <span>${service.price}</span>
+                  </div>
+                  <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
+                    <Clock className="w-4 h-4" />
+                    <span>{service.turnaround}</span>
+                  </div>
+                  {service.timeLimit && (
+                    <div className="text-sm text-gray-500">
+                      {service.timeLimit}
+                    </div>
+                  )}
+                  {service.videoLength && (
+                    <div className="text-sm text-gray-500">
+                      {service.videoLength}
+                    </div>
+                  )}
+                  {service.requiresLocation && (
+                    <div className="flex items-center justify-center gap-2 text-sm text-amber-600">
+                      <MapPin className="w-4 h-4" />
+                      <span>50-mile radius required</span>
+                    </div>
+                  )}
+                </div>
+                
+                <Button 
+                  onClick={() => handleServiceSelect(service)}
+                  className="w-full"
+                  size="lg"
+                >
+                  Select Service
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
 
         {/* Disclaimer Modal */}
         {showDisclaimer && selectedService && (
@@ -800,8 +932,41 @@ export default function CustomAdsPage() {
           </Card>
         )}
       </div>
-    </DashboardLayout>
   );
+
+  // Return content wrapped in appropriate layout based on portal context
+  if (isHostPortal) {
+    // For host portal, return content without DashboardLayout since HostLayout handles the layout
+    return (
+      <div>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2">Custom Ads & Creation</h1>
+          <p className="text-lg text-gray-600 dark:text-gray-300">Professional ad creation services tailored to your needs</p>
+        </div>
+        {content}
+      </div>
+    );
+  } else if (isClientPortal) {
+    // For client portal, use DashboardLayout
+    return (
+      <DashboardLayout
+        title="Custom Ads & Creation"
+        subtitle="Professional ad creation services tailored to your needs"
+      >
+        {content}
+      </DashboardLayout>
+    );
+  } else {
+    // For public access, use DashboardLayout
+    return (
+      <DashboardLayout
+        title="Custom Ads & Creation"
+        subtitle="Professional ad creation services tailored to your needs"
+      >
+        {content}
+      </DashboardLayout>
+    );
+  }
 }
 
 function StripePaySection(props: {

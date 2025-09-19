@@ -20,6 +20,7 @@ export interface Campaign {
   total_spent?: number;
   impressions?: number;
   clicks?: number;
+  max_video_duration?: number;
 }
 
 export interface Kiosk {

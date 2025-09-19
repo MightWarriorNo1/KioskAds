@@ -68,7 +68,7 @@ export default function ProgressSteps({ steps, currentStep }: ProgressStepsProps
       </div>
       
       {/* Desktop Progress - Full Horizontal */}
-      <div className="hidden xl:flex items-center justify-center space-x-6 overflow-x-hidden px-4">
+      <div className="hidden xl:flex items-center justify-center space-x-2 overflow-x-hidden px-4">
         {steps.map((step, index) => (
           <div key={step.number} className="flex items-center flex-shrink-0">
             <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold ${

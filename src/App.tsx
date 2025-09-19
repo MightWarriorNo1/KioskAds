@@ -10,6 +10,8 @@ import CustomAdsPage from './pages/CustomAdsPage';
 import SignIn from './pages/SignIn';
 import SignUp from './pages/SignUp';
 import ContactPage from './pages/ContactPage';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfService from './pages/TermsOfService';
 import AuthCallback from './pages/AuthCallback';
 import ClientPortal from './pages/ClientPortal';
 import HostPortal from './pages/HostPortal';
@@ -30,6 +32,8 @@ function App() {
                 <Route path="/signin" element={<SignIn />} />
                 <Route path="/signup" element={<SignUp />} />
                 <Route path="/contact" element={<ContactPage />} />
+                <Route path="/privacy" element={<PrivacyPolicy />} />
+                <Route path="/terms" element={<TermsOfService />} />
                 <Route path="/custom-ads" element={<CustomAdsPage />} />
                 <Route path="/hosting" element={<HostLanding />} />
                 <Route path="/kiosks" element={<KiosksPage />} />

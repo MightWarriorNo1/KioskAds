@@ -36,11 +36,16 @@ async function mapSupabaseUserToUser(supabaseUser: SupabaseUser, lastKnownRole?:
   const lastKnownRoleLevel = lastKnownRole ? roleHierarchy[lastKnownRole] || 1 : 0;
   const storedRoleLevel = localStorage.getItem('user_role') ? roleHierarchy[localStorage.getItem('user_role') as UserRole] || 1 : 0;
   
-  // Use the highest privilege role available
+  // Use the highest privilege role available - prioritize admin role preservation
   if (lastKnownRoleLevel > currentRoleLevel) {
     role = lastKnownRole;
   } else if (storedRoleLevel > currentRoleLevel) {
     role = localStorage.getItem('user_role') as UserRole;
+  }
+  
+  // Special handling for admin role - never downgrade from admin
+  if (lastKnownRole === 'admin' || localStorage.getItem('user_role') === 'admin') {
+    role = 'admin';
   }
 
   try {
@@ -86,6 +91,11 @@ async function mapSupabaseUserToUser(supabaseUser: SupabaseUser, lastKnownRole?:
       if (storedRole) {
         role = storedRole;
       }
+    }
+    
+    // Final safety check - never downgrade from admin
+    if (lastKnownRole === 'admin' || localStorage.getItem('user_role') === 'admin') {
+      role = 'admin';
     }
   }
 
@@ -149,7 +159,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               console.error('Auth: Profile mapping error during initialization:', profileError);
               // Preserve last known role if available to avoid accidental downgrades
               const preservedRole: UserRole | undefined = lastKnownRole;
-              const fallbackRole: UserRole = preservedRole || (session.user.user_metadata?.role as UserRole) || 'client';
+              let fallbackRole: UserRole = preservedRole || (session.user.user_metadata?.role as UserRole) || 'client';
+              
+              // Never downgrade from admin role
+              if (lastKnownRole === 'admin' || localStorage.getItem('user_role') === 'admin') {
+                fallbackRole = 'admin';
+              }
+              
               const safeUser: User = {
                 id: session.user.id,
                 email: session.user.email ?? '',
@@ -217,7 +233,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.error('Auth: Profile mapping error during auth state change:', profileError);
           // Preserve last known role if available to avoid accidental downgrades
           const preservedRole: UserRole | undefined = lastKnownRole;
-          const fallbackRole: UserRole = preservedRole || (session.user.user_metadata?.role as UserRole) || 'client';
+          let fallbackRole: UserRole = preservedRole || (session.user.user_metadata?.role as UserRole) || 'client';
+          
+          // Never downgrade from admin role
+          if (lastKnownRole === 'admin' || localStorage.getItem('user_role') === 'admin') {
+            fallbackRole = 'admin';
+          }
+          
           const safeUser: User = {
             id: session.user.id,
             email: session.user.email ?? '',

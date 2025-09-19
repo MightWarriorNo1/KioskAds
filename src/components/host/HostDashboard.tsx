@@ -262,7 +262,7 @@ export default function HostDashboard() {
         <ProofOfPlayWidget
           accountId={user?.id}
           compact={true}
-          title="Recent Play Activity"
+          title="Recent Analytics"
           maxRecords={5}
           dateRange={{
             startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],

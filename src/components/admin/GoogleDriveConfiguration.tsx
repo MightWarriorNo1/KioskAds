@@ -18,6 +18,8 @@ export const GoogleDriveConfiguration: React.FC<GoogleDriveConfigurationProps> =
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [kiosks, setKiosks] = useState<Kiosk[]>([]);
   const [folderStatus, setFolderStatus] = useState<any[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<{ success: boolean; message: string; foldersSynced: number } | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -158,6 +160,31 @@ export const GoogleDriveConfiguration: React.FC<GoogleDriveConfigurationProps> =
       is_active: false
     });
     setTestResult(null);
+  };
+
+  const handleSyncAllNow = async () => {
+    try {
+      setIsSyncing(true);
+      setSyncResult(null);
+
+      const result = await GoogleDriveService.syncAllFolders();
+      setSyncResult({
+        success: result.success,
+        message: result.message,
+        foldersSynced: result.foldersSynced
+      });
+
+      // Refresh folder status after sync
+      await loadFolderStatus();
+    } catch (error) {
+      setSyncResult({
+        success: false,
+        message: error instanceof Error ? error.message : 'Sync failed',
+        foldersSynced: 0
+      });
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   if (isLoading && !isEditing) {
@@ -370,6 +397,13 @@ export const GoogleDriveConfiguration: React.FC<GoogleDriveConfigurationProps> =
               >
                 {isLoading ? 'Creating...' : 'Create All Folders'}
               </button>
+              <button
+                onClick={handleSyncAllNow}
+                disabled={isSyncing || !selectedConfig?.is_active}
+                className="px-3 py-1 text-sm text-white bg-purple-600 rounded-md hover:bg-purple-700 transition-colors disabled:opacity-50"
+              >
+                {isSyncing ? 'Syncing...' : 'Sync All Now'}
+              </button>
             </div>
           </div>
 
@@ -409,6 +443,41 @@ export const GoogleDriveConfiguration: React.FC<GoogleDriveConfigurationProps> =
               </div>
             )}
           </div>
+
+          {/* Sync Result Display */}
+          {syncResult && (
+            <div className={`mt-4 p-4 rounded-md ${
+              syncResult.success 
+                ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' 
+                : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+            }`}>
+              <div className="flex">
+                <div className={`h-5 w-5 mr-2 mt-0.5 ${
+                  syncResult.success ? 'text-green-400' : 'text-red-400'
+                }`}>
+                  {syncResult.success ? '✓' : '✗'}
+                </div>
+                <div>
+                  <p className={`text-sm font-medium ${
+                    syncResult.success 
+                      ? 'text-green-800 dark:text-green-200' 
+                      : 'text-red-800 dark:text-red-200'
+                  }`}>
+                    {syncResult.message}
+                  </p>
+                  {syncResult.success && syncResult.foldersSynced > 0 && (
+                    <p className={`text-xs mt-1 ${
+                      syncResult.success 
+                        ? 'text-green-700 dark:text-green-300' 
+                        : 'text-red-700 dark:text-red-300'
+                    }`}>
+                      {syncResult.foldersSynced} folders synced successfully
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -20,7 +20,7 @@ const navigation = [
   { name: 'Dashboard', href: '/host', icon: BarChart3 },
   { name: 'Kiosk Manager', href: '/host/kiosks', icon: MapPin },
   { name: 'Ad Assignment', href: '/host/ads', icon: Calendar },
-  { name: 'Create Campaign', href: '/host/campaigns/new', icon: PlusCircle },
+  { name: 'Create Campaign', href: '/host/new-campaign', icon: PlusCircle },
   { name: 'Revenue Tracker', href: '/host/revenue', icon: DollarSign },
   { name: 'Payout History', href: '/host/payouts', icon: CreditCard },
   { name: 'Proof-of-Play', href: '/host/proof-of-play', icon: FileText },

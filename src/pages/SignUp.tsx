@@ -301,14 +301,32 @@ export default function SignUp() {
             <span>Sign up with Google</span>
           </button>
 
-          <div className="text-center pt-4">
-            <span className="text-sm text-gray-600 dark:text-gray-400">Already have an account? </span>
-            <Link 
-              to="/signin" 
-              className="text-sm font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors duration-200"
-            >
-              Sign in here
-            </Link>
+          <div className="text-center pt-4 space-y-3">
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              By creating an account, you agree to our{' '}
+              <Link 
+                to="/terms" 
+                className="text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors duration-200 underline"
+              >
+                Terms of Service
+              </Link>
+              {' '}and{' '}
+              <Link 
+                to="/privacy" 
+                className="text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors duration-200 underline"
+              >
+                Privacy Policy
+              </Link>
+            </div>
+            <div>
+              <span className="text-sm text-gray-600 dark:text-gray-400">Already have an account? </span>
+              <Link 
+                to="/signin" 
+                className="text-sm font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors duration-200"
+              >
+                Sign in here
+              </Link>
+            </div>
           </div>
       </form>
     </AuthLayout>

@@ -8,10 +8,13 @@ export default function AuthRedirect() {
 
   useEffect(() => {
     if (user) {
+      // Special handling for admin - ensure admin always goes to admin portal
+      if (user.role === 'admin') {
+        navigate('/admin', { replace: true });
+        return;
+      }
+      
       switch (user.role) {
-        case 'admin':
-          navigate('/admin', { replace: true });
-          break;
         case 'host':
           navigate('/host', { replace: true });
           break;

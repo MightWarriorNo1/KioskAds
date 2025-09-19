@@ -1,7 +1,6 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calendar, ChevronLeft, ChevronRight, Clock, DollarSign, CheckCircle, MapPin } from 'lucide-react';
-import DashboardLayout from '../components/layouts/DashboardLayout';
 
 type BookingType = 'weekly' | 'subscription';
 
@@ -18,7 +17,7 @@ function startOfMonth(date: Date) {
 
 function getMonthGrid(date: Date) {
   const first = startOfMonth(date);
-  const startDay = first.getDay(); // 0 Sun .. 6 Sat
+  const startDay = first.getDay();
   const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
   const cells: (Date | null)[] = [];
   for (let i = 0; i < startDay; i++) cells.push(null);
@@ -26,11 +25,11 @@ function getMonthGrid(date: Date) {
   return cells;
 }
 
-export default function SelectWeeksPage() {
+export default function HostSelectWeeksPage() {
   const navigate = useNavigate();
   const location = useLocation() as { state?: any };
   const kiosks = (location.state?.kiosks || []);
-  const kiosk = kiosks[0] || location.state?.kiosk; // backward compatibility
+  const kiosk = kiosks[0] || location.state?.kiosk;
   const weeklyRate = getWeeklyRate(kiosk?.price);
 
   const steps = [
@@ -43,56 +42,46 @@ export default function SelectWeeksPage() {
 
   const [bookingType, setBookingType] = React.useState<BookingType>('weekly');
   const [calendarMonth, setCalendarMonth] = React.useState<Date>(new Date());
-  const [selectedMondays, setSelectedMondays] = React.useState<string[]>([]); // ISO dates
-
-  // Subscription state
+  const [selectedMondays, setSelectedMondays] = React.useState<string[]>([]);
   const [subSlots, setSubSlots] = React.useState<number>(1);
   const [subCommit3mo, setSubCommit3mo] = React.useState<boolean>(false);
   const [subStartMonday, setSubStartMonday] = React.useState<string | null>(null);
 
   const cells = React.useMemo(() => getMonthGrid(calendarMonth), [calendarMonth]);
   const fmt = (d: Date) => d.toISOString().slice(0, 10);
-  
-  // Check if a date is in the past
+
   const isPastDate = (d: Date) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return d < today;
   };
 
-  // Check if a date is blocked due to previous selections (weekly)
   const isDateBlocked = (d: Date) => {
     return selectedMondays.some(selectedDate => {
       const selected = new Date(selectedDate + 'T00:00:00');
       const diffTime = d.getTime() - selected.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
-      // Block 1 week (7 days) from selected date
       return diffDays >= 0 && diffDays <= 7;
     });
   };
 
-  // Check if a date is blocked due to subscription selection (monthly)
   const isSubscriptionDateBlocked = (d: Date) => {
     if (!subStartMonday) return false;
     const selected = new Date(subStartMonday + 'T00:00:00');
     const diffTime = d.getTime() - selected.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    // Block 1 month (30 days) from selected date
     return diffDays >= 0 && diffDays <= 30;
   };
 
   const toggleWeeklyMonday = (d: Date) => {
-    if (isPastDate(d)) return; // Prevent selection of past dates
+    if (isPastDate(d)) return;
     const id = fmt(d);
     setSelectedMondays((prev) => {
       if (prev.includes(id)) {
         return prev.filter(x => x !== id);
       } else {
-        // Check if we're at the 4 weeks max limit
         if (prev.length >= 4) {
-          return prev; // Don't add more weeks if we're at the limit
+          return prev;
         }
         return [...prev, id];
       }
@@ -100,7 +89,7 @@ export default function SelectWeeksPage() {
   };
 
   const selectSubscriptionStart = (d: Date) => {
-    if (isPastDate(d)) return; // Prevent selection of past dates
+    if (isPastDate(d)) return;
     setSubStartMonday(fmt(d));
   };
 
@@ -113,7 +102,6 @@ export default function SelectWeeksPage() {
   const discount = subCommit3mo ? 0.15 : 0;
   const monthlyCostAfterDiscount = monthlyCost * (1 - discount);
 
-  // ---- Weekly summaries under calendar ----
   const toDate = (iso: string) => new Date(iso + 'T00:00:00');
   const addDays = (d: Date, days: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + days);
   const formatRange = (start: Date, end: Date) => {
@@ -123,6 +111,7 @@ export default function SelectWeeksPage() {
     const yearStr = end.getFullYear();
     return `${startStr} - ${endStr}, ${yearStr}`;
   };
+
   const sortedMondays = React.useMemo(() => [...selectedMondays].sort(), [selectedMondays]);
   type Block = { start: Date; end: Date; count: number };
   const blocks: Block[] = React.useMemo(() => {
@@ -151,34 +140,9 @@ export default function SelectWeeksPage() {
   }, [sortedMondays]);
 
   return (
-    <DashboardLayout title="Create New Campaign" subtitle="" showBreadcrumb={false}>
-
-      {/* Steps */}
+    <div>
+      {/* Steps header (desktop) */}
       <div className="mb-6 md:mb-8">
-        {/* Mobile Progress - Vertical Stack */}
-        <div className="block md:hidden">
-          <div className="flex items-center justify-center space-x-2 mb-4">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium shadow-soft ${
-              steps[2].current 
-                ? 'bg-black text-white' 
-                : steps[2].completed
-                ? 'bg-green-600 text-white'
-                : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-            }`}>
-              {steps[2].completed ? '✓' : steps[2].number}
-            </div>
-            <span className={`text-sm font-medium ${
-              steps[2].current ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'
-            }`}>
-              {steps[2].name}
-            </span>
-          </div>
-          <div className="text-center text-xs text-gray-500 dark:text-gray-400">
-            Step 3 of {steps.length}
-          </div>
-        </div>
-        
-        {/* Desktop Progress - Horizontal */}
         <div className="hidden md:flex items-center space-x-4 overflow-x-auto">
           {steps.map((step, index) => (
             <div key={step.number} className="flex items-center flex-shrink-0">
@@ -209,7 +173,7 @@ export default function SelectWeeksPage() {
       {/* Back Navigation */}
       <div className="mb-8">
         <button 
-          onClick={() => navigate('/client/kiosk-selection')} 
+          onClick={() => navigate('/host/kiosk-selection')} 
           className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors shadow-soft"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -231,7 +195,6 @@ export default function SelectWeeksPage() {
           )}
         </div>
 
-        {/* Display all selected kiosks */}
         {kiosks.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
             {kiosks.map((k: any) => (
@@ -255,7 +218,7 @@ export default function SelectWeeksPage() {
             ))}
           </div>
         )}
-        
+
         <div className="rounded border border-gray-200 dark:border-gray-700 p-4 text-sm text-gray-600 dark:text-gray-300 mb-6">
           Weekly Selection — Select up to 4 weeks (Monday to Sunday) for your campaign. All future dates are available for selection.
         </div>
@@ -284,11 +247,6 @@ export default function SelectWeeksPage() {
             <div className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
               Perfect for seasonal campaigns or specific event promotions. Choose exactly which weeks work best for your business.
             </div>
-            {bookingType === 'weekly' && (
-              <div className="absolute top-3 right-3 md:top-4 md:right-4 w-5 h-5 md:w-6 md:h-6 bg-blue-500 rounded-full flex items-center justify-center">
-                <CheckCircle className="h-3 w-3 md:h-4 md:w-4 text-white" />
-              </div>
-            )}
           </button>
           
           <button 
@@ -314,11 +272,6 @@ export default function SelectWeeksPage() {
             <div className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
               Get consistent exposure with reserved slots. Save 15% with 3-month commitment and never worry about availability.
             </div>
-            {bookingType === 'subscription' && (
-              <div className="absolute top-3 right-3 md:top-4 md:right-4 w-5 h-5 md:w-6 md:h-6 bg-blue-500 rounded-full flex items-center justify-center">
-                <CheckCircle className="h-3 w-3 md:h-4 md:w-4 text-white" />
-              </div>
-            )}
           </button>
         </div>
 
@@ -349,7 +302,6 @@ export default function SelectWeeksPage() {
                   </button>
                 </div>
               </div>
-              
               <div className="grid grid-cols-7 gap-1 md:gap-2 text-xs md:text-sm font-semibold text-center text-gray-600 dark:text-gray-400 mb-3 md:mb-4">
                 {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => <div key={d} className="py-1 md:py-2">{d}</div>)}
               </div>
@@ -373,88 +325,7 @@ export default function SelectWeeksPage() {
                   </button>
                 ) : <div key={i} />)}
               </div>
-              
-              <div className="flex flex-wrap items-center justify-center gap-3 md:gap-6 text-xs md:text-sm text-gray-600 dark:text-gray-300 mt-4 md:mt-6 pt-3 md:pt-4 border-t border-gray-200 dark:border-gray-700">
-                <div className="flex items-center space-x-2">
-                  <span className="inline-block w-3 h-3 md:w-4 md:h-4 bg-white dark:bg-gray-800 rounded border"/>
-                  <span>Available Dates</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="inline-block w-3 h-3 md:w-4 md:h-4 bg-blue-500 rounded"/>
-                  <span>Selected Weeks</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="inline-block w-3 h-3 md:w-4 md:h-4 bg-red-100 dark:bg-red-900/20 rounded border"/>
-                  <span>Blocked (1 week)</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="inline-block w-3 h-3 md:w-4 md:h-4 bg-gray-100 dark:bg-gray-800 rounded border"/>
-                  <span>Past Dates</span>
-                </div>
-              </div>
             </div>
-
-            {/* Selected Weeks & Campaign Blocks */}
-            {selectedMondays.length > 0 ? (
-              <div className="mt-6 space-y-4">
-                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-xl p-4 mb-6">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                      <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="font-semibold text-green-800 dark:text-green-200">Weeks Selected</div>
-                      <div className="text-sm text-green-600 dark:text-green-400">
-                        You have selected {selectedMondays.length} week{selectedMondays.length > 1 ? 's' : ''} for your campaign
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-medium text-green-800 dark:text-green-200">
-                        {selectedMondays.length}/4 weeks
-                      </div>
-                      <div className="text-xs text-green-600 dark:text-green-400">Maximum</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow-soft">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="font-semibold text-gray-900 dark:text-white">Selected Weeks</div>
-                    <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800">{selectedMondays.length} week{selectedMondays.length > 1 ? 's' : ''} selected</span>
-                  </div>
-                  {sortedMondays.map((iso, idx) => {
-                    const start = toDate(iso);
-                    const end = addDays(start, 6);
-                    return (
-                      <div key={iso} className="text-sm text-gray-800 dark:text-gray-200">
-                        Week {idx + 1}: {formatRange(start, end)}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow-soft">
-                  <div className="font-semibold text-gray-900 dark:text-white mb-2">Campaign Blocks</div>
-                  <div className="space-y-3">
-                    {blocks.map((b, i) => (
-                      <div key={i} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-white dark:bg-gray-800">
-                        <div className="font-medium text-gray-900 dark:text-white">Campaign {i+1}:</div>
-                        <div className="text-sm text-gray-800 dark:text-gray-200">{formatRange(b.start, b.end)}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{b.count} consecutive {b.count === 1 ? 'week' : 'weeks'}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="mt-6 text-center py-8">
-                <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Calendar className="h-8 w-8 text-gray-400" />
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No weeks selected yet</h3>
-                <p className="text-gray-600 dark:text-gray-300">Click on the available Mondays above to select weeks for your campaign.</p>
-              </div>
-            )}
           </div>
         )}
 
@@ -462,7 +333,7 @@ export default function SelectWeeksPage() {
         {bookingType === 'subscription' && (
           <div>
             <div className="mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center space-x-2">
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center space-x-2">
                 <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 <span>Subscription Configuration</span>
               </h3>
@@ -550,74 +421,54 @@ export default function SelectWeeksPage() {
               Subscription Selection — Select any future date to start your subscription. The next 30 days will be blocked to prevent conflicts.
             </div>
 
-                         <div className="mb-3 text-sm font-semibold flex items-center space-x-2">
-               <Calendar className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-               <span>Select Start Date</span>
-             </div>
-             <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 bg-gray-50 dark:bg-gray-900/50 max-w-2xl shadow-soft">
-               <div className="flex items-center justify-between mb-4">
-                 <div className="text-lg font-semibold text-gray-900 dark:text-white">
-                   {calendarMonth.toLocaleString(undefined, { month: 'long', year: 'numeric' })}
-                 </div>
-                 <div className="flex items-center space-x-3">
-                   <button 
-                     onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth()-1, 1))} 
-                     className="w-10 h-10 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 flex items-center justify-center shadow-soft"
-                   >
-                     <ChevronLeft className="h-5 w-5" />
-                   </button>
-                   <button 
-                     onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth()+1, 1))} 
-                     className="w-10 h-10 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 flex items-center justify-center shadow-soft"
-                   >
-                     <ChevronRight className="h-5 w-5" />
-                   </button>
-                 </div>
-               </div>
-               
-               <div className="grid grid-cols-7 gap-2 text-sm font-semibold text-center text-gray-600 dark:text-gray-400 mb-4">
-                 {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => <div key={d} className="py-2">{d}</div>)}
-               </div>
-               <div className="grid grid-cols-7 gap-2">
-                 {cells.map((c, i) => c ? (
-                   <button
-                     key={i}
-                     disabled={isPastDate(c) || isSubscriptionDateBlocked(c)}
-                     onClick={() => !isPastDate(c) && !isSubscriptionDateBlocked(c) && selectSubscriptionStart(c)}
-                     className={`h-12 text-sm rounded-xl font-medium transition-all duration-200 ${
-                       isPastDate(c)
-                         ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed bg-gray-100 dark:bg-gray-800'
-                         : isSubscriptionDateBlocked(c)
-                         ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed bg-red-100 dark:bg-red-900/20'
-                         : subStartMonday === fmt(c) 
-                           ? 'bg-blue-500 text-white shadow-lg scale-105 ring-2 ring-blue-200 dark:ring-blue-800' 
-                           : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 border border-transparent'
-                     }`}
-                   >
-                     {c.getDate()}
-                   </button>
-                 ) : <div key={i} />)}
-               </div>
-               
-               <div className="flex items-center justify-center space-x-6 text-sm text-gray-600 dark:text-gray-300 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                 <div className="flex items-center space-x-2">
-                   <span className="inline-block w-4 h-4 bg-white dark:bg-gray-800 rounded border"/>
-                   <span>Available Dates</span>
-                 </div>
-                 <div className="flex items-center space-x-2">
-                   <span className="inline-block w-4 h-4 bg-blue-500 rounded"/>
-                   <span>Selected Start</span>
-                 </div>
-                 <div className="flex items-center space-x-2">
-                   <span className="inline-block w-4 h-4 bg-red-100 dark:bg-red-900/20 rounded border"/>
-                   <span>Blocked (1 month)</span>
-                 </div>
-                 <div className="flex items-center space-x-2">
-                   <span className="inline-block w-4 h-4 bg-gray-100 dark:bg-gray-800 rounded border"/>
-                   <span>Past Dates</span>
-                 </div>
-               </div>
-             </div>
+            <div className="mb-3 text-sm font-semibold flex items-center space-x-2">
+              <Calendar className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <span>Select Start Date</span>
+            </div>
+            <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 bg-gray-50 dark:bg-gray-900/50 max-w-2xl shadow-soft">
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {calendarMonth.toLocaleString(undefined, { month: 'long', year: 'numeric' })}
+                </div>
+                <div className="flex items-center space-x-3">
+                  <button 
+                    onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth()-1, 1))} 
+                    className="w-10 h-10 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 flex items-center justify-center shadow-soft"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <button 
+                    onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth()+1, 1))} 
+                    className="w-10 h-10 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 flex items-center justify-center shadow-soft"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-7 gap-2 text-sm font-semibold text-center text-gray-600 dark:text-gray-400 mb-4">
+                {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => <div key={d} className="py-2">{d}</div>)}
+              </div>
+              <div className="grid grid-cols-7 gap-2">
+                {cells.map((c, i) => c ? (
+                  <button
+                    key={i}
+                    disabled={isPastDate(c) || isSubscriptionDateBlocked(c)}
+                    onClick={() => !isPastDate(c) && !isSubscriptionDateBlocked(c) && selectSubscriptionStart(c)}
+                    className={`h-12 text-sm rounded-xl font-medium transition-all duration-200 ${
+                      isPastDate(c)
+                        ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed bg-gray-100 dark:bg-gray-800'
+                        : isSubscriptionDateBlocked(c)
+                        ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed bg-red-100 dark:bg-red-900/20'
+                        : subStartMonday === fmt(c) 
+                          ? 'bg-blue-500 text-white shadow-lg scale-105 ring-2 ring-blue-200 dark:ring-blue-800' 
+                          : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 border border-transparent'
+                    }`}
+                  >
+                    {c.getDate()}
+                  </button>
+                ) : <div key={i} />)}
+              </div>
+            </div>
 
             {subStartMonday && (
               <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-xl p-4 mb-6">
@@ -642,7 +493,6 @@ export default function SelectWeeksPage() {
             onClick={() => {
               if (canContinue) {
                 let campaignData;
-                
                 if (bookingType === 'weekly') {
                   campaignData = {
                     kiosks: kiosks.length ? kiosks : kiosk ? [kiosk] : [],
@@ -656,7 +506,6 @@ export default function SelectWeeksPage() {
                     baseRate: weeklyRate
                   };
                 } else {
-                  // Subscription case
                   campaignData = {
                     kiosks: kiosks.length ? kiosks : kiosk ? [kiosk] : [],
                     kiosk: kiosk,
@@ -669,8 +518,7 @@ export default function SelectWeeksPage() {
                     baseRate: weeklyRate
                   };
                 }
-                
-                navigate('/client/add-media-duration', { state: campaignData });
+                navigate('/host/add-media-duration', { state: campaignData });
               }
             }}
             disabled={!canContinue} 
@@ -683,8 +531,6 @@ export default function SelectWeeksPage() {
             {canContinue ? (
               <div className="flex items-center space-x-2 md:space-x-3">
                 <span className="hidden md:inline">Continue to Ad Duration & Media</span>
-                <span className="md:hidden">Continue</span>
-                <ArrowLeft className="h-4 w-4 md:h-5 md:w-5 transform rotate-180 group-hover:translate-x-1 transition-transform" />
               </div>
             ) : (
               <span className="text-xs md:text-base">Select up to 4 weeks to continue</span>
@@ -692,6 +538,8 @@ export default function SelectWeeksPage() {
           </button>
         </div>
       </div>
-    </DashboardLayout>
+    </div>
   );
 }
+
+

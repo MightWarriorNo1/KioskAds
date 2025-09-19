@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Monitor, MapPin, Wifi, WifiOff, Settings, Search, Download, Upload, RefreshCw, FileText, X, Folder } from 'lucide-react';
+import { Monitor, MapPin, Wifi, WifiOff, Settings, Search, Download, Upload, RefreshCw, FileText, X, Folder, User, UserPlus, UserMinus } from 'lucide-react';
 import { useNotification } from '../../contexts/NotificationContext';
 import { AdminService } from '../../services/adminService';
 import { supabase } from '../../lib/supabaseClient';
@@ -24,12 +24,34 @@ interface Kiosk {
   description?: string;
   created_at: string;
   updated_at: string;
+  host_assignments?: Array<{
+    id: string;
+    host_id: string;
+    status: 'active' | 'inactive' | 'suspended';
+    commission_rate: number;
+    assigned_at: string;
+    host: {
+      id: string;
+      full_name: string;
+      email: string;
+      company_name?: string;
+    };
+  }>;
+}
+
+interface Host {
+  id: string;
+  full_name: string;
+  email: string;
+  company_name?: string;
+  role: string;
 }
 
 export default function KioskManagement() {
   const { addNotification } = useNotification();
   const navigate = useNavigate();
   const [kiosks, setKiosks] = useState<Kiosk[]>([]);
+  const [hosts, setHosts] = useState<Host[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -39,29 +61,41 @@ export default function KioskManagement() {
   const [importing, setImporting] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedKiosk, setSelectedKiosk] = useState<Kiosk | null>(null);
   const [savingSettings, setSavingSettings] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Kiosk>>({});
+  const [assignForm, setAssignForm] = useState({
+    kioskId: '',
+    hostId: '',
+    commissionRate: 70.00
+  });
 
   useEffect(() => {
     loadKiosks();
+    loadHosts();
   }, []);
 
   const loadKiosks = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('kiosks')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      const data = await AdminService.getKiosksWithHosts();
       setKiosks(data || []);
     } catch (error) {
       console.error('Error loading kiosks:', error);
       addNotification('error', 'Error', 'Failed to load kiosks');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadHosts = async () => {
+    try {
+      const data = await AdminService.getAllHosts();
+      setHosts(data || []);
+    } catch (error) {
+      console.error('Error loading hosts:', error);
+      addNotification('error', 'Error', 'Failed to load hosts');
     }
   };
 
@@ -119,6 +153,56 @@ export default function KioskManagement() {
     });
     setShowSettingsModal(true);
   };
+
+  const handleShowAssign = (kiosk: Kiosk) => {
+    setSelectedKiosk(kiosk);
+    setAssignForm({
+      kioskId: kiosk.id,
+      hostId: '',
+      commissionRate: 70.00
+    });
+    setShowAssignModal(true);
+  };
+
+  const handleAssignHost = async () => {
+    if (!assignForm.kioskId || !assignForm.hostId) {
+      addNotification('error', 'Validation Error', 'Please select both a kiosk and a host');
+      return;
+    }
+
+    try {
+      await AdminService.assignKioskToHost(
+        assignForm.kioskId,
+        assignForm.hostId,
+        assignForm.commissionRate
+      );
+      
+      addNotification('success', 'Host Assignment Complete', 'Kiosk successfully assigned to host user');
+      setShowAssignModal(false);
+      setSelectedKiosk(null);
+      setAssignForm({
+        kioskId: '',
+        hostId: '',
+        commissionRate: 70.00
+      });
+      await loadKiosks();
+    } catch (error) {
+      console.error('Error assigning kiosk to host:', error);
+      addNotification('error', 'Host Assignment Failed', 'Failed to assign kiosk to host user');
+    }
+  };
+
+  const handleUnassignHost = async (assignmentId: string) => {
+    try {
+      await AdminService.unassignKioskFromHost(assignmentId);
+      addNotification('success', 'Host Unassignment Complete', 'Kiosk unassigned from host user successfully');
+      await loadKiosks();
+    } catch (error) {
+      console.error('Error unassigning kiosk from host:', error);
+      addNotification('error', 'Host Unassignment Failed', 'Failed to unassign kiosk from host user');
+    }
+  };
+
 
   const handleSaveSettings = async () => {
     if (!selectedKiosk) return;
@@ -278,7 +362,7 @@ export default function KioskManagement() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Kiosk Management</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">Manage kiosk locations with CSV import/export functionality</p>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">Assign kiosks to host users for ad management and revenue tracking</p>
         </div>
         <div className="flex space-x-3">
           <button
@@ -288,6 +372,13 @@ export default function KioskManagement() {
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
+          </button>
+          <button
+            onClick={() => setShowAssignModal(true)}
+            className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            <UserPlus className="h-4 w-4" />
+            <span>Assign Kiosk to Host</span>
           </button>
           <button
             onClick={exportKiosks}
@@ -434,6 +525,9 @@ export default function KioskManagement() {
                     Pricing
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Host
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -474,12 +568,44 @@ export default function KioskManagement() {
                         <div className="text-sm text-gray-500 dark:text-gray-400">Base: ${kiosk.base_rate.toFixed(2)}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
+                        {kiosk.host_assignments && kiosk.host_assignments.length > 0 ? (
+                          <div className="space-y-1">
+                            {kiosk.host_assignments.map((assignment) => (
+                              <div key={assignment.id} className="flex items-center space-x-2">
+                                <div className="flex items-center space-x-1">
+                                  <User className="h-3 w-3 text-gray-400" />
+                                  <span className="text-sm text-gray-900 dark:text-white">
+                                    {assignment.host.full_name}
+                                  </span>
+                                </div>
+                                <button
+                                  onClick={() => handleUnassignHost(assignment.id)}
+                                  className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                                  title="Unassign host"
+                                >
+                                  <UserMinus className="h-3 w-3" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-sm text-gray-500 dark:text-gray-400">No host assigned</div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(kiosk.status)}`}>
                           {kiosk.status}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex space-x-2">
+                          <button 
+                            onClick={() => handleShowAssign(kiosk)}
+                            className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
+                            title="Assign Kiosk to Host User"
+                          >
+                            <UserPlus className="h-4 w-4" />
+                          </button>
                           <button 
                             onClick={() => handleAssignFolders(kiosk.id)}
                             className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300"
@@ -681,6 +807,94 @@ export default function KioskManagement() {
                 {savingSettings && <RefreshCw className="h-4 w-4 animate-spin" />}
                 <span>{savingSettings ? 'Saving...' : 'Save'}</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Host Assignment Modal */}
+      {showAssignModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Assign Kiosk to Host</h3>
+              <button onClick={() => { setShowAssignModal(false); setSelectedKiosk(null); setAssignForm({kioskId: '', hostId: '', commissionRate: 70.00}); }} className="text-gray-400 hover:text-gray-600">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Select Kiosk</label>
+                <select
+                  value={assignForm.kioskId}
+                  onChange={(e) => setAssignForm(f => ({ ...f, kioskId: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                >
+                  <option value="">Select a kiosk...</option>
+                  {kiosks.map(kiosk => (
+                    <option key={kiosk.id} value={kiosk.id}>
+                      {kiosk.name} - {kiosk.location}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Select Host</label>
+                <select
+                  value={assignForm.hostId}
+                  onChange={(e) => setAssignForm(f => ({ ...f, hostId: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                >
+                  <option value="">Select a host...</option>
+                  {hosts.map(host => (
+                    <option key={host.id} value={host.id}>
+                      {host.full_name} ({host.email})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Commission Rate (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={assignForm.commissionRate}
+                  onChange={(e) => setAssignForm(f => ({ ...f, commissionRate: Number(e.target.value) }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+              <div className="bg-blue-50 dark:bg-gray-800 border border-blue-200 rounded-lg p-4">
+                <h4 className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-2">Commission Information</h4>
+                <p className="text-xs text-blue-800 dark:text-blue-300">
+                  The host will receive {assignForm.commissionRate.toFixed(2)}% of the revenue generated from this kiosk. 
+                  The platform will keep the remaining {(100 - assignForm.commissionRate).toFixed(2)}%.
+                </p>
+              </div>
+              <div className="bg-yellow-50 dark:bg-gray-800 border border-yellow-200 rounded-lg p-4">
+                <h4 className="text-sm font-medium text-yellow-900 dark:text-yellow-300 mb-2">Note</h4>
+                <p className="text-xs text-yellow-800 dark:text-yellow-300">
+                  If no host is assigned, the admin will be the default host for this kiosk. 
+                  Hosts can only manage ads and view revenue for their assigned kiosks.
+                </p>
+              </div>
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => { setShowAssignModal(false); setSelectedKiosk(null); }}
+                  className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-500 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAssignHost}
+                  disabled={!assignForm.kioskId || !assignForm.hostId}
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  <span>Assign to Host</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

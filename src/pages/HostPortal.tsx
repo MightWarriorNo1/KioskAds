@@ -7,8 +7,13 @@ import AdAssignment from '../components/host/AdAssignment';
 import AdUpload from '../components/host/AdUpload';
 import RevenueTracker from '../components/host/RevenueTracker';
 import PayoutHistory from '../components/host/PayoutHistory';
-import HostProofOfPlay from '../components/host/ProofOfPlay';
-import CreateCampaign from '../components/host/CreateCampaign';
+import HostAnalytics from '../components/host/HostAnalytics';
+import { Navigate } from 'react-router-dom';
+import HostNewCampaignPage from './host/NewCampaignPage';
+import HostKioskSelectionPage from './host/KioskSelectionPage';
+import HostSelectWeeksPage from './host/SelectWeeksPage';
+import HostAddMediaDurationPage from './host/AddMediaDurationPage';
+import HostReviewSubmitPage from './host/ReviewSubmitPage';
 import CustomAdsPage from './CustomAdsPage';
 
 export default function HostPortal() {
@@ -19,10 +24,15 @@ export default function HostPortal() {
         <Route path="/kiosks" element={<KioskManager />} />
         <Route path="/ads" element={<AdAssignment />} />
         <Route path="/ads/upload" element={<AdUpload />} />
-        <Route path="/campaigns/new" element={<CreateCampaign />} />
+        <Route path="/campaigns/new" element={<Navigate to="/host/new-campaign" replace />} />
+        <Route path="/new-campaign" element={<HostNewCampaignPage />} />
+        <Route path="/kiosk-selection" element={<HostKioskSelectionPage />} />
+        <Route path="/select-weeks" element={<HostSelectWeeksPage />} />
+        <Route path="/add-media-duration" element={<HostAddMediaDurationPage />} />
+        <Route path="/review-submit" element={<HostReviewSubmitPage />} />
         <Route path="/revenue" element={<RevenueTracker />} />
         <Route path="/payouts" element={<PayoutHistory />} />
-        <Route path="/proof-of-play" element={<HostProofOfPlay />} />
+        <Route path="/analytics" element={<HostAnalytics />} />
         <Route path="/custom-ads" element={<CustomAdsPage />} />
       </Routes>
     </HostLayout>

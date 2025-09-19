@@ -382,3 +382,147 @@ html {
 .badge-info {
   @apply bg-blue-100 text-blue-800;
 }
+
+/* Scrollbar utilities */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* Internet Explorer 10+ */
+  scrollbar-width: none;  /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar { 
+  display: none;  /* Safari and Chrome */
+}
+
+/* Custom scrollbar for system settings */
+.scrollbar-custom {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+.scrollbar-custom::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scrollbar-custom::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.scrollbar-custom::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+  border: 2px solid #f1f5f9;
+}
+
+.scrollbar-custom::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Dark mode scrollbar */
+.dark .scrollbar-custom {
+  scrollbar-color: #475569 #1e293b;
+}
+
+.dark .scrollbar-custom::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+.dark .scrollbar-custom::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-color: #1e293b;
+}
+
+.dark .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Smooth scrolling */
+.smooth-scroll {
+  scroll-behavior: smooth;
+}
+
+/* Scroll shadows */
+.scroll-container {
+  position: relative;
+}
+
+.scroll-container::before,
+.scroll-container::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 20px;
+  pointer-events: none;
+  z-index: 10;
+  transition: opacity 0.3s ease;
+}
+
+.scroll-container::before {
+  top: 0;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.8), transparent);
+}
+
+.scroll-container::after {
+  bottom: 0;
+  background: linear-gradient(to top, rgba(255, 255, 255, 0.8), transparent);
+}
+
+.dark .scroll-container::before {
+  background: linear-gradient(to bottom, rgba(15, 23, 42, 0.8), transparent);
+}
+
+.dark .scroll-container::after {
+  background: linear-gradient(to top, rgba(15, 23, 42, 0.8), transparent);
+}
+
+/* Scroll fade effects */
+.scroll-fade-top {
+  mask-image: linear-gradient(to bottom, transparent, black 20px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, black 20px);
+}
+
+.scroll-fade-bottom {
+  mask-image: linear-gradient(to top, transparent, black 20px);
+  -webkit-mask-image: linear-gradient(to top, transparent, black 20px);
+}
+
+/* Tab scroll fade effects */
+.tabs-scroll-fade-left {
+  position: relative;
+}
+
+.tabs-scroll-fade-left::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 20px;
+  background: linear-gradient(to right, rgba(255, 255, 255, 1), transparent);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.dark .tabs-scroll-fade-left::before {
+  background: linear-gradient(to right, rgba(31, 41, 55, 1), transparent);
+}
+
+.tabs-scroll-fade-right {
+  position: relative;
+}
+
+.tabs-scroll-fade-right::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 20px;
+  background: linear-gradient(to left, rgba(255, 255, 255, 1), transparent);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.dark .tabs-scroll-fade-right::after {
+  background: linear-gradient(to left, rgba(31, 41, 55, 1), transparent);
+}

@@ -72,7 +72,9 @@ export default function CampaignDetailsPage() {
 
     try {
       setUploading(true);
-      const validation = await validateFile(file);
+      const validation = await validateFile(file, {
+        maxVideoDuration: campaign.max_video_duration ?? 15
+      });
       if (!validation.isValid) {
         throw new Error(validation.errors.join(', '));
       }

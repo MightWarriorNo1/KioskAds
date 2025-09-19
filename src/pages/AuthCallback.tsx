@@ -14,6 +14,13 @@ export default function AuthCallback() {
       if (user) {
         // Fetch role from profiles table (same logic as AuthContext)
         let role: 'client' | 'host' | 'admin' = (user.user_metadata?.role as 'client' | 'host' | 'admin') || 'client';
+        
+        // Check localStorage for admin role preservation
+        const storedRole = localStorage.getItem('user_role') as 'client' | 'host' | 'admin';
+        if (storedRole === 'admin') {
+          role = 'admin';
+        }
+        
         try {
           const { data: profile, error } = await supabase
             .from('profiles')
@@ -26,6 +33,11 @@ export default function AuthCallback() {
         } catch (_e) {
           // Keep the metadata role if profile lookup fails - don't downgrade to 'client'
           console.warn('Profile lookup failed in AuthCallback, using metadata role:', role);
+        }
+        
+        // Final safety check - never downgrade from admin
+        if (storedRole === 'admin') {
+          role = 'admin';
         }
 
         switch (role) {

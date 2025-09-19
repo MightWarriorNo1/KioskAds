@@ -183,6 +183,7 @@ export interface AdminCampaignItem {
   total_slots?: number;
   impressions?: number;
   clicks?: number;
+  max_video_duration?: number;
   user: {
     id: string;
     full_name: string;
@@ -204,6 +205,246 @@ export interface SystemSetting {
 }
 
 export class AdminService {
+  // Admin Analytics Methods
+  // Returns metrics for admin analytics dashboard used by src/components/admin/Analytics.tsx
+  static async getAnalyticsData(
+    dateRange: { start: string; end: string },
+    userType: 'all' | 'client' | 'host' = 'all'
+  ): Promise<{
+    totalPlays: number;
+    totalImpressions: number;
+    totalUsers: number;
+    totalKiosks: number;
+    playsGrowth: number;
+    impressionsGrowth: number;
+    averagePlayDuration: number;
+    topPerformingKiosks: Array<{
+      kioskId: string;
+      kioskName: string;
+      location: string;
+      plays: number;
+      impressions: number;
+    }>;
+    topPerformingUsers: Array<{
+      userId: string;
+      userName: string;
+      userType: 'client' | 'host';
+      plays: number;
+      impressions: number;
+    }>;
+    playsByDay: Array<{ date: string; plays: number; impressions: number }>;
+    playsByUserType: Array<{
+      userType: 'client' | 'host';
+      plays: number;
+      impressions: number;
+    }>;
+  }> {
+    try {
+      const startIso = new Date(dateRange.start).toISOString();
+      const endIso = new Date(dateRange.end).toISOString();
+
+      // 1) Pull analytics events within range
+      let eventsQuery = supabase
+        .from('analytics_events')
+        .select('campaign_id, event_type, timestamp')
+        .gte('timestamp', startIso)
+        .lte('timestamp', endIso);
+
+      const { data: events, error: eventsError } = await eventsQuery;
+      if (eventsError) throw eventsError;
+
+      const campaignIds = [...new Set((events || []).map((e: any) => e.campaign_id).filter(Boolean))];
+
+      // 2) Load related campaigns and their owners
+      const { data: campaigns, error: campaignsError } = campaignIds.length > 0
+        ? await supabase
+            .from('campaigns')
+            .select('id, name, user_id')
+            .in('id', campaignIds)
+        : { data: [], error: null } as any;
+      if (campaignsError) throw campaignsError;
+
+      const userIds = [...new Set((campaigns || []).map((c: any) => c.user_id).filter(Boolean))];
+      const { data: profiles, error: profilesError } = userIds.length > 0
+        ? await supabase
+            .from('profiles')
+            .select('id, full_name, role')
+            .in('id', userIds)
+        : { data: [], error: null } as any;
+      if (profilesError) throw profilesError;
+
+      const profileById = new Map((profiles || []).map((p: any) => [p.id, p]));
+      const campaignById = new Map((campaigns || []).map((c: any) => [c.id, c]));
+
+      // Optional filter by userType
+      const filteredEvents = (events || []).filter((e: any) => {
+        if (userType === 'all') return true;
+        const campaign = campaignById.get(e.campaign_id);
+        if (!campaign) return false;
+        const owner = profileById.get(campaign.user_id);
+        return owner?.role === userType;
+      });
+
+      // 3) Aggregate totals
+      let totalPlays = 0;
+      let totalImpressions = 0;
+      const playsByDayMap = new Map<string, { plays: number; impressions: number }>();
+
+      filteredEvents.forEach((e: any) => {
+        const day = new Date(e.timestamp).toISOString().split('T')[0];
+        const current = playsByDayMap.get(day) || { plays: 0, impressions: 0 };
+        if (e.event_type === 'play') {
+          totalPlays += 1;
+          current.plays += 1;
+        } else if (e.event_type === 'impression') {
+          totalImpressions += 1;
+          current.impressions += 1;
+        }
+        playsByDayMap.set(day, current);
+      });
+
+      const playsByDay = Array.from(playsByDayMap.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([date, v]) => ({ date, plays: v.plays, impressions: v.impressions }));
+
+      // 4) Compute growth vs previous period
+      const rangeMs = new Date(endIso).getTime() - new Date(startIso).getTime();
+      const prevStart = new Date(new Date(startIso).getTime() - rangeMs).toISOString();
+      const prevEnd = new Date(new Date(endIso).getTime() - rangeMs).toISOString();
+
+      const { data: prevEvents } = await supabase
+        .from('analytics_events')
+        .select('campaign_id, event_type, timestamp')
+        .gte('timestamp', prevStart)
+        .lte('timestamp', prevEnd);
+
+      let prevPlays = 0;
+      let prevImpressions = 0;
+      (prevEvents || []).forEach((e: any) => {
+        if (e.event_type === 'play') prevPlays += 1;
+        if (e.event_type === 'impression') prevImpressions += 1;
+      });
+
+      const playsGrowth = prevPlays > 0 ? ((totalPlays - prevPlays) / prevPlays) * 100 : 0;
+      const impressionsGrowth = prevImpressions > 0 ? ((totalImpressions - prevImpressions) / prevImpressions) * 100 : 0;
+
+      // 5) Average play duration (approximate): completions imply ~15s average
+      const completions = filteredEvents.filter((e: any) => e.event_type === 'complete').length;
+      const averagePlayDuration = totalPlays > 0 ? (completions / totalPlays) * 15 : 0;
+
+      // 6) Top performing users by role
+      const userAgg = new Map<string, { userId: string; userName: string; userType: 'client' | 'host'; plays: number; impressions: number }>();
+      filteredEvents.forEach((e: any) => {
+        const campaign = campaignById.get(e.campaign_id);
+        if (!campaign) return;
+        const owner = profileById.get(campaign.user_id);
+        if (!owner) return;
+        // Only client/host categorized
+        const ownerRole = owner.role === 'host' ? 'host' : 'client';
+        const current = userAgg.get(owner.id) || {
+          userId: owner.id,
+          userName: owner.full_name || 'Unknown',
+          userType: ownerRole,
+          plays: 0,
+          impressions: 0
+        };
+        if (e.event_type === 'play') current.plays += 1;
+        if (e.event_type === 'impression') current.impressions += 1;
+        userAgg.set(owner.id, current);
+      });
+
+      const topPerformingUsers = Array.from(userAgg.values())
+        .sort((a, b) => (b.plays + b.impressions) - (a.plays + a.impressions))
+        .slice(0, 10);
+
+      // 7) Plays by user type
+      const playsByUserTypeMap = new Map<'client' | 'host', { plays: number; impressions: number }>([
+        ['client', { plays: 0, impressions: 0 }],
+        ['host', { plays: 0, impressions: 0 }]
+      ]);
+      topPerformingUsers.forEach(u => {
+        const agg = playsByUserTypeMap.get(u.userType)!;
+        agg.plays += u.plays;
+        agg.impressions += u.impressions;
+      });
+      const playsByUserType = Array.from(playsByUserTypeMap.entries()).map(([userTypeKey, v]) => ({
+        userType: userTypeKey,
+        plays: v.plays,
+        impressions: v.impressions
+      }));
+
+      // 8) Top performing kiosks - map campaigns to kiosks via kiosk_campaigns
+      const kiosksByCampaign = await this.getKiosksByCampaignIds(campaignIds);
+      const kioskAgg = new Map<string, { kioskId: string; kioskName: string; location: string; plays: number; impressions: number }>();
+      filteredEvents.forEach((e: any) => {
+        const kiosks = kiosksByCampaign[e.campaign_id] || [];
+        kiosks.forEach((k: any) => {
+          const current = kioskAgg.get(k.id) || {
+            kioskId: k.id,
+            kioskName: k.name || 'Kiosk',
+            location: k.location || [k.city, k.state].filter(Boolean).join(', '),
+            plays: 0,
+            impressions: 0
+          };
+          if (e.event_type === 'play') current.plays += 1;
+          if (e.event_type === 'impression') current.impressions += 1;
+          kioskAgg.set(k.id, current);
+        });
+      });
+      const topPerformingKiosks = Array.from(kioskAgg.values())
+        .sort((a, b) => (b.plays + b.impressions) - (a.plays + a.impressions))
+        .slice(0, 10);
+
+      // 9) Totals independent of events
+      const [usersCountRes, kiosksCountRes] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('id', { count: 'exact', head: true })
+          .maybeSingle()
+          .eq('role', userType === 'all' ? undefined as any : userType),
+        supabase
+          .from('kiosks')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'active')
+          .maybeSingle()
+      ]);
+
+      const totalUsers = (usersCountRes as any)?.count || 0;
+      const totalKiosks = (kiosksCountRes as any)?.count || 0;
+
+      return {
+        totalPlays,
+        totalImpressions,
+        totalUsers,
+        totalKiosks,
+        playsGrowth,
+        impressionsGrowth,
+        averagePlayDuration,
+        topPerformingKiosks,
+        topPerformingUsers,
+        playsByDay,
+        playsByUserType
+      };
+    } catch (error) {
+      console.error('Error building admin analytics data:', error);
+      return {
+        totalPlays: 0,
+        totalImpressions: 0,
+        totalUsers: 0,
+        totalKiosks: 0,
+        playsGrowth: 0,
+        impressionsGrowth: 0,
+        averagePlayDuration: 0,
+        topPerformingKiosks: [],
+        topPerformingUsers: [],
+        playsByDay: [],
+        playsByUserType: [
+          { userType: 'client', plays: 0, impressions: 0 },
+          { userType: 'host', plays: 0, impressions: 0 }
+        ]
+      };
+    }
+  }
   // Get admin dashboard metrics
   static async getDashboardMetrics(): Promise<AdminMetrics> {
     try {
@@ -361,6 +602,7 @@ export class AdminService {
           total_slots: c.total_slots != null ? Number(c.total_slots) : undefined,
           impressions: c.impressions != null ? Number(c.impressions) : undefined,
           clicks: c.clicks != null ? Number(c.clicks) : undefined,
+          max_video_duration: c.max_video_duration != null ? Number(c.max_video_duration) : undefined,
           user: user
             ? {
                 id: user.id,
@@ -1153,6 +1395,51 @@ export class AdminService {
     }
   }
 
+  // Get recent admin activity
+  static async getRecentAdminActivity(limit: number = 10): Promise<Array<{ action: string; time: string; type: 'success' | 'info' | 'warning' | 'error'; }>> {
+    try {
+      const { data, error } = await supabase
+        .from('admin_audit_log')
+        .select(`
+          action,
+          created_at,
+          details,
+          admin:profiles!admin_audit_log_admin_id_fkey(full_name, email)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        console.error('Error fetching recent admin activity:', error);
+        return [];
+      }
+
+      return data?.map(activity => ({
+        action: activity.action,
+        time: new Date(activity.created_at).toLocaleString(),
+        type: this.getActivityType(activity.action)
+      })) || [];
+    } catch (error) {
+      console.error('Error fetching recent admin activity:', error);
+      return [];
+    }
+  }
+
+  // Helper method to determine activity type based on action
+  private static getActivityType(action: string): 'success' | 'info' | 'warning' | 'error' {
+    const lowerAction = action.toLowerCase();
+    
+    if (lowerAction.includes('approve') || lowerAction.includes('create') || lowerAction.includes('update')) {
+      return 'success';
+    } else if (lowerAction.includes('reject') || lowerAction.includes('delete') || lowerAction.includes('remove')) {
+      return 'error';
+    } else if (lowerAction.includes('warning') || lowerAction.includes('alert')) {
+      return 'warning';
+    } else {
+      return 'info';
+    }
+  }
+
   // Send ad approval email
   private static async sendAdApprovalEmail(mediaAssetId: string): Promise<void> {
     try {
@@ -1887,4 +2174,1086 @@ export class AdminService {
       throw error;
     }
   }
+
+  // Admin Campaign Modification Methods
+
+  // Update campaign status (Draft, Pending, Active, Paused, Completed, Rejected)
+  static async updateCampaignStatus(campaignId: string, status: 'draft' | 'pending' | 'active' | 'paused' | 'completed' | 'rejected'): Promise<void> {
+    try {
+      const { error, data } = await supabase
+        .from('campaigns')
+        .update({ 
+          status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', campaignId)
+        .select('id')
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) {
+        throw new Error('Campaign update failed: campaign not found or not permitted');
+      }
+
+      // Log admin action
+      await this.logAdminAction('update_campaign_status', 'campaign', campaignId, {
+        status
+      });
+    } catch (error) {
+      console.error('Error updating campaign status:', error);
+      throw error;
+    }
+  }
+
+  // Update campaign budget and daily budget
+  static async updateCampaignBudget(campaignId: string, budget: number, dailyBudget?: number): Promise<void> {
+    try {
+      const updateData: any = {
+        budget,
+        updated_at: new Date().toISOString()
+      };
+
+      if (dailyBudget !== undefined) {
+        updateData.daily_budget = dailyBudget;
+      }
+
+      const { error, data } = await supabase
+        .from('campaigns')
+        .update(updateData)
+        .eq('id', campaignId)
+        .select('id')
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) {
+        throw new Error('Campaign budget update failed: campaign not found or not permitted');
+      }
+
+      // Log admin action
+      await this.logAdminAction('update_campaign_budget', 'campaign', campaignId, {
+        budget,
+        daily_budget: dailyBudget
+      });
+    } catch (error) {
+      console.error('Error updating campaign budget:', error);
+      throw error;
+    }
+  }
+
+  // Update campaign dates
+  static async updateCampaignDates(campaignId: string, startDate: string, endDate: string): Promise<void> {
+    try {
+      const { error, data } = await supabase
+        .from('campaigns')
+        .update({ 
+          start_date: startDate,
+          end_date: endDate,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', campaignId)
+        .select('id')
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) {
+        throw new Error('Campaign dates update failed: campaign not found or not permitted');
+      }
+
+      // Log admin action
+      await this.logAdminAction('update_campaign_dates', 'campaign', campaignId, {
+        start_date: startDate,
+        end_date: endDate
+      });
+    } catch (error) {
+      console.error('Error updating campaign dates:', error);
+      throw error;
+    }
+  }
+
+  // Update campaign details (name, description, target locations, demographics)
+  static async updateCampaignDetails(campaignId: string, updates: {
+    name?: string;
+    description?: string;
+    target_locations?: string[];
+    target_demographics?: Record<string, any>;
+  }): Promise<void> {
+    try {
+      const { error, data } = await supabase
+        .from('campaigns')
+        .update({ 
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', campaignId)
+        .select('id')
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) {
+        throw new Error('Campaign details update failed: campaign not found or not permitted');
+      }
+
+      // Log admin action
+      await this.logAdminAction('update_campaign_details', 'campaign', campaignId, updates);
+    } catch (error) {
+      console.error('Error updating campaign details:', error);
+      throw error;
+    }
+  }
+
+  // Set campaign max video duration
+  static async setCampaignMaxVideoDuration(campaignId: string, maxDuration: number): Promise<void> {
+    try {
+      const { error, data } = await supabase
+        .from('campaigns')
+        .update({ 
+          max_video_duration: maxDuration,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', campaignId)
+        .select('id')
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) {
+        throw new Error('Campaign max video duration update failed: campaign not found or not permitted');
+      }
+
+      // Log admin action
+      await this.logAdminAction('update_campaign_max_video_duration', 'campaign', campaignId, {
+        max_video_duration: maxDuration
+      });
+    } catch (error) {
+      console.error('Error updating campaign max video duration:', error);
+      throw error;
+    }
+  }
+
+  // Admin Host Ad Assignment Modification Methods
+
+  // Get all host ad assignments for admin management
+  static async getAllHostAdAssignments(): Promise<any[]> {
+    try {
+      const { data, error } = await supabase
+        .from('host_ad_assignments')
+        .select(`
+          *,
+          ad:host_ads(*),
+          kiosk:kiosks(id, name, location, city, state),
+          host:profiles!host_ad_assignments_host_id_fkey(id, full_name, email, company_name)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching host ad assignments:', error);
+      throw error;
+    }
+  }
+
+  // Update host ad assignment status
+  static async updateHostAdAssignmentStatus(assignmentId: string, status: 'pending' | 'approved' | 'rejected' | 'active' | 'paused' | 'completed'): Promise<void> {
+    try {
+      const { error, data } = await supabase
+        .from('host_ad_assignments')
+        .update({ 
+          status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', assignmentId)
+        .select('id')
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) {
+        throw new Error('Host ad assignment status update failed: assignment not found or not permitted');
+      }
+
+      // Log admin action
+      await this.logAdminAction('update_host_ad_assignment_status', 'host_ad_assignment', assignmentId, {
+        status
+      });
+    } catch (error) {
+      console.error('Error updating host ad assignment status:', error);
+      throw error;
+    }
+  }
+
+  // Update host ad assignment dates
+  static async updateHostAdAssignmentDates(assignmentId: string, startDate: string, endDate: string): Promise<void> {
+    try {
+      const { error, data } = await supabase
+        .from('host_ad_assignments')
+        .update({ 
+          start_date: startDate,
+          end_date: endDate,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', assignmentId)
+        .select('id')
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) {
+        throw new Error('Host ad assignment dates update failed: assignment not found or not permitted');
+      }
+
+      // Log admin action
+      await this.logAdminAction('update_host_ad_assignment_dates', 'host_ad_assignment', assignmentId, {
+        start_date: startDate,
+        end_date: endDate
+      });
+    } catch (error) {
+      console.error('Error updating host ad assignment dates:', error);
+      throw error;
+    }
+  }
+
+  // Update host ad assignment priority
+  static async updateHostAdAssignmentPriority(assignmentId: string, priority: number): Promise<void> {
+    try {
+      const { error, data } = await supabase
+        .from('host_ad_assignments')
+        .update({ 
+          priority,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', assignmentId)
+        .select('id')
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) {
+        throw new Error('Host ad assignment priority update failed: assignment not found or not permitted');
+      }
+
+      // Log admin action
+      await this.logAdminAction('update_host_ad_assignment_priority', 'host_ad_assignment', assignmentId, {
+        priority
+      });
+    } catch (error) {
+      console.error('Error updating host ad assignment priority:', error);
+      throw error;
+    }
+  }
+
+  // Delete host ad assignment
+  static async deleteHostAdAssignment(assignmentId: string): Promise<void> {
+    try {
+      const { error, data } = await supabase
+        .from('host_ad_assignments')
+        .delete()
+        .eq('id', assignmentId)
+        .select('id')
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) {
+        throw new Error('Host ad assignment deletion failed: assignment not found or not permitted');
+      }
+
+      // Log admin action
+      await this.logAdminAction('delete_host_ad_assignment', 'host_ad_assignment', assignmentId, {});
+    } catch (error) {
+      console.error('Error deleting host ad assignment:', error);
+      throw error;
+    }
+  }
+
+  // Host-Kiosk Assignment Management Methods
+
+  // Get all host-kiosk assignments
+  static async getAllHostKioskAssignments(): Promise<any[]> {
+    try {
+      const { data, error } = await supabase
+        .from('host_kiosks')
+        .select(`
+          *,
+          kiosk:kiosks(id, name, location, city, state, status),
+          host:profiles!host_kiosks_host_id_fkey(id, full_name, email, company_name, role)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching host-kiosk assignments:', error);
+      throw error;
+    }
+  }
+
+  // Assign kiosk to host
+  static async assignKioskToHost(kioskId: string, hostId: string, commissionRate: number = 70.00): Promise<void> {
+    try {
+      // First check if the current user is an admin
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Verify admin role
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError || !profile || profile.role !== 'admin') {
+        throw new Error('Insufficient permissions: Admin role required');
+      }
+
+      const { error } = await supabase
+        .from('host_kiosks')
+        .insert({
+          kiosk_id: kioskId,
+          host_id: hostId,
+          commission_rate: commissionRate,
+          status: 'active'
+        });
+
+      if (error) throw error;
+
+      await this.logAdminAction('assign_kiosk_to_host', 'host_kiosk', kioskId, { hostId, commissionRate });
+    } catch (error) {
+      console.error('Error assigning kiosk to host:', error);
+      throw error;
+    }
+  }
+
+  // Unassign kiosk from host
+  static async unassignKioskFromHost(assignmentId: string): Promise<void> {
+    try {
+      // First check if the current user is an admin
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Verify admin role
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError || !profile || profile.role !== 'admin') {
+        throw new Error('Insufficient permissions: Admin role required');
+      }
+
+      const { error } = await supabase
+        .from('host_kiosks')
+        .delete()
+        .eq('id', assignmentId);
+
+      if (error) throw error;
+
+      await this.logAdminAction('unassign_kiosk_from_host', 'host_kiosk', assignmentId, {});
+    } catch (error) {
+      console.error('Error unassigning kiosk from host:', error);
+      throw error;
+    }
+  }
+
+  // Update host-kiosk assignment
+  static async updateHostKioskAssignment(assignmentId: string, updates: {
+    status?: 'active' | 'inactive' | 'suspended';
+    commission_rate?: number;
+  }): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('host_kiosks')
+        .update(updates)
+        .eq('id', assignmentId);
+
+      if (error) throw error;
+
+      await this.logAdminAction('update_host_kiosk_assignment', 'host_kiosk', assignmentId, updates);
+    } catch (error) {
+      console.error('Error updating host-kiosk assignment:', error);
+      throw error;
+    }
+  }
+
+  // Get all hosts (for assignment dropdown)
+  static async getAllHosts(): Promise<any[]> {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, company_name, role')
+        .eq('role', 'host')
+        .order('full_name');
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching hosts:', error);
+      throw error;
+    }
+  }
+
+  // Get kiosks with their assigned hosts
+  static async getKiosksWithHosts(): Promise<any[]> {
+    try {
+      const { data, error } = await supabase
+        .from('kiosks')
+        .select(`
+          *,
+          host_assignments:host_kiosks(
+            id,
+            host_id,
+            status,
+            commission_rate,
+            assigned_at,
+            host:profiles!host_kiosks_host_id_fkey(id, full_name, email, company_name)
+          )
+        `)
+        .order('name');
+
+      if (error) throw error;
+
+      // Ensure admin is assigned as default for unassigned kiosks
+      await this.ensureAdminAsDefaultForUnassigned();
+
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching kiosks with hosts:', error);
+      throw error;
+    }
+  }
+
+  // Ensure admin is assigned as default for unassigned kiosks
+  static async ensureAdminAsDefaultForUnassigned(): Promise<void> {
+    try {
+      // Get admin user ID
+      const { data: adminData, error: adminError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('role', 'admin')
+        .single();
+
+      if (adminError || !adminData) return; // No admin found, skip
+
+      // Get all kiosks that don't have any host assignments
+      const { data: assignedKioskIds, error: assignedError } = await supabase
+        .from('host_kiosks')
+        .select('kiosk_id');
+
+      if (assignedError) return;
+
+      const assignedIds = assignedKioskIds?.map(item => item.kiosk_id) || [];
+
+      // Get unassigned kiosks
+      let query = supabase
+        .from('kiosks')
+        .select('id');
+      
+      // Only apply the not.in filter if there are assigned IDs
+      if (assignedIds.length > 0) {
+        query = query.not('id', 'in', assignedIds);
+      }
+      
+      const { data: unassignedKiosks, error: kiosksError } = await query;
+
+      if (kiosksError || !unassignedKiosks || unassignedKiosks.length === 0) return;
+
+      // Assign admin to all unassigned kiosks
+      const assignments = unassignedKiosks.map(kiosk => ({
+        kiosk_id: kiosk.id,
+        host_id: adminData.id,
+        commission_rate: 100.00, // Admin gets 100% since they're the platform owner
+        status: 'active'
+      }));
+
+      await supabase
+        .from('host_kiosks')
+        .insert(assignments);
+
+    } catch (error) {
+      console.error('Error ensuring admin as default for unassigned kiosks:', error);
+      // Don't throw error as this is a background process
+    }
+  }
+
+  // Daily Pending Ad Review Email Methods
+  static async sendDailyPendingReviewEmail(): Promise<void> {
+    try {
+      // Get notification settings
+      const settings = await this.getSystemSettings();
+      const enabledSetting = settings.find(s => s.key === 'daily_pending_review_email_enabled');
+      const timeSetting = settings.find(s => s.key === 'daily_pending_review_email_time');
+      const recipientsSetting = settings.find(s => s.key === 'daily_pending_review_email_recipients');
+
+      // Check if daily emails are enabled
+      if (!enabledSetting?.value || enabledSetting.value === 'false') {
+        return;
+      }
+
+      // Get recipients
+      const recipients = Array.isArray(recipientsSetting?.value) 
+        ? recipientsSetting.value 
+        : (recipientsSetting?.value ? JSON.parse(recipientsSetting.value) : []);
+
+      if (recipients.length === 0) {
+        console.log('No recipients configured for daily pending review emails');
+        return;
+      }
+
+      // Get all pending items for review
+      const { clientAds, hostAds, pendingClientCampaigns, pendingHostCampaigns } = await this.getAllAdsForReview();
+
+      // Get email template
+      const { data: template } = await supabase
+        .from('email_templates')
+        .select('*')
+        .eq('type', 'daily_pending_review')
+        .eq('is_active', true)
+        .single();
+
+      if (!template) {
+        console.error('Daily pending review email template not found');
+        return;
+      }
+
+      // Format the data for the email
+      const today = new Date().toLocaleDateString();
+      const totalCount = clientAds.length + hostAds.length + pendingClientCampaigns.length + pendingHostCampaigns.length;
+
+      // Format client ads list
+      const clientAdsList = clientAds.length > 0 
+        ? clientAds.map(ad => `• ${ad.campaign_name} - ${ad.user_name} (${ad.created_at})`).join('<br>')
+        : 'No pending client ads';
+
+      // Format host ads list
+      const hostAdsList = hostAds.length > 0 
+        ? hostAds.map(ad => `• ${ad.campaign_name || 'Host Ad'} - ${ad.host_name || 'Host'} (${ad.created_at})`).join('<br>')
+        : 'No pending host ads';
+
+      // Format campaigns list
+      const campaignsList = [...pendingClientCampaigns, ...pendingHostCampaigns].length > 0 
+        ? [...pendingClientCampaigns, ...pendingHostCampaigns].map(campaign => `• ${campaign.name} - ${campaign.user?.full_name || 'User'} (${campaign.created_at})`).join('<br>')
+        : 'No pending campaigns';
+
+      // Replace template variables
+      const subject = template.subject.replace('{{date}}', today);
+      const bodyHtml = template.body_html
+        .replace('{{date}}', today)
+        .replace('{{client_ads_count}}', clientAds.length.toString())
+        .replace('{{host_ads_count}}', hostAds.length.toString())
+        .replace('{{campaigns_count}}', (pendingClientCampaigns.length + pendingHostCampaigns.length).toString())
+        .replace('{{total_count}}', totalCount.toString())
+        .replace('{{client_ads_list}}', clientAdsList)
+        .replace('{{host_ads_list}}', hostAdsList)
+        .replace('{{campaigns_list}}', campaignsList);
+
+      const bodyText = template.body_text
+        ?.replace('{{date}}', today)
+        .replace('{{client_ads_count}}', clientAds.length.toString())
+        .replace('{{host_ads_count}}', hostAds.length.toString())
+        .replace('{{campaigns_count}}', (pendingClientCampaigns.length + pendingHostCampaigns.length).toString())
+        .replace('{{total_count}}', totalCount.toString())
+        .replace('{{client_ads_list}}', clientAdsList.replace(/<br>/g, '\n'))
+        .replace('{{host_ads_list}}', hostAdsList.replace(/<br>/g, '\n'))
+        .replace('{{campaigns_list}}', campaignsList.replace(/<br>/g, '\n'));
+
+      // Queue emails for all recipients
+      const emailQueue = recipients.map(recipient => ({
+        template_id: template.id,
+        recipient_email: recipient,
+        recipient_name: 'Admin',
+        subject,
+        body_html: bodyHtml,
+        body_text: bodyText
+      }));
+
+      await supabase
+        .from('email_queue')
+        .insert(emailQueue);
+
+      console.log(`Daily pending review email queued for ${recipients.length} recipients`);
+    } catch (error) {
+      console.error('Error sending daily pending review email:', error);
+    }
+  }
+
+  static async sendTestPendingReviewEmail(): Promise<void> {
+    try {
+      // Get notification settings
+      const settings = await this.getSystemSettings();
+      const recipientsSetting = settings.find(s => s.key === 'daily_pending_review_email_recipients');
+
+      // Get recipients
+      const recipients = Array.isArray(recipientsSetting?.value) 
+        ? recipientsSetting.value 
+        : (recipientsSetting?.value ? JSON.parse(recipientsSetting.value) : []);
+
+      if (recipients.length === 0) {
+        throw new Error('No recipients configured for daily pending review emails');
+      }
+
+      // Get email template
+      const { data: template } = await supabase
+        .from('email_templates')
+        .select('*')
+        .eq('type', 'daily_pending_review')
+        .eq('is_active', true)
+        .single();
+
+      if (!template) {
+        throw new Error('Daily pending review email template not found');
+      }
+
+      // Create test data
+      const today = new Date().toLocaleDateString();
+      const testData = {
+        date: today,
+        client_ads_count: 3,
+        host_ads_count: 1,
+        campaigns_count: 2,
+        total_count: 6,
+        client_ads_list: '• Test Campaign 1 - John Doe (2024-01-15)<br>• Test Campaign 2 - Jane Smith (2024-01-14)<br>• Test Campaign 3 - Bob Johnson (2024-01-13)',
+        host_ads_list: '• Host Ad 1 - Host User (2024-01-15)',
+        campaigns_list: '• Test Campaign A - Alice Brown (2024-01-15)<br>• Test Campaign B - Charlie Wilson (2024-01-14)'
+      };
+
+      // Replace template variables
+      const subject = template.subject.replace('{{date}}', testData.date);
+      const bodyHtml = template.body_html
+        .replace('{{date}}', testData.date)
+        .replace('{{client_ads_count}}', testData.client_ads_count.toString())
+        .replace('{{host_ads_count}}', testData.host_ads_count.toString())
+        .replace('{{campaigns_count}}', testData.campaigns_count.toString())
+        .replace('{{total_count}}', testData.total_count.toString())
+        .replace('{{client_ads_list}}', testData.client_ads_list)
+        .replace('{{host_ads_list}}', testData.host_ads_list)
+        .replace('{{campaigns_list}}', testData.campaigns_list);
+
+      const bodyText = template.body_text
+        ?.replace('{{date}}', testData.date)
+        .replace('{{client_ads_count}}', testData.client_ads_count.toString())
+        .replace('{{host_ads_count}}', testData.host_ads_count.toString())
+        .replace('{{campaigns_count}}', testData.campaigns_count.toString())
+        .replace('{{total_count}}', testData.total_count.toString())
+        .replace('{{client_ads_list}}', testData.client_ads_list.replace(/<br>/g, '\n'))
+        .replace('{{host_ads_list}}', testData.host_ads_list.replace(/<br>/g, '\n'))
+        .replace('{{campaigns_list}}', testData.campaigns_list.replace(/<br>/g, '\n'));
+
+      // Queue test emails for all recipients
+      const emailQueue = recipients.map(recipient => ({
+        template_id: template.id,
+        recipient_email: recipient,
+        recipient_name: 'Admin',
+        subject: `[TEST] ${subject}`,
+        body_html: bodyHtml,
+        body_text: bodyText
+      }));
+
+      await supabase
+        .from('email_queue')
+        .insert(emailQueue);
+
+      console.log(`Test pending review email queued for ${recipients.length} recipients`);
+    } catch (error) {
+      console.error('Error sending test pending review email:', error);
+      throw error;
+    }
+  }
+
+  // Custom Ad Management Methods
+
+  // Get all custom ad orders for admin management
+  static async getCustomAdOrders(): Promise<any[]> {
+    try {
+      const { data, error } = await supabase
+        .from('custom_ad_orders')
+        .select(`
+          *,
+          user:profiles!custom_ad_orders_user_id_fkey(id, full_name, email, company_name)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Get comments and proofs for each order
+      const ordersWithDetails = await Promise.all(
+        (data || []).map(async (order) => {
+          const [commentsRes, proofsRes] = await Promise.all([
+            supabase
+              .from('custom_ad_order_comments')
+              .select('*')
+              .eq('order_id', order.id)
+              .order('created_at', { ascending: true }),
+            supabase
+              .from('custom_ad_order_proofs')
+              .select('*')
+              .eq('order_id', order.id)
+              .order('created_at', { ascending: true })
+          ]);
+
+          return {
+            ...order,
+            comments: commentsRes.data || [],
+            proofs: proofsRes.data || []
+          };
+        })
+      );
+
+      return ordersWithDetails;
+    } catch (error) {
+      console.error('Error fetching custom ad orders:', error);
+      throw error;
+    }
+  }
+
+  // Update custom ad order status
+  static async updateCustomAdOrderStatus(orderId: string, status: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('custom_ad_orders')
+        .update({ 
+          status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', orderId);
+
+      if (error) throw error;
+
+      await this.logAdminAction('update_custom_ad_order_status', 'custom_ad_order', orderId, {
+        status
+      });
+
+      // Send email notification
+      await this.sendCustomAdOrderStatusEmail(orderId, status);
+    } catch (error) {
+      console.error('Error updating custom ad order status:', error);
+      throw error;
+    }
+  }
+
+  // Add comment to custom ad order
+  static async addCustomAdOrderComment(orderId: string, content: string): Promise<void> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      // Get user profile for author name
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single();
+
+      const { error } = await supabase
+        .from('custom_ad_order_comments')
+        .insert({
+          order_id: orderId,
+          content,
+          author: profile?.full_name || 'Admin',
+          created_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+
+      await this.logAdminAction('add_custom_ad_order_comment', 'custom_ad_order_comment', orderId, {
+        content
+      });
+    } catch (error) {
+      console.error('Error adding custom ad order comment:', error);
+      throw error;
+    }
+  }
+
+  // Submit proof for custom ad order
+  static async submitCustomAdOrderProof(orderId: string, files: File[]): Promise<void> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      // Upload files to storage
+      const uploadedFiles = [];
+      for (const file of files) {
+        const path = `custom-ad-proofs/${orderId}/${Date.now()}-${Math.random().toString(36).slice(2)}-${file.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from('custom-ad-proofs')
+          .upload(path, file, {
+            cacheControl: '3600',
+            upsert: false,
+            contentType: file.type,
+          });
+
+        if (uploadError) throw uploadError;
+
+        const { data: pubUrl } = supabase.storage
+          .from('custom-ad-proofs')
+          .getPublicUrl(path);
+
+        uploadedFiles.push({
+          file_name: file.name,
+          file_url: pubUrl.publicUrl,
+          file_type: file.type,
+          file_size: file.size
+        });
+      }
+
+      // Save proof records
+      const proofRecords = uploadedFiles.map(file => ({
+        order_id: orderId,
+        file_name: file.file_name,
+        file_url: file.file_url,
+        file_type: file.file_type,
+        file_size: file.file_size,
+        created_at: new Date().toISOString()
+      }));
+
+      const { error } = await supabase
+        .from('custom_ad_order_proofs')
+        .insert(proofRecords);
+
+      if (error) throw error;
+
+      await this.logAdminAction('submit_custom_ad_order_proof', 'custom_ad_order_proof', orderId, {
+        file_count: files.length
+      });
+
+      // Send email notification
+      await this.sendCustomAdOrderProofEmail(orderId);
+    } catch (error) {
+      console.error('Error submitting custom ad order proof:', error);
+      throw error;
+    }
+  }
+
+  // Send custom ad order status email
+  private static async sendCustomAdOrderStatusEmail(orderId: string, status: string): Promise<void> {
+    try {
+      // Get order details
+      const { data: order } = await supabase
+        .from('custom_ad_orders')
+        .select(`
+          *,
+          user:profiles!custom_ad_orders_user_id_fkey(id, full_name, email)
+        `)
+        .eq('id', orderId)
+        .single();
+
+      if (!order) return;
+
+      // Get email template
+      const { data: template } = await supabase
+        .from('email_templates')
+        .select('*')
+        .eq('type', 'custom_ad_order_status_update')
+        .eq('is_active', true)
+        .single();
+
+      if (!template) return;
+
+      // Queue email
+      await supabase
+        .from('email_queue')
+        .insert({
+          template_id: template.id,
+          recipient_email: order.user.email,
+          recipient_name: order.user.full_name,
+          subject: template.subject
+            .replace('{{order_id}}', order.id)
+            .replace('{{status}}', status),
+          body_html: template.body_html
+            .replace('{{order_id}}', order.id)
+            .replace('{{status}}', status)
+            .replace('{{service_key}}', order.service_key)
+            .replace('{{total_amount}}', order.total_amount.toString()),
+          body_text: template.body_text
+            ?.replace('{{order_id}}', order.id)
+            .replace('{{status}}', status)
+            .replace('{{service_key}}', order.service_key)
+            .replace('{{total_amount}}', order.total_amount.toString())
+        });
+    } catch (error) {
+      console.error('Error sending custom ad order status email:', error);
+    }
+  }
+
+  // Send custom ad order proof email
+  private static async sendCustomAdOrderProofEmail(orderId: string): Promise<void> {
+    try {
+      // Get order details
+      const { data: order } = await supabase
+        .from('custom_ad_orders')
+        .select(`
+          *,
+          user:profiles!custom_ad_orders_user_id_fkey(id, full_name, email)
+        `)
+        .eq('id', orderId)
+        .single();
+
+      if (!order) return;
+
+      // Get email template
+      const { data: template } = await supabase
+        .from('email_templates')
+        .select('*')
+        .eq('type', 'custom_ad_order_proof_submitted')
+        .eq('is_active', true)
+        .single();
+
+      if (!template) return;
+
+      // Queue email
+      await supabase
+        .from('email_queue')
+        .insert({
+          template_id: template.id,
+          recipient_email: order.user.email,
+          recipient_name: order.user.full_name,
+          subject: template.subject
+            .replace('{{order_id}}', order.id),
+          body_html: template.body_html
+            .replace('{{order_id}}', order.id)
+            .replace('{{service_key}}', order.service_key),
+          body_text: template.body_text
+            ?.replace('{{order_id}}', order.id)
+            .replace('{{service_key}}', order.service_key)
+        });
+    } catch (error) {
+      console.error('Error sending custom ad order proof email:', error);
+    }
+  }
+
+  // Host Ad Limit Management Methods
+  
+  // Update ad limit for a specific host-kiosk assignment
+  static async updateHostAdLimit(assignmentId: string, adLimit: number): Promise<void> {
+    try {
+      // First check if the current user is an admin
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Verify admin role
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError || !profile || profile.role !== 'admin') {
+        throw new Error('Insufficient permissions: Admin role required');
+      }
+
+      // Validate ad limit
+      if (adLimit < 0) {
+        throw new Error('Ad limit cannot be negative');
+      }
+
+      const { error } = await supabase
+        .from('host_kiosks')
+        .update({ ad_limit: adLimit })
+        .eq('id', assignmentId);
+
+      if (error) throw error;
+
+      await this.logAdminAction('update_ad_limit', 'host_kiosk', assignmentId, { adLimit });
+    } catch (error) {
+      console.error('Error updating host ad limit:', error);
+      throw error;
+    }
+  }
+
+  // Get host ad usage statistics
+  static async getHostAdUsage(hostId: string): Promise<any[]> {
+    try {
+      const { data, error } = await supabase.rpc('get_host_total_ad_usage', {
+        p_host_id: hostId
+      });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error getting host ad usage:', error);
+      throw error;
+    }
+  }
+
+  // Get all host-kiosk assignments with ad limits
+  static async getAllHostKioskAssignmentsWithLimits(): Promise<any[]> {
+    try {
+      const { data, error } = await supabase
+        .from('host_kiosks')
+        .select(`
+          id,
+          host_id,
+          kiosk_id,
+          ad_limit,
+          status,
+          commission_rate,
+          assigned_at,
+          host:profiles!host_kiosks_host_id_fkey(
+            id,
+            full_name,
+            email,
+            company_name
+          ),
+          kiosk:kiosks!host_kiosks_kiosk_id_fkey(
+            id,
+            name,
+            location,
+            status
+          )
+        `)
+        .order('assigned_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error getting host kiosk assignments with limits:', error);
+      throw error;
+    }
+  }
+
+  // Bulk update ad limits for multiple host-kiosk assignments
+  static async bulkUpdateAdLimits(updates: Array<{ assignmentId: string; adLimit: number }>): Promise<void> {
+    try {
+      // First check if the current user is an admin
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Verify admin role
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError || !profile || profile.role !== 'admin') {
+        throw new Error('Insufficient permissions: Admin role required');
+      }
+
+      // Validate all ad limits
+      for (const update of updates) {
+        if (update.adLimit < 0) {
+          throw new Error(`Ad limit cannot be negative for assignment ${update.assignmentId}`);
+        }
+      }
+
+      // Update each assignment
+      for (const update of updates) {
+        const { error } = await supabase
+          .from('host_kiosks')
+          .update({ ad_limit: update.adLimit })
+          .eq('id', update.assignmentId);
+
+        if (error) throw error;
+
+        await this.logAdminAction('bulk_update_ad_limit', 'host_kiosk', update.assignmentId, { adLimit: update.adLimit });
+      }
+    } catch (error) {
+      console.error('Error bulk updating ad limits:', error);
+      throw error;
+    }
+  }
+
 }

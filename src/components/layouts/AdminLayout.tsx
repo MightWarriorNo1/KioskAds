@@ -17,7 +17,10 @@ import {
   Plug,
   Archive,
   Folder,
-  DollarSign
+  DollarSign,
+  Monitor,
+  TrendingUp,
+  FileText
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import NotificationToast from '../NotificationToast';
@@ -26,9 +29,12 @@ import ThemeToggle from '../shared/ThemeToggle';
 
 const navigation = [
   { name: 'Dashboard', href: '/admin', icon: BarChart3 },
+  { name: 'Analytics', href: '/admin/analytics', icon: TrendingUp },
   { name: 'Ad Review Queue', href: '/admin/review', icon: Shield },
   { name: 'Campaigns', href: '/admin/campaigns', icon: Target},
+  { name: 'Host Ad Assignments', href: '/admin/host-ad-assignments', icon: Monitor },
   { name: 'Creative Orders', href: '/admin/creative-orders', icon: Package },
+  { name: 'Custom Ad Management', href: '/admin/custom-ads', icon: FileText },
   { name: 'User Management', href: '/admin/users', icon: Users },
   { name: 'Kiosk Management', href: '/admin/kiosks', icon: MapPin },
   { name: 'Kiosk Folders', href: '/admin/kiosk-folders', icon: Folder },
@@ -155,7 +161,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         
 
         {/* Page Content */}
-        <main className="p-6">
+        <main className="p-4 sm:p-6">
           <div className="max-w-7xl mx-auto">
             {children}
           </div>

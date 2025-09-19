@@ -144,6 +144,28 @@ export class HostService {
     }
   }
 
+  // Validate that a host owns a specific kiosk
+  static async validateKioskOwnership(hostId: string, kioskId: string): Promise<boolean> {
+    try {
+      const { data, error } = await supabase
+        .from('host_kiosks')
+        .select('id')
+        .eq('host_id', hostId)
+        .eq('kiosk_id', kioskId)
+        .eq('status', 'active')
+        .single();
+
+      if (error || !data) {
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error validating kiosk ownership:', error);
+      return false;
+    }
+  }
+
   // Update existing ad (restrict edits when active; asset changes trigger re-approval)
   static async updateAd(
     adId: string,
@@ -310,6 +332,24 @@ export class HostService {
     priority?: number;
   }): Promise<HostAdAssignment> {
     try {
+      // Validate that the host owns this kiosk
+      const hasKioskOwnership = await this.validateKioskOwnership(assignmentData.hostId, assignmentData.kioskId);
+      if (!hasKioskOwnership) {
+        throw new Error('You do not have permission to assign ads to this kiosk');
+      }
+
+      // Validate that the ad belongs to the host
+      const { data: adOwnership, error: adError } = await supabase
+        .from('host_ads')
+        .select('id')
+        .eq('id', assignmentData.adId)
+        .eq('host_id', assignmentData.hostId)
+        .single();
+
+      if (adError || !adOwnership) {
+        throw new Error('You do not have permission to assign this ad');
+      }
+
       const { data, error } = await supabase
         .from('host_ad_assignments')
         .insert({

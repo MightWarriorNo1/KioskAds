@@ -21,6 +21,86 @@ export interface UploadedFileSummary {
   type: string;
 }
 
+export interface CustomAdOrder {
+  id: string;
+  user_id: string;
+  service_key: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  address: string;
+  details: string;
+  files: UploadedFileSummary[];
+  total_amount: number;
+  payment_status: 'pending' | 'succeeded' | 'failed';
+  workflow_status: 'submitted' | 'in_review' | 'designer_assigned' | 'proofs_ready' | 'client_review' | 'approved' | 'rejected' | 'completed' | 'cancelled';
+  assigned_designer_id?: string;
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  estimated_completion_date?: string;
+  actual_completion_date?: string;
+  rejection_reason?: string;
+  client_notes?: string;
+  designer_notes?: string;
+  created_at: string;
+  updated_at: string;
+  designer?: {
+    id: string;
+    full_name: string;
+    email: string;
+  };
+  service?: {
+    id: string;
+    name: string;
+    description: string;
+    base_price: number;
+    turnaround_days: number;
+  };
+}
+
+export interface CustomAdProof {
+  id: string;
+  order_id: string;
+  designer_id: string;
+  version_number: number;
+  title: string;
+  description?: string;
+  files: UploadedFileSummary[];
+  status: 'draft' | 'submitted' | 'approved' | 'rejected' | 'revision_requested';
+  client_feedback?: string;
+  designer_notes?: string;
+  created_at: string;
+  updated_at: string;
+  submitted_at?: string;
+  reviewed_at?: string;
+  designer?: {
+    id: string;
+    full_name: string;
+    email: string;
+  };
+}
+
+export interface CustomAdNotification {
+  id: string;
+  order_id: string;
+  recipient_id: string;
+  notification_type: 'order_submitted' | 'designer_assigned' | 'proofs_ready' | 'proof_approved' | 'proof_rejected' | 'revision_requested' | 'order_completed' | 'order_cancelled';
+  title: string;
+  message: string;
+  is_read: boolean;
+  email_sent: boolean;
+  created_at: string;
+  read_at?: string;
+}
+
+export interface WorkflowStep {
+  id: string;
+  name: string;
+  description: string;
+  status: 'pending' | 'current' | 'completed' | 'skipped';
+  completed_at?: string;
+}
+
 export class CustomAdsService {
   static async uploadFiles(userId: string, files: File[]): Promise<UploadedFileSummary[]> {
     if (!files || files.length === 0) return [];
@@ -53,6 +133,7 @@ export class CustomAdsService {
       files: uploaded,
       total_amount: Number(input.totalAmount.toFixed(2)),
       payment_status: 'succeeded',
+      workflow_status: 'submitted',
     };
 
     const { data, error } = await supabase
@@ -63,6 +144,307 @@ export class CustomAdsService {
 
     if (error) throw error;
     return data.id as string;
+  }
+
+  // Get orders for a user (client view)
+  static async getUserOrders(userId: string): Promise<CustomAdOrder[]> {
+    const { data, error } = await supabase
+      .from('custom_ad_orders')
+      .select(`
+        *,
+        designer:profiles!custom_ad_orders_assigned_designer_id_fkey(id, full_name, email),
+        service:custom_ad_services!custom_ad_orders_service_key_fkey(id, name, description, base_price, turnaround_days)
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  // Get order details
+  static async getOrder(orderId: string): Promise<CustomAdOrder | null> {
+    const { data, error } = await supabase
+      .from('custom_ad_orders')
+      .select(`
+        *,
+        designer:profiles!custom_ad_orders_assigned_designer_id_fkey(id, full_name, email),
+        service:custom_ad_services!custom_ad_orders_service_key_fkey(id, name, description, base_price, turnaround_days)
+      `)
+      .eq('id', orderId)
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  // Get proofs for an order
+  static async getOrderProofs(orderId: string): Promise<CustomAdProof[]> {
+    const { data, error } = await supabase
+      .from('custom_ad_proofs')
+      .select(`
+        *,
+        designer:profiles!custom_ad_proofs_designer_id_fkey(id, full_name, email)
+      `)
+      .eq('order_id', orderId)
+      .order('version_number', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  // Submit proof for review
+  static async submitProof(proofId: string, designerNotes?: string): Promise<void> {
+    const { error } = await supabase
+      .from('custom_ad_proofs')
+      .update({
+        status: 'submitted',
+        submitted_at: new Date().toISOString(),
+        designer_notes: designerNotes,
+      })
+      .eq('id', proofId);
+
+    if (error) throw error;
+
+    // Update order status to proofs_ready
+    const { data: proof } = await supabase
+      .from('custom_ad_proofs')
+      .select('order_id')
+      .eq('id', proofId)
+      .single();
+
+    if (proof) {
+      await supabase
+        .from('custom_ad_orders')
+        .update({ workflow_status: 'proofs_ready' })
+        .eq('id', proof.order_id);
+    }
+  }
+
+  // Approve proof
+  static async approveProof(proofId: string, clientFeedback?: string): Promise<void> {
+    const { error } = await supabase
+      .from('custom_ad_proofs')
+      .update({
+        status: 'approved',
+        reviewed_at: new Date().toISOString(),
+        client_feedback: clientFeedback,
+      })
+      .eq('id', proofId);
+
+    if (error) throw error;
+
+    // Update order status to approved
+    const { data: proof } = await supabase
+      .from('custom_ad_proofs')
+      .select('order_id')
+      .eq('id', proofId)
+      .single();
+
+    if (proof) {
+      await supabase
+        .from('custom_ad_orders')
+        .update({ workflow_status: 'approved' })
+        .eq('id', proof.order_id);
+    }
+  }
+
+  // Reject proof
+  static async rejectProof(proofId: string, clientFeedback: string): Promise<void> {
+    const { error } = await supabase
+      .from('custom_ad_proofs')
+      .update({
+        status: 'revision_requested',
+        reviewed_at: new Date().toISOString(),
+        client_feedback: clientFeedback,
+      })
+      .eq('id', proofId);
+
+    if (error) throw error;
+
+    // Update order status to client_review
+    const { data: proof } = await supabase
+      .from('custom_ad_proofs')
+      .select('order_id')
+      .eq('id', proofId)
+      .single();
+
+    if (proof) {
+      await supabase
+        .from('custom_ad_orders')
+        .update({ 
+          workflow_status: 'client_review',
+          rejection_reason: clientFeedback 
+        })
+        .eq('id', proof.order_id);
+    }
+  }
+
+  // Create new proof version
+  static async createProof(
+    orderId: string,
+    designerId: string,
+    title: string,
+    description: string,
+    files: UploadedFileSummary[]
+  ): Promise<string> {
+    // Get next version number
+    const { data: existingProofs } = await supabase
+      .from('custom_ad_proofs')
+      .select('version_number')
+      .eq('order_id', orderId)
+      .order('version_number', { ascending: false })
+      .limit(1);
+
+    const nextVersion = existingProofs && existingProofs.length > 0 
+      ? existingProofs[0].version_number + 1 
+      : 1;
+
+    const { data, error } = await supabase
+      .from('custom_ad_proofs')
+      .insert({
+        order_id: orderId,
+        designer_id: designerId,
+        version_number: nextVersion,
+        title,
+        description,
+        files,
+        status: 'draft',
+      })
+      .select('id')
+      .single();
+
+    if (error) throw error;
+    return data.id;
+  }
+
+  // Get user notifications
+  static async getUserNotifications(userId: string): Promise<CustomAdNotification[]> {
+    const { data, error } = await supabase
+      .from('custom_ad_notifications')
+      .select('*')
+      .eq('recipient_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  // Mark notification as read
+  static async markNotificationAsRead(notificationId: string): Promise<void> {
+    const { error } = await supabase
+      .from('custom_ad_notifications')
+      .update({
+        is_read: true,
+        read_at: new Date().toISOString(),
+      })
+      .eq('id', notificationId);
+
+    if (error) throw error;
+  }
+
+  // Get workflow steps for an order
+  static getWorkflowSteps(order: CustomAdOrder): WorkflowStep[] {
+    const steps: WorkflowStep[] = [
+      {
+        id: 'submitted',
+        name: 'Order Submitted',
+        description: 'Your order has been received and is being reviewed',
+        status: order.workflow_status === 'submitted' ? 'current' : 
+                ['in_review', 'designer_assigned', 'proofs_ready', 'client_review', 'approved', 'rejected', 'completed'].includes(order.workflow_status) ? 'completed' : 'pending',
+        completed_at: order.workflow_status === 'submitted' ? order.created_at : undefined,
+      },
+      {
+        id: 'in_review',
+        name: 'In Review',
+        description: 'Your order is being reviewed by our team',
+        status: order.workflow_status === 'in_review' ? 'current' :
+                ['designer_assigned', 'proofs_ready', 'client_review', 'approved', 'rejected', 'completed'].includes(order.workflow_status) ? 'completed' : 'pending',
+      },
+      {
+        id: 'designer_assigned',
+        name: 'Designer Assigned',
+        description: order.assigned_designer_id ? `Designer assigned: ${order.designer?.full_name || 'TBD'}` : 'Waiting for designer assignment',
+        status: order.workflow_status === 'designer_assigned' ? 'current' :
+                ['proofs_ready', 'client_review', 'approved', 'rejected', 'completed'].includes(order.workflow_status) ? 'completed' : 'pending',
+      },
+      {
+        id: 'proofs_ready',
+        name: 'Design Proofs Ready',
+        description: 'Design proofs are ready for your review',
+        status: order.workflow_status === 'proofs_ready' ? 'current' :
+                ['client_review', 'approved', 'rejected', 'completed'].includes(order.workflow_status) ? 'completed' : 'pending',
+      },
+      {
+        id: 'client_review',
+        name: 'Under Review',
+        description: 'Please review the design proofs and provide feedback',
+        status: order.workflow_status === 'client_review' ? 'current' :
+                ['approved', 'rejected', 'completed'].includes(order.workflow_status) ? 'completed' : 'pending',
+      },
+      {
+        id: 'approved',
+        name: 'Approved',
+        description: 'Your design has been approved and is being finalized',
+        status: order.workflow_status === 'approved' ? 'current' :
+                order.workflow_status === 'completed' ? 'completed' : 'pending',
+      },
+      {
+        id: 'completed',
+        name: 'Completed',
+        description: 'Your custom ad is ready for use',
+        status: order.workflow_status === 'completed' ? 'completed' : 'pending',
+        completed_at: order.actual_completion_date,
+      },
+    ];
+
+    return steps;
+  }
+
+  // Admin functions
+  static async getAllOrders(): Promise<CustomAdOrder[]> {
+    const { data, error } = await supabase
+      .from('custom_ad_orders')
+      .select(`
+        *,
+        designer:profiles!custom_ad_orders_assigned_designer_id_fkey(id, full_name, email),
+        service:custom_ad_services!custom_ad_orders_service_key_fkey(id, name, description, base_price, turnaround_days)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  static async assignDesigner(orderId: string, designerId: string): Promise<void> {
+    const { error } = await supabase
+      .from('custom_ad_orders')
+      .update({
+        assigned_designer_id: designerId,
+        workflow_status: 'designer_assigned',
+      })
+      .eq('id', orderId);
+
+    if (error) throw error;
+  }
+
+  static async updateOrderStatus(orderId: string, status: CustomAdOrder['workflow_status'], notes?: string): Promise<void> {
+    const updateData: any = { workflow_status: status };
+    
+    if (notes) {
+      updateData.designer_notes = notes;
+    }
+
+    if (status === 'completed') {
+      updateData.actual_completion_date = new Date().toISOString();
+    }
+
+    const { error } = await supabase
+      .from('custom_ad_orders')
+      .update(updateData)
+      .eq('id', orderId);
+
+    if (error) throw error;
   }
 }
 

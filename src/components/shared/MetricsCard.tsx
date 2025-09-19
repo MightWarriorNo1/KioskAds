@@ -21,19 +21,19 @@ const colorConfig = {
 export default function MetricsCard({ title, value, change, changeType, icon: Icon, color, onClick }: MetricsCardProps) {
   return (
     <div 
-      className={`bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-slate-200/50 dark:border-slate-700/50 hover:shadow-xl hover:shadow-slate-200/50 dark:hover:shadow-slate-900/50 transition-all duration-300 ${onClick ? 'cursor-pointer hover:scale-105 transform hover:-translate-y-1' : ''}`}
+      className={`bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-4 sm:p-6 shadow-lg border border-slate-200/50 dark:border-slate-700/50 hover:shadow-xl hover:shadow-slate-200/50 dark:hover:shadow-slate-900/50 transition-all duration-300 ${onClick ? 'cursor-pointer hover:scale-105 transform hover:-translate-y-1' : ''}`}
       onClick={onClick}
     >
       <div className="flex items-center justify-between">
-        <div className="flex-1">
-          <p className="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-2">{title}</p>
-          <p className="text-3xl font-bold text-slate-900 dark:text-white mb-1">{value}</p>
-          <p className={`text-sm font-medium ${changeType === 'positive' ? 'text-emerald-600 dark:text-emerald-300' : 'text-red-600 dark:text-red-300'}`}>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 mb-1 sm:mb-2 truncate">{title}</p>
+          <p className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white mb-1">{value}</p>
+          <p className={`text-xs sm:text-sm font-medium ${changeType === 'positive' ? 'text-emerald-600 dark:text-emerald-300' : 'text-red-600 dark:text-red-300'} truncate`}>
             {change}
           </p>
         </div>
-        <div className={`p-4 rounded-xl ${colorConfig[color]} shadow-lg`}>
-          <Icon className="h-7 w-7" />
+        <div className={`p-3 sm:p-4 rounded-xl ${colorConfig[color]} shadow-lg flex-shrink-0 ml-2`}>
+          <Icon className="h-5 w-5 sm:h-7 sm:w-7" />
         </div>
       </div>
     </div>

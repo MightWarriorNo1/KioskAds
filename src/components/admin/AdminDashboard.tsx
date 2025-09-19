@@ -129,10 +129,10 @@ export default function AdminDashboard() {
       </Card>
 
       {/* Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
         {loading ? (
           Array.from({ length: 5 }).map((_, index) => (
-            <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 animate-pulse">
+            <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 animate-pulse">
               <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
               <div className="h-8 bg-gray-200 rounded w-1/2 mb-2"></div>
               <div className="h-3 bg-gray-200 rounded w-full"></div>
@@ -148,19 +148,19 @@ export default function AdminDashboard() {
       </div>
 
       {/* Quick Actions & Recent Activity */}
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         <Card className="lg:col-span-1 animate-fade-in-up" title="Quick Actions" subtitle="Administrative tasks">
           <div className="space-y-3">
             {quickActions.map((qa) => (
               <div key={qa.title} className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <qa.icon className="w-5 h-5 text-primary-600" />
-                  <div>
-                    <div className="font-medium">{qa.title}</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">{qa.description}</div>
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <qa.icon className="w-5 h-5 text-primary-600 flex-shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium truncate">{qa.title}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400 truncate">{qa.description}</div>
                   </div>
                 </div>
-                <Button variant="secondary" size="sm" onClick={() => navigate(qa.href)}>Open</Button>
+                <Button variant="secondary" size="sm" onClick={() => navigate(qa.href)} className="flex-shrink-0 ml-2">Open</Button>
               </div>
             ))}
           </div>
@@ -174,25 +174,25 @@ export default function AdminDashboard() {
       </div>
 
       {/* Platform Overview Charts */}
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* User Growth */}
         <Card className="animate-fade-in-up" title="User Growth">
-          <div className="h-64 bg-gradient-to-br from-primary-50 to-accent-50 dark:from-gray-800 dark:to-gray-800 rounded-lg flex items-center justify-center">
-            <div className="text-center">
-              <Users className="h-12 w-12 text-primary-600 mx-auto mb-4" />
-              <p>User registration trends</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Clients, hosts, and total platform growth</p>
+          <div className="h-48 sm:h-64 bg-gradient-to-br from-primary-50 to-accent-50 dark:from-gray-800 dark:to-gray-800 rounded-lg flex items-center justify-center">
+            <div className="text-center px-4">
+              <Users className="h-10 w-10 sm:h-12 sm:w-12 text-primary-600 mx-auto mb-3 sm:mb-4" />
+              <p className="text-sm sm:text-base">User registration trends</p>
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-2">Clients, hosts, and total platform growth</p>
             </div>
           </div>
         </Card>
 
         {/* Revenue Analytics */}
         <Card className="animate-fade-in-up" title="Platform Revenue">
-          <div className="h-64 bg-gradient-to-br from-success-50 to-primary-50 dark:from-gray-800 dark:to-gray-800 rounded-lg flex items-center justify-center">
-            <div className="text-center">
-              <TrendingUp className="h-12 w-12 text-success-600 mx-auto mb-4" />
-              <p>Revenue breakdown and trends</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Commission, fees, and marketplace sales</p>
+          <div className="h-48 sm:h-64 bg-gradient-to-br from-success-50 to-primary-50 dark:from-gray-800 dark:to-gray-800 rounded-lg flex items-center justify-center">
+            <div className="text-center px-4">
+              <TrendingUp className="h-10 w-10 sm:h-12 sm:w-12 text-success-600 mx-auto mb-3 sm:mb-4" />
+              <p className="text-sm sm:text-base">Revenue breakdown and trends</p>
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-2">Commission, fees, and marketplace sales</p>
             </div>
           </div>
         </Card>

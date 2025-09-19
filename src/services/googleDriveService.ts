@@ -63,6 +63,7 @@ export class GoogleDriveService {
     client_secret: string;
     refresh_token: string;
     is_active?: boolean;
+    daily_upload_time?: string;
   }): Promise<string | null> {
     try {
       const { data, error } = await supabase
@@ -79,6 +80,33 @@ export class GoogleDriveService {
     } catch (error) {
       console.error('Error saving Google Drive configuration:', error);
       return null;
+    }
+  }
+
+  // Update Google Drive configuration
+  static async updateGoogleDriveConfig(config: {
+    id: string;
+    name?: string;
+    client_id?: string;
+    client_secret?: string;
+    refresh_token?: string;
+    is_active?: boolean;
+    daily_upload_time?: string;
+  }): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('google_drive_configs')
+        .update({
+          ...config,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', config.id);
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error updating Google Drive configuration:', error);
+      return false;
     }
   }
 
@@ -756,6 +784,182 @@ export class GoogleDriveService {
     } catch (error) {
       console.error('Error restoring asset:', error);
       throw error;
+    }
+  }
+
+  // Sync all folders for all kiosks
+  static async syncAllFolders(): Promise<{
+    success: boolean;
+    message: string;
+    foldersSynced: number;
+    errors: string[];
+  }> {
+    try {
+      console.log('Starting sync all folders process...');
+      
+      // Get all kiosks with their Google Drive folder mappings
+      const { data: kioskFolders, error: foldersError } = await supabase
+        .from('kiosk_gdrive_folders')
+        .select(`
+          *,
+          kiosk:kiosks(name, location),
+          gdrive_config:google_drive_configs(name, is_active)
+        `)
+        .eq('gdrive_config.is_active', true);
+
+      if (foldersError) throw foldersError;
+
+      if (!kioskFolders || kioskFolders.length === 0) {
+        return {
+          success: false,
+          message: 'No Google Drive folders found to sync',
+          foldersSynced: 0,
+          errors: []
+        };
+      }
+
+      const errors: string[] = [];
+      let foldersSynced = 0;
+
+      // Process each kiosk folder
+      for (const folderMapping of kioskFolders) {
+        try {
+          console.log(`Syncing folders for kiosk: ${folderMapping.kiosk.name}`);
+          
+          // Create sync job for this kiosk
+          const syncJobId = await this.createSyncJob({
+            gdrive_config_id: folderMapping.gdrive_config_id,
+            kiosk_id: folderMapping.kiosk_id,
+            sync_type: 'manual'
+          });
+
+          if (syncJobId) {
+            // Process the sync job immediately
+            await this.processSyncJobs();
+            foldersSynced++;
+            console.log(`Successfully synced folders for kiosk: ${folderMapping.kiosk.name}`);
+          }
+        } catch (error) {
+          const errorMessage = `Failed to sync kiosk ${folderMapping.kiosk.name}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+          console.error(errorMessage);
+          errors.push(errorMessage);
+        }
+      }
+
+      const success = errors.length === 0;
+      const message = success 
+        ? `Successfully synced ${foldersSynced} folders`
+        : `Synced ${foldersSynced} folders with ${errors.length} errors`;
+
+      return {
+        success,
+        message,
+        foldersSynced,
+        errors
+      };
+    } catch (error) {
+      console.error('Error syncing all folders:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Unknown error occurred',
+        foldersSynced: 0,
+        errors: [error instanceof Error ? error.message : 'Unknown error']
+      };
+    }
+  }
+
+  // Get daily upload time for active configuration
+  static async getDailyUploadTime(): Promise<string | null> {
+    try {
+      const config = await this.getGoogleDriveConfig();
+      return config?.daily_upload_time || null;
+    } catch (error) {
+      console.error('Error getting daily upload time:', error);
+      return null;
+    }
+  }
+
+  // Schedule daily uploads based on configured time
+  static async scheduleDailyUploads(): Promise<void> {
+    try {
+      const config = await this.getGoogleDriveConfig();
+      if (!config || !config.daily_upload_time) {
+        console.log('No daily upload time configured');
+        return;
+      }
+
+      console.log(`Scheduling daily uploads for time: ${config.daily_upload_time}`);
+      
+      // Get all active campaigns with approved media assets
+      const { data: campaigns, error: campaignsError } = await supabase
+        .from('campaigns')
+        .select(`
+          id,
+          name,
+          selected_kiosk_ids,
+          status
+        `)
+        .eq('status', 'active');
+
+      if (campaignsError) throw campaignsError;
+
+      if (!campaigns || campaigns.length === 0) {
+        console.log('No active campaigns found for daily upload');
+        return;
+      }
+
+      // Get approved media assets for active campaigns
+      const campaignIds = campaigns.map(c => c.id);
+      const { data: mediaAssets, error: assetsError } = await supabase
+        .from('media_assets')
+        .select('*')
+        .in('campaign_id', campaignIds)
+        .eq('status', 'approved');
+
+      if (assetsError) throw assetsError;
+
+      if (!mediaAssets || mediaAssets.length === 0) {
+        console.log('No approved media assets found for daily upload');
+        return;
+      }
+
+      // Calculate next upload time
+      const now = new Date();
+      const [hours, minutes] = config.daily_upload_time.split(':').map(Number);
+      const nextUpload = new Date(now);
+      nextUpload.setHours(hours, minutes, 0, 0);
+      
+      // If the time has passed today, schedule for tomorrow
+      if (nextUpload <= now) {
+        nextUpload.setDate(nextUpload.getDate() + 1);
+      }
+
+      // Create upload jobs for each campaign and kiosk combination
+      for (const campaign of campaigns) {
+        if (!campaign.selected_kiosk_ids || campaign.selected_kiosk_ids.length === 0) {
+          continue;
+        }
+
+        const campaignAssets = mediaAssets.filter(asset => asset.campaign_id === campaign.id);
+        
+        for (const kioskId of campaign.selected_kiosk_ids) {
+          for (const asset of campaignAssets) {
+            await this.scheduleUpload({
+              gdrive_config_id: config.id,
+              kiosk_id: kioskId,
+              campaign_id: campaign.id,
+              media_asset_id: asset.id,
+              scheduled_time: nextUpload.toISOString(),
+              upload_type: 'scheduled',
+              folder_type: 'active'
+            });
+          }
+        }
+      }
+
+      console.log(`Scheduled daily uploads for ${nextUpload.toISOString()}`);
+    } catch (error) {
+      console.error('Error scheduling daily uploads:', error);
     }
   }
 }

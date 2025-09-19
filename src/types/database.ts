@@ -59,6 +59,7 @@ export interface Database {
           selected_kiosk_ids?: string[];
           volume_discount_applied: number;
           total_discount_amount: number;
+          max_video_duration?: number;
         };
         Insert: {
           id?: string;
@@ -82,6 +83,7 @@ export interface Database {
           selected_kiosk_ids?: string[];
           volume_discount_applied?: number;
           total_discount_amount?: number;
+          max_video_duration?: number;
         };
         Update: {
           id?: string;
@@ -105,6 +107,7 @@ export interface Database {
           selected_kiosk_ids?: string[];
           volume_discount_applied?: number;
           total_discount_amount?: number;
+          max_video_duration?: number;
         };
       };
       media_assets: {
