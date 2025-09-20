@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Settings, Mail, CreditCard, Cloud, Key, Globe, Save, DollarSign, Database, Tag, TrendingUp, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Settings, Mail, CreditCard, Cloud, Key, Globe, Save, DollarSign, Database, Tag, TrendingUp, Upload, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AdminService } from '../../services/adminService';
 import S3Configuration from './S3Configuration';
 import TrackingTagsManagement from './TrackingTagsManagement';
@@ -9,6 +9,7 @@ import { GoogleDriveSettings } from './GoogleDriveSettings';
 import { UploadManagement } from './UploadManagement';
 import StorageConfigurationManagement from './StorageConfigurationManagement';
 import NotificationSettings from './NotificationSettings';
+import AdUploadLimits from './AdUploadLimits';
 
 export default function SystemSettings() {
   const [activeTab, setActiveTab] = useState('integrations');
@@ -19,6 +20,8 @@ export default function SystemSettings() {
   const [scrollProgress, setScrollProgress] = useState(0);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [notificationSaveFunction, setNotificationSaveFunction] = useState<(() => Promise<void>) | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const tabNavRef = useRef<HTMLDivElement>(null);
 
@@ -97,6 +100,7 @@ export default function SystemSettings() {
     { id: 'gdrive-config', name: 'Google Drive Config', icon: Cloud },
     { id: 'gdrive-settings', name: 'Google Drive Settings', icon: Settings },
     { id: 'upload-management', name: 'Upload Management', icon: Settings },
+    { id: 'ad-upload-limits', name: 'Ad Upload Limits', icon: Upload },
     { id: 'tracking-tags', name: 'Tracking Tags', icon: Tag },
     { id: 'volume-discounts', name: 'Volume Discounts', icon: TrendingUp },
     { id: 'payments', name: 'Payments', icon: CreditCard },
@@ -107,10 +111,27 @@ export default function SystemSettings() {
   const handleSave = async () => {
     try {
       setIsSaving(true);
+      
+      // Save discount percent setting
       await AdminService.updateSystemSetting('additional_kiosk_discount_percent', discountPercent);
+      
+      // Save notification settings if we're on the notifications tab and have a save function
+      if (activeTab === 'notifications' && notificationSaveFunction) {
+        await notificationSaveFunction();
+      }
+      
+      setHasChanges(false);
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleNotificationSave = (saveFunction: () => Promise<void>) => {
+    setNotificationSaveFunction(() => saveFunction);
+  };
+
+  const handleNotificationChanges = (hasChanges: boolean) => {
+    setHasChanges(hasChanges);
   };
 
   return (
@@ -304,11 +325,19 @@ export default function SystemSettings() {
           {/* Volume Discounts Tab */}
           {activeTab === 'volume-discounts' && <VolumeDiscountManagement />}
 
+          {/* Ad Upload Limits Tab */}
+          {activeTab === 'ad-upload-limits' && <AdUploadLimits />}
+
           {/* Notifications Tab */}
-          {activeTab === 'notifications' && <NotificationSettings />}
+          {activeTab === 'notifications' && (
+            <NotificationSettings 
+              onSave={handleNotificationSave}
+              onHasChanges={handleNotificationChanges}
+            />
+          )}
 
           {/* Other tabs content would go here */}
-          {!['integrations', 'storage-config', 's3-config', 'gdrive-config', 'gdrive-settings', 'upload-management', 'tracking-tags', 'volume-discounts', 'notifications'].includes(activeTab) && (
+          {!['integrations', 'storage-config', 's3-config', 'gdrive-config', 'gdrive-settings', 'upload-management', 'ad-upload-limits', 'tracking-tags', 'volume-discounts', 'notifications'].includes(activeTab) && (
             <div className="text-center py-12">
               <Settings className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">{tabs.find(t => t.id === activeTab)?.name} Settings</h3>
@@ -340,14 +369,16 @@ export default function SystemSettings() {
         </div>
 
         {/* Save Button */}
-        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 rounded-b-lg sm:rounded-b-xl">
-          <div className="flex justify-end">
-            <button onClick={handleSave} disabled={isSaving} className="bg-purple-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center space-x-2 disabled:opacity-60 text-sm sm:text-base">
-              <Save className="h-3 w-3 sm:h-4 sm:w-4" />
-              <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
-            </button>
+        {hasChanges && (
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 rounded-b-lg sm:rounded-b-xl">
+            <div className="flex justify-end">
+              <button onClick={handleSave} disabled={isSaving} className="bg-purple-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center space-x-2 disabled:opacity-60 text-sm sm:text-base">
+                <Save className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

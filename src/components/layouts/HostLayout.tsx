@@ -10,7 +10,8 @@ import {
   PlusCircle,
   Megaphone,
   Menu, 
-  LogOut
+  LogOut,
+  Receipt
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import Logo from '../shared/Logo';
@@ -21,9 +22,10 @@ const navigation = [
   { name: 'Kiosk Manager', href: '/host/kiosks', icon: MapPin },
   { name: 'Ad Assignment', href: '/host/ads', icon: Calendar },
   { name: 'Create Campaign', href: '/host/new-campaign', icon: PlusCircle },
+  { name: 'Campaigns & Billing', href: '/host/campaigns-billing', icon: Receipt },
   { name: 'Revenue Tracker', href: '/host/revenue', icon: DollarSign },
   { name: 'Payout History', href: '/host/payouts', icon: CreditCard },
-  { name: 'Proof-of-Play', href: '/host/proof-of-play', icon: FileText },
+  { name: 'Analytics', href: '/host/analytics', icon: FileText },
   { name: 'Custom Ads', href: '/host/custom-ads', icon: Megaphone },
 ];
 

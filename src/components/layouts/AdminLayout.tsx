@@ -20,7 +20,8 @@ import {
   DollarSign,
   Monitor,
   TrendingUp,
-  FileText
+  FileText,
+  Building2
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import NotificationToast from '../NotificationToast';
@@ -37,6 +38,7 @@ const navigation = [
   { name: 'Custom Ad Management', href: '/admin/custom-ads', icon: FileText },
   { name: 'User Management', href: '/admin/users', icon: Users },
   { name: 'Kiosk Management', href: '/admin/kiosks', icon: MapPin },
+  { name: 'Partners Management', href: '/admin/partners', icon: Building2 },
   { name: 'Kiosk Folders', href: '/admin/kiosk-folders', icon: Folder },
   { name: 'Coupon Manager', href: '/admin/coupons', icon: Tag },
   { name: 'Marketing Tools', href: '/admin/marketing', icon: Megaphone },
@@ -101,7 +103,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 </button>
                 
                 {userMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 py-2 z-50">
                     <div className="px-4 py-2 border-b border-gray-200">
                       <p className="text-sm font-medium text-gray-900">{user?.name}</p>
                       <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
@@ -113,6 +115,13 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                     >
                       Settings
                     </Link>
+                    <button
+                      onClick={() => signOut()}
+                      className="w-full flex items-center space-x-3 text-left px-4 py-3 text-sm text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200"
+                    >
+                      <LogOut className="h-5 w-5" />
+                      <span>Sign Out</span>
+                    </button>
                     
                   </div>
                 )}

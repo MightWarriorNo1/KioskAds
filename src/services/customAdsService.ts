@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient';
 import type { Inserts } from '../types/database';
+import { CustomAdEmailService } from './customAdEmailService';
 
 export interface CustomAdOrderInput {
   userId: string;
@@ -133,7 +134,6 @@ export class CustomAdsService {
       files: uploaded,
       total_amount: Number(input.totalAmount.toFixed(2)),
       payment_status: 'succeeded',
-      workflow_status: 'submitted',
     };
 
     const { data, error } = await supabase
@@ -143,6 +143,18 @@ export class CustomAdsService {
       .single();
 
     if (error) throw error;
+
+    // Send email notification for order submitted
+    try {
+      const order = await this.getOrder(data.id as string);
+      if (order) {
+        await CustomAdEmailService.sendOrderSubmittedNotification(order);
+      }
+    } catch (emailError) {
+      console.error('Error sending order submitted email:', emailError);
+      // Don't throw error - order creation should succeed even if email fails
+    }
+
     return data.id as string;
   }
 
@@ -193,6 +205,21 @@ export class CustomAdsService {
     return data || [];
   }
 
+  // Get single proof by ID
+  static async getProof(proofId: string): Promise<CustomAdProof | null> {
+    const { data, error } = await supabase
+      .from('custom_ad_proofs')
+      .select(`
+        *,
+        designer:profiles!custom_ad_proofs_designer_id_fkey(id, full_name, email)
+      `)
+      .eq('id', proofId)
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
   // Submit proof for review
   static async submitProof(proofId: string, designerNotes?: string): Promise<void> {
     const { error } = await supabase
@@ -218,6 +245,18 @@ export class CustomAdsService {
         .from('custom_ad_orders')
         .update({ workflow_status: 'proofs_ready' })
         .eq('id', proof.order_id);
+
+      // Send email notification for proofs ready
+      try {
+        const order = await this.getOrder(proof.order_id);
+        const fullProof = await this.getProof(proofId);
+        if (order && fullProof) {
+          await CustomAdEmailService.sendProofsReadyNotification(order, fullProof);
+        }
+      } catch (emailError) {
+        console.error('Error sending proofs ready email:', emailError);
+        // Don't throw error - proof submission should succeed even if email fails
+      }
     }
   }
 
@@ -246,6 +285,18 @@ export class CustomAdsService {
         .from('custom_ad_orders')
         .update({ workflow_status: 'approved' })
         .eq('id', proof.order_id);
+
+      // Send email notification for proof approved
+      try {
+        const order = await this.getOrder(proof.order_id);
+        const fullProof = await this.getProof(proofId);
+        if (order && fullProof) {
+          await CustomAdEmailService.sendProofApprovedNotification(order, fullProof);
+        }
+      } catch (emailError) {
+        console.error('Error sending proof approved email:', emailError);
+        // Don't throw error - proof approval should succeed even if email fails
+      }
     }
   }
 
@@ -277,6 +328,18 @@ export class CustomAdsService {
           rejection_reason: clientFeedback 
         })
         .eq('id', proof.order_id);
+
+      // Send email notification for proof rejected
+      try {
+        const order = await this.getOrder(proof.order_id);
+        const fullProof = await this.getProof(proofId);
+        if (order && fullProof) {
+          await CustomAdEmailService.sendProofRejectedNotification(order, fullProof);
+        }
+      } catch (emailError) {
+        console.error('Error sending proof rejected email:', emailError);
+        // Don't throw error - proof rejection should succeed even if email fails
+      }
     }
   }
 
@@ -426,6 +489,17 @@ export class CustomAdsService {
       .eq('id', orderId);
 
     if (error) throw error;
+
+    // Send email notification for designer assigned
+    try {
+      const order = await this.getOrder(orderId);
+      if (order) {
+        await CustomAdEmailService.sendDesignerAssignedNotification(order);
+      }
+    } catch (emailError) {
+      console.error('Error sending designer assigned email:', emailError);
+      // Don't throw error - designer assignment should succeed even if email fails
+    }
   }
 
   static async updateOrderStatus(orderId: string, status: CustomAdOrder['workflow_status'], notes?: string): Promise<void> {
@@ -445,6 +519,27 @@ export class CustomAdsService {
       .eq('id', orderId);
 
     if (error) throw error;
+
+    // Send email notifications based on status change
+    try {
+      const order = await this.getOrder(orderId);
+      if (order) {
+        switch (status) {
+          case 'approved':
+            await CustomAdEmailService.sendOrderApprovedNotification(order);
+            break;
+          case 'rejected':
+            await CustomAdEmailService.sendOrderRejectedNotification(order);
+            break;
+          case 'completed':
+            await CustomAdEmailService.sendOrderCompletedNotification(order);
+            break;
+        }
+      }
+    } catch (emailError) {
+      console.error('Error sending status change email:', emailError);
+      // Don't throw error - status update should succeed even if email fails
+    }
   }
 }
 

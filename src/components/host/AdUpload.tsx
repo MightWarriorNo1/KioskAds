@@ -1,9 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Upload, X, Play, Pause, Eye, CheckCircle, AlertCircle, FileImage, FileVideo } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../contexts/NotificationContext';
 import { HostService, HostAd } from '../../services/hostService';
+import { AdminService } from '../../services/adminService';
 import { supabase } from '../../lib/supabaseClient';
 import { validateFile } from '../../utils/fileValidation';
 import Button from '../ui/Button';
@@ -30,6 +31,35 @@ export default function AdUpload({ onUploadComplete, onCancel }: AdUploadProps) 
   });
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [fileValidationError, setFileValidationError] = useState<string | null>(null);
+  const [uploadLimit, setUploadLimit] = useState<{
+    canUpload: boolean;
+    currentAds: number;
+    maxAds: number;
+    limitType: string;
+  } | null>(null);
+
+  // Check upload limits when component mounts
+  useEffect(() => {
+    const checkUploadLimits = async () => {
+      if (!user?.id) return;
+      
+      try {
+        const limit = await AdminService.checkAdUploadLimit(user.id);
+        setUploadLimit(limit);
+      } catch (error) {
+        console.error('Error checking upload limits:', error);
+        // On error, allow upload to prevent blocking users
+        setUploadLimit({
+          canUpload: true,
+          currentAds: 0,
+          maxAds: Infinity,
+          limitType: 'error'
+        });
+      }
+    };
+
+    checkUploadLimits();
+  }, [user?.id]);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -107,6 +137,13 @@ export default function AdUpload({ onUploadComplete, onCancel }: AdUploadProps) 
       return;
     }
 
+    // Check upload limits
+    if (uploadLimit && !uploadLimit.canUpload) {
+      addNotification('error', 'Upload Limit Reached', 
+        `You have reached your ad upload limit (${uploadLimit.currentAds}/${uploadLimit.maxAds}). Please contact an administrator to increase your limit.`);
+      return;
+    }
+
     const file = fileInputRef.current?.files?.[0];
     if (!file) {
       addNotification('error', 'No File', 'Please select a file to upload');
@@ -148,6 +185,9 @@ export default function AdUpload({ onUploadComplete, onCancel }: AdUploadProps) 
         duration: formData.duration
       });
 
+      // Increment upload count
+      await AdminService.incrementAdUploadCount(user.id);
+
       addNotification('success', 'Upload Successful', 'Your ad has been uploaded successfully');
       
       if (onUploadComplete) {
@@ -178,6 +218,13 @@ export default function AdUpload({ onUploadComplete, onCancel }: AdUploadProps) 
   const handleSubmitForReview = async () => {
     if (!user?.id || !validateForm()) {
       addNotification('error', 'Validation Error', 'Please fill in all required fields');
+      return;
+    }
+
+    // Check upload limits
+    if (uploadLimit && !uploadLimit.canUpload) {
+      addNotification('error', 'Upload Limit Reached', 
+        `You have reached your ad upload limit (${uploadLimit.currentAds}/${uploadLimit.maxAds}). Please contact an administrator to increase your limit.`);
       return;
     }
 
@@ -224,6 +271,9 @@ export default function AdUpload({ onUploadComplete, onCancel }: AdUploadProps) 
 
       // Submit for review
       await HostService.submitAdForReview(ad.id);
+
+      // Increment upload count
+      await AdminService.incrementAdUploadCount(user.id);
 
       addNotification('success', 'Submitted for Review', 'Your ad has been submitted for review');
       
@@ -397,6 +447,38 @@ export default function AdUpload({ onUploadComplete, onCancel }: AdUploadProps) 
             />
           </div>
 
+          {/* Upload Limit Info */}
+          {uploadLimit && uploadLimit.limitType !== 'none' && (
+            <div className={`flex items-center gap-2 p-3 rounded-lg ${
+              uploadLimit.canUpload 
+                ? 'bg-green-50 dark:bg-green-900/20' 
+                : 'bg-red-50 dark:bg-red-900/20'
+            }`}>
+              {uploadLimit.canUpload ? (
+                <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+              ) : (
+                <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+              )}
+              <div className="flex-1">
+                <p className={`text-sm font-medium ${
+                  uploadLimit.canUpload 
+                    ? 'text-green-800 dark:text-green-200' 
+                    : 'text-red-800 dark:text-red-200'
+                }`}>
+                  {uploadLimit.canUpload ? 'Upload Available' : 'Upload Limit Reached'}
+                </p>
+                <p className={`text-xs ${
+                  uploadLimit.canUpload 
+                    ? 'text-green-600 dark:text-green-300' 
+                    : 'text-red-600 dark:text-red-300'
+                }`}>
+                  {uploadLimit.currentAds} / {uploadLimit.maxAds === Infinity ? '∞' : uploadLimit.maxAds} ads uploaded
+                  {uploadLimit.limitType !== 'error' && ` (${uploadLimit.limitType} limit)`}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Media Type Info */}
           {mediaType && (
             <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
@@ -433,14 +515,14 @@ export default function AdUpload({ onUploadComplete, onCancel }: AdUploadProps) 
             <Button
               variant="secondary"
               onClick={handleUpload}
-              disabled={uploading || !preview}
+              disabled={uploading || !preview || (uploadLimit && !uploadLimit.canUpload)}
               loading={uploading}
             >
               Save as Draft
             </Button>
             <Button
               onClick={handleSubmitForReview}
-              disabled={uploading || !preview}
+              disabled={uploading || !preview || (uploadLimit && !uploadLimit.canUpload)}
               loading={uploading}
             >
               Submit for Review

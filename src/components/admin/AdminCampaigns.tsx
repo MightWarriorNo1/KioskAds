@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Calendar, Play, PauseCircle, XCircle, RefreshCw, Search, Edit, Save, X, DollarSign } from 'lucide-react';
+import { Calendar, Play, PauseCircle, XCircle, RefreshCw, Search, Edit, Save, X, DollarSign, Filter } from 'lucide-react';
 import { AdminService, AdminCampaignItem } from '../../services/adminService';
 import { useNotification } from '../../contexts/NotificationContext';
 
@@ -10,6 +10,7 @@ export default function AdminCampaigns() {
   const [campaigns, setCampaigns] = useState<ExtendedAdminCampaignItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'upcoming' | 'expired'>('all');
   const [editingCampaign, setEditingCampaign] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{
     name: string;
@@ -137,8 +138,35 @@ export default function AdminCampaigns() {
     const active = campaigns.filter(c => matchesQuery(c) && new Date(c.start_date) <= now && new Date(c.end_date) >= now && c.status === 'active');
     const upcoming = campaigns.filter(c => matchesQuery(c) && new Date(c.start_date) > now);
     const expired = campaigns.filter(c => matchesQuery(c) && new Date(c.end_date) < now);
+    
     return { active, upcoming, expired };
   }, [campaigns, query, now]);
+
+  const filteredCampaigns = useMemo(() => {
+    const allCampaigns = campaigns.filter(c => {
+      const q = query.trim().toLowerCase();
+      if (!q) return true;
+      return (
+        c.name.toLowerCase().includes(q) ||
+        (c.description || '').toLowerCase().includes(q) ||
+        (c.user?.full_name || '').toLowerCase().includes(q) ||
+        (c.user?.email || '').toLowerCase().includes(q) ||
+        (c.user?.company_name || '').toLowerCase().includes(q)
+      );
+    });
+
+    switch (statusFilter) {
+      case 'active':
+        return categorized.active;
+      case 'upcoming':
+        return categorized.upcoming;
+      case 'expired':
+        return categorized.expired;
+      case 'all':
+      default:
+        return allCampaigns;
+    }
+  }, [campaigns, query, statusFilter, categorized]);
 
   const Stat = ({ label, value, icon: Icon, color }: { label: string; value: number | string; icon: any; color: string }) => (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 p-6">
@@ -154,7 +182,7 @@ export default function AdminCampaigns() {
     </div>
   );
 
-  const Section = ({ title, items }: { title: string; items: AdminCampaignItem[] }) => (
+  const CampaignList = ({ items, title }: { items: AdminCampaignItem[]; title: string }) => (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200">
       <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{title} ({items.length})</h3>
@@ -394,23 +422,49 @@ export default function AdminCampaigns() {
         <Stat label="Expired" value={categorized.expired.length} icon={XCircle} color="bg-red-50" />
       </div>
 
+      {/* Filter Controls */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4">
-        <div className="flex items-center gap-2">
-          <Search className="h-4 w-4 text-gray-400" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by name, owner, company, email..."
-            className="w-full bg-transparent outline-none text-sm text-gray-900 dark:text-white placeholder:text-gray-400"
-          />
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex items-center gap-2 flex-1">
+            <Search className="h-4 w-4 text-gray-400" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by name, owner, company, email..."
+              className="w-full bg-transparent outline-none text-sm text-gray-900 dark:text-white placeholder:text-gray-400"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-gray-400" />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'upcoming' | 'expired')}
+              className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="all">All Campaigns</option>
+              <option value="active">Active</option>
+              <option value="upcoming">Upcoming</option>
+              <option value="expired">Expired</option>
+            </select>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
-        <Section title="Active" items={categorized.active} />
-        <Section title="Upcoming" items={categorized.upcoming} />
-        <Section title="Expired" items={categorized.expired} />
-      </div>
+      {/* Campaign Display */}
+      {statusFilter === 'all' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+          <CampaignList title="Active" items={categorized.active} />
+          <CampaignList title="Upcoming" items={categorized.upcoming} />
+          <CampaignList title="Expired" items={categorized.expired} />
+        </div>
+      ) : (
+        <div className="max-w-4xl mx-auto">
+          <CampaignList 
+            title={`${statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)} Campaigns`} 
+            items={filteredCampaigns} 
+          />
+        </div>
+      )}
     </div>
   );
 }

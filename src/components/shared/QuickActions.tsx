@@ -5,9 +5,11 @@ import { LucideIcon } from 'lucide-react';
 interface QuickAction {
   title: string;
   description: string;
-  href: string;
+  href?: string;
+  onClick?: () => void;
   icon: LucideIcon;
   color: 'blue' | 'green' | 'purple' | 'orange' | 'red';
+  loading?: boolean;
 }
 
 interface QuickActionsProps {
@@ -27,32 +29,49 @@ export default function QuickActions({ actions }: QuickActionsProps) {
     <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-slate-200/50 dark:border-slate-700/50">
       <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6">Quick Actions</h3>
       <div className="space-y-4">
-        {actions.map((action, index) => (
-          <Link
-            key={index}
-            to={action.href}
-            className="group block p-4 rounded-xl border border-slate-200/50 dark:border-slate-700/50 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-lg hover:shadow-slate-200/50 dark:hover:shadow-slate-900/50 transition-all duration-300 transform hover:scale-105 hover:-translate-y-1"
-          >
-            <div className="flex items-center space-x-4">
-              <div className={`p-4 rounded-xl transition-all duration-300 shadow-sm ${colorConfig[action.color]}`}>
-                <action.icon className="h-6 w-6 group-hover:scale-110 transition-transform" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="text-sm font-semibold group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
-                  {action.title}
-                </h4>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
-                  {action.description}
-                </p>
-              </div>
-              <div className="text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-all duration-300 group-hover:translate-x-1">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
+        {actions.map((action, index) => {
+          const content = (
+            <div className="group block p-4 rounded-xl border border-slate-200/50 dark:border-slate-700/50 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-lg hover:shadow-slate-200/50 dark:hover:shadow-slate-900/50 transition-all duration-300 transform hover:scale-105 hover:-translate-y-1">
+              <div className="flex items-center space-x-4">
+                <div className={`p-4 rounded-xl transition-all duration-300 shadow-sm ${colorConfig[action.color]} ${action.loading ? 'opacity-50' : ''}`}>
+                  <action.icon className={`h-6 w-6 group-hover:scale-110 transition-transform ${action.loading ? 'animate-spin' : ''}`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm font-semibold group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+                    {action.title}
+                  </h4>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
+                    {action.description}
+                  </p>
+                </div>
+                <div className="text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-all duration-300 group-hover:translate-x-1">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
               </div>
             </div>
-          </Link>
-        ))}
+          );
+
+          if (action.onClick) {
+            return (
+              <button
+                key={index}
+                onClick={action.onClick}
+                disabled={action.loading}
+                className="w-full text-left"
+              >
+                {content}
+              </button>
+            );
+          }
+
+          return (
+            <Link key={index} to={action.href || '#'}>
+              {content}
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

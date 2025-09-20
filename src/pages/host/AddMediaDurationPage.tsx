@@ -257,11 +257,6 @@ export default function HostAddMediaDurationPage() {
                 Higher durations may require admin approval. Keep media under platform guidelines.
               </div>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">Background color (for letterboxing)</label>
-              <input type="color" value={backgroundColor} onChange={(e) => setBackgroundColor(e.target.value)} />
-            </div>
           </div>
         </div>
       </div>

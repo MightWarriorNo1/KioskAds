@@ -17,6 +17,9 @@ import CampaignDetailsPage from './CampaignDetailsPage';
 import ProofOfPlayPage from './ProofOfPlayPage';
 import SingleProofOfPlayPage from './SingleProofOfPlayPage';
 import CustomAdsPage from './CustomAdsPage';
+import CustomAdCreationPage from './CustomAdCreationPage';
+import CustomAdManagementPage from './CustomAdManagementPage';
+import CustomAdDetailsPage from './CustomAdDetailsPage';
 
 export default function ClientPortal() {
   return (
@@ -38,6 +41,9 @@ export default function ClientPortal() {
       <Route path="/contact" element={<ContactPage />} />
       <Route path="/kiosks" element={<KiosksPage />} />
       <Route path="/custom-ads" element={<CustomAdsPage />} />
+      <Route path="/custom-ads/create" element={<CustomAdCreationPage />} />
+      <Route path="/custom-ads/manage" element={<CustomAdManagementPage />} />
+      <Route path="/custom-ads/:id" element={<CustomAdDetailsPage />} />
     </Routes>
   );
 }

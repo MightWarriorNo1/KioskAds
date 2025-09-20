@@ -1,16 +1,15 @@
 import { useState, useEffect } from 'react';
-import { CheckSquare, X, Eye, Clock, AlertCircle, Check, RefreshCw, MapPin } from 'lucide-react';
+import { CheckSquare, X, Eye, Clock, AlertCircle, Check, RefreshCw } from 'lucide-react';
 import { useNotification } from '../../contexts/NotificationContext';
 import { AdminService, AdReviewItem } from '../../services/adminService';
 import { MediaService } from '../../services/mediaService';
-import LeafletMap from '../MapContainer';
 
 export default function AdReviewQueue() {
   const [ads, setAds] = useState<AdReviewItem[]>([]);
   const [hostAds, setHostAds] = useState<any[]>([]);
   const [pendingClientCampaigns, setPendingClientCampaigns] = useState<any[]>([]);
   const [pendingHostCampaigns, setPendingHostCampaigns] = useState<any[]>([]);
-  const [mapKioskData, setMapKioskData] = useState<any[]>([]);
+  const [swappedAssets, setSwappedAssets] = useState<any[]>([]);
   const [selectedAd, setSelectedAd] = useState<AdReviewItem | null>(null);
   const [selectedHostAd, setSelectedHostAd] = useState<any | null>(null);
   const [selectedCampaign, setSelectedCampaign] = useState<any | null>(null);
@@ -18,7 +17,7 @@ export default function AdReviewQueue() {
   const [reviewing, setReviewing] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectionModal, setShowRejectionModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'client' | 'host' | 'all' | 'map'>('client');
+  const [activeTab, setActiveTab] = useState<'client' | 'host' | 'swapped' | 'all'>('client');
   const { addNotification } = useNotification();
 
   // Helper function to determine if an item is a campaign
@@ -43,7 +42,7 @@ export default function AdReviewQueue() {
       setSelectedAd(null);
       setSelectedCampaign(null);
     } else {
-      // For 'all' and 'map', clear specific selections
+      // For 'all', clear specific selections
       setSelectedAd(null);
       setSelectedCampaign(null);
       setSelectedHostAd(null);
@@ -53,12 +52,13 @@ export default function AdReviewQueue() {
   const loadAdReviewQueue = async () => {
     try {
       setLoading(true);
-      const { clientAds, hostAds, pendingClientCampaigns, pendingHostCampaigns } = await AdminService.getAllAdsForReview();
-      console.log('Loaded data:', { clientAds: clientAds.length, hostAds: hostAds.length, pendingClientCampaigns: pendingClientCampaigns.length, pendingHostCampaigns: pendingHostCampaigns.length });
+      const { clientAds, hostAds, pendingClientCampaigns, pendingHostCampaigns, swappedAssets } = await AdminService.getAllAdsForReview();
+      console.log('Loaded data:', { clientAds: clientAds.length, hostAds: hostAds.length, pendingClientCampaigns: pendingClientCampaigns.length, pendingHostCampaigns: pendingHostCampaigns.length, swappedAssets: swappedAssets.length });
       setAds(clientAds);
       setHostAds(hostAds);
       setPendingClientCampaigns(pendingClientCampaigns);
       setPendingHostCampaigns(pendingHostCampaigns);
+      setSwappedAssets(swappedAssets);
     } catch (error) {
       console.error('Error loading ad review queue:', error);
       addNotification('error', 'Error', 'Failed to load ad review queue');
@@ -67,63 +67,6 @@ export default function AdReviewQueue() {
     }
   };
 
-  // Build map kiosk markers for all items in queue
-  useEffect(() => {
-    const buildMapKiosks = async () => {
-      try {
-        const campaignIds = Array.from(new Set([
-          ...pendingClientCampaigns.map((c: any) => c.id),
-          ...pendingHostCampaigns.map((c: any) => c.id),
-          ...ads.map((a: any) => a.campaign?.id).filter(Boolean)
-        ]));
-        const hostAdIds = hostAds.map((h: any) => h.id);
-
-        const [byCampaign, byHostAd] = await Promise.all([
-          AdminService.getKiosksByCampaignIds(campaignIds),
-          AdminService.getKiosksByHostAdIds(hostAdIds)
-        ]);
-
-        const kioskMap = new Map<string, any>();
-
-        const addKiosk = (k: any) => {
-          if (!k) return;
-          const id = String(k.id);
-          if (kioskMap.has(id)) return;
-          const lat = k.coordinates?.lat;
-          const lng = k.coordinates?.lng;
-          if (typeof lat !== 'number' || typeof lng !== 'number') return;
-          kioskMap.set(id, {
-            id,
-            name: k.name,
-            city: k.city,
-            price: `$${k.price}/week`,
-            originalPrice: undefined,
-            traffic: (k.traffic_level === 'high' ? 'High Traffic' : k.traffic_level === 'medium' ? 'Medium Traffic' : 'Low Traffic') as 'Low Traffic' | 'Medium Traffic' | 'High Traffic',
-            hasWarning: k.status !== 'active',
-            position: [lat, lng] as [number, number],
-            address: k.address,
-            description: k.description
-          });
-        };
-
-        // From campaigns
-        Object.values(byCampaign || {}).forEach((arr: any) => {
-          (arr || []).forEach(addKiosk);
-        });
-        // From host ads
-        Object.values(byHostAd || {}).forEach((arr: any) => {
-          (arr || []).forEach(addKiosk);
-        });
-
-        setMapKioskData(Array.from(kioskMap.values()));
-      } catch (e) {
-        console.warn('Could not build map kiosks for review queue:', e);
-        setMapKioskData([]);
-      }
-    };
-
-    void buildMapKiosks();
-  }, [ads, hostAds, pendingClientCampaigns, pendingHostCampaigns]);
 
   const handleApprove = async (adId: string) => {
     try {
@@ -348,6 +291,16 @@ export default function AdReviewQueue() {
                     Host Ads ({hostAds.length + pendingHostCampaigns.length})
                   </button>
                   <button
+                    onClick={() => setActiveTab('swapped')}
+                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                      activeTab === 'swapped'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Swapped Assets ({swappedAssets.length})
+                  </button>
+                  <button
                     onClick={() => setActiveTab('all')}
                     className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
                       activeTab === 'all'
@@ -355,18 +308,7 @@ export default function AdReviewQueue() {
                         : 'text-gray-600 hover:text-gray-900'
                     }`}
                   >
-                    All ({ads.length + hostAds.length + pendingClientCampaigns.length + pendingHostCampaigns.length})
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('map')}
-                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors flex items-center space-x-1 ${
-                      activeTab === 'map'
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    <MapPin className="h-4 w-4" />
-                    <span>Map</span>
+                    All ({ads.length + hostAds.length + pendingClientCampaigns.length + pendingHostCampaigns.length + swappedAssets.length})
                   </button>
                 </div>
               </div>
@@ -377,12 +319,6 @@ export default function AdReviewQueue() {
                 <div className="p-6 text-center">
                   <RefreshCw className="h-8 w-8 text-gray-400 animate-spin mx-auto mb-4" />
                   <p className="text-gray-500 dark:text-gray-400">Loading ad review queue...</p>
-                </div>
-              ) : activeTab === 'map' ? (
-                <div className="p-0">
-                  <div className="h-[450px] w-full">
-                    <LeafletMap className="h-full w-full" kioskData={mapKioskData} />
-                  </div>
                 </div>
               ) : ((activeTab === 'client'
                     ? pendingClientCampaigns

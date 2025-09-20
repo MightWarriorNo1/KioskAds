@@ -78,6 +78,7 @@ export default function HostSelectWeeksPage() {
     const id = fmt(d);
     setSelectedMondays((prev) => {
       if (prev.includes(id)) {
+        // Allow unselecting by clicking on selected date
         return prev.filter(x => x !== id);
       } else {
         if (prev.length >= 4) {
@@ -90,7 +91,13 @@ export default function HostSelectWeeksPage() {
 
   const selectSubscriptionStart = (d: Date) => {
     if (isPastDate(d)) return;
-    setSubStartMonday(fmt(d));
+    const id = fmt(d);
+    // Allow unselecting by clicking on the same date again
+    if (subStartMonday === id) {
+      setSubStartMonday(null);
+    } else {
+      setSubStartMonday(id);
+    }
   };
 
   const weeklyValid = selectedMondays.length > 0;
@@ -325,7 +332,96 @@ export default function HostSelectWeeksPage() {
                   </button>
                 ) : <div key={i} />)}
               </div>
+              
+              <div className="flex flex-wrap items-center justify-center gap-3 md:gap-6 text-xs md:text-sm text-gray-600 dark:text-gray-300 mt-4 md:mt-6 pt-3 md:pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex items-center space-x-2">
+                  <span className="inline-block w-3 h-3 md:w-4 md:h-4 bg-white dark:bg-gray-800 rounded border"/>
+                  <span>Available Dates</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="inline-block w-3 h-3 md:w-4 md:h-4 bg-blue-500 rounded"/>
+                  <span>Selected Weeks (click to unselect)</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="inline-block w-3 h-3 md:w-4 md:h-4 bg-red-100 dark:bg-red-900/20 rounded border"/>
+                  <span>Blocked (1 week)</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="inline-block w-3 h-3 md:w-4 md:h-4 bg-gray-100 dark:bg-gray-800 rounded border"/>
+                  <span>Past Dates</span>
+                </div>
+              </div>
             </div>
+
+            {/* Selected Weeks & Campaign Blocks */}
+            {selectedMondays.length > 0 ? (
+              <div className="mt-6 space-y-4">
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-xl p-4 mb-6">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                      <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-semibold text-green-800 dark:text-green-200">Weeks Selected</div>
+                      <div className="text-sm text-green-600 dark:text-green-400">
+                        You have selected {selectedMondays.length} week{selectedMondays.length > 1 ? 's' : ''} for your campaign
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-medium text-green-800 dark:text-green-200">
+                        {selectedMondays.length}/4 weeks
+                      </div>
+                      <div className="text-xs text-green-600 dark:text-green-400">Maximum</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow-soft">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="font-semibold text-gray-900 dark:text-white">Selected Weeks</div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800">{selectedMondays.length} week{selectedMondays.length > 1 ? 's' : ''} selected</span>
+                      <button
+                        onClick={() => setSelectedMondays([])}
+                        className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-800 hover:bg-red-200 transition-colors"
+                      >
+                        Clear All
+                      </button>
+                    </div>
+                  </div>
+                  {sortedMondays.map((iso, idx) => {
+                    const start = toDate(iso);
+                    const end = addDays(start, 6);
+                    return (
+                      <div key={iso} className="text-sm text-gray-800 dark:text-gray-200">
+                        Week {idx + 1}: {formatRange(start, end)}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow-soft">
+                  <div className="font-semibold text-gray-900 dark:text-white mb-2">Campaign Blocks</div>
+                  <div className="space-y-3">
+                    {blocks.map((b, i) => (
+                      <div key={i} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-white dark:bg-gray-800">
+                        <div className="font-medium text-gray-900 dark:text-white">Campaign {i+1}:</div>
+                        <div className="text-sm text-gray-800 dark:text-gray-200">{formatRange(b.start, b.end)}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{b.count} consecutive {b.count === 1 ? 'week' : 'weeks'}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-6 text-center py-8">
+                <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Calendar className="h-8 w-8 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No weeks selected yet</h3>
+                <p className="text-gray-600 dark:text-gray-300">Click on the available Mondays above to select weeks for your campaign.</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -468,20 +564,47 @@ export default function HostSelectWeeksPage() {
                   </button>
                 ) : <div key={i} />)}
               </div>
+              
+              <div className="flex items-center justify-center space-x-6 text-sm text-gray-600 dark:text-gray-300 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex items-center space-x-2">
+                  <span className="inline-block w-4 h-4 bg-white dark:bg-gray-800 rounded border"/>
+                  <span>Available Dates</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="inline-block w-4 h-4 bg-blue-500 rounded"/>
+                  <span>Selected Start (click to unselect)</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="inline-block w-4 h-4 bg-red-100 dark:bg-red-900/20 rounded border"/>
+                  <span>Blocked (1 month)</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="inline-block w-4 h-4 bg-gray-100 dark:bg-gray-800 rounded border"/>
+                  <span>Past Dates</span>
+                </div>
+              </div>
             </div>
 
             {subStartMonday && (
               <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-xl p-4 mb-6">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                    <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
-                  </div>
-                  <div>
-                    <div className="font-semibold text-green-800 dark:text-green-200">Start Week Selected</div>
-                    <div className="text-sm text-green-600 dark:text-green-400">
-                      Your subscription will begin the week of {formatRange(toDate(subStartMonday), addDays(toDate(subStartMonday), 6))}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                      <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-green-800 dark:text-green-200">Start Week Selected</div>
+                      <div className="text-sm text-green-600 dark:text-green-400">
+                        Your subscription will begin the week of {formatRange(toDate(subStartMonday), addDays(toDate(subStartMonday), 6))}
+                      </div>
                     </div>
                   </div>
+                  <button
+                    onClick={() => setSubStartMonday(null)}
+                    className="text-xs px-3 py-1 rounded-full bg-red-100 text-red-800 hover:bg-red-200 transition-colors"
+                  >
+                    Clear
+                  </button>
                 </div>
               </div>
             )}

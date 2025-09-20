@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Monitor, DollarSign, MapPin, TrendingUp, Eye, Upload, Calendar, Play } from 'lucide-react';
+import { Monitor, DollarSign, MapPin, TrendingUp, Eye, Upload, Calendar, Play, Clock, CheckCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { HostService, HostStats } from '../../services/hostService';
+import { HostService, HostStats, HostAd } from '../../services/hostService';
 import { ProofOfPlayService } from '../../services/proofOfPlayService';
 import MetricsCard from '../shared/MetricsCard';
 import RecentActivity from '../shared/RecentActivity';
@@ -15,6 +15,7 @@ export default function HostDashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState<HostStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [ads, setAds] = useState<HostAd[]>([]);
   const [popSummary, setPopSummary] = useState({
     totalPlays: 0,
     uniqueScreens: 0,
@@ -29,8 +30,9 @@ export default function HostDashboard() {
       
       try {
         setLoading(true);
-        const [statsData, popData] = await Promise.all([
+        const [statsData, adsData, popData] = await Promise.all([
           HostService.getHostStats(user.id),
+          HostService.getHostAds(user.id),
           ProofOfPlayService.getProofOfPlaySummary({ 
             accountId: user.id,
             startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -38,6 +40,7 @@ export default function HostDashboard() {
           })
         ]);
         setStats(statsData);
+        setAds(adsData);
         setPopSummary(popData);
       } catch (error) {
         console.error('Error loading dashboard data:', error);
@@ -89,6 +92,22 @@ export default function HostDashboard() {
       changeType: 'positive' as const,
       icon: Play,
       color: 'purple' as const
+    },
+    {
+      title: 'My Ads',
+      value: ads.length.toString(),
+      change: `${ads.filter(ad => ad.status === 'active').length} active`,
+      changeType: 'positive' as const,
+      icon: CheckCircle,
+      color: 'green' as const
+    },
+    {
+      title: 'Pending Review',
+      value: ads.filter(ad => ad.status === 'pending_review').length.toString(),
+      change: 'Awaiting approval',
+      changeType: ads.filter(ad => ad.status === 'pending_review').length > 0 ? 'negative' as const : 'positive' as const,
+      icon: Clock,
+      color: ads.filter(ad => ad.status === 'pending_review').length > 0 ? 'orange' as const : 'green' as const
     }
   ] : [];
 
@@ -108,8 +127,8 @@ export default function HostDashboard() {
       color: 'blue' as const
     },
     {
-      title: 'Assign Ads',
-      description: 'Schedule ads to specific kiosks',
+      title: 'Manage Ads',
+      description: 'View, edit, and assign your ads',
       href: '/host/ads',
       icon: Calendar,
       color: 'purple' as const
@@ -141,6 +160,8 @@ export default function HostDashboard() {
         navigate('/host/revenue');
         break;
       case 'Pending Ads':
+      case 'My Ads':
+      case 'Pending Review':
         navigate('/host/ads');
         break;
       default:
@@ -157,7 +178,7 @@ export default function HostDashboard() {
       case 'Upload Ads':
         navigate('/host/ads/upload');
         break;
-      case 'Assign Ads':
+      case 'Manage Ads':
         navigate('/host/ads');
         break;
       case 'Revenue Dashboard':

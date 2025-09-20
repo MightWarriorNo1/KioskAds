@@ -216,12 +216,30 @@ export class CampaignService {
 
   static async updateCampaignStatus(campaignId: string, status: Campaign['status']): Promise<boolean> {
     try {
+      // Get campaign data before updating
+      const { data: campaignData, error: fetchError } = await supabase
+        .from('campaigns')
+        .select(`
+          *,
+          profiles!inner(email, full_name, role)
+        `)
+        .eq('id', campaignId)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (!campaignData) {
+        throw new Error('Campaign not found');
+      }
+
       const { error } = await supabase
         .from('campaigns')
         .update({ status, updated_at: new Date().toISOString() })
         .eq('id', campaignId);
 
       if (error) throw error;
+
+      // Send email notification for status changes
+      await this.sendCampaignStatusEmail(campaignData, status);
 
       return true;
     } catch (error) {
@@ -294,6 +312,57 @@ export class CampaignService {
 
   static async resumeCampaign(campaignId: string): Promise<boolean> {
     return this.updateCampaignStatus(campaignId, 'active');
+  }
+
+  // Send email notification for campaign status change
+  private static async sendCampaignStatusEmail(
+    campaignData: any, 
+    status: Campaign['status']
+  ): Promise<void> {
+    try {
+      // Import the campaign email service dynamically to avoid circular dependencies
+      const { CampaignEmailService } = await import('./campaignEmailService');
+      
+      const emailData = {
+        campaign_id: campaignData.id,
+        campaign_name: campaignData.name,
+        user_id: campaignData.user_id,
+        user_email: campaignData.profiles.email,
+        user_name: campaignData.profiles.full_name,
+        user_role: campaignData.profiles.role,
+        status: campaignData.status,
+        start_date: campaignData.start_date,
+        end_date: campaignData.end_date,
+        budget: campaignData.budget,
+        total_spent: campaignData.total_spent,
+        impressions: campaignData.impressions,
+        clicks: campaignData.clicks,
+        target_locations: campaignData.target_locations
+      };
+
+      // Map internal status to email status
+      let emailStatus: 'approved' | 'rejected' | 'active' | 'expiring' | 'expired' | 'paused' | 'resumed';
+      
+      switch (status) {
+        case 'active':
+          emailStatus = 'active';
+          break;
+        case 'paused':
+          emailStatus = 'paused';
+          break;
+        case 'completed':
+          emailStatus = 'expired';
+          break;
+        default:
+          // For other statuses, don't send email
+          return;
+      }
+
+      await CampaignEmailService.sendCampaignStatusNotification(emailData, emailStatus);
+    } catch (error) {
+      console.error('Error sending campaign status email:', error);
+      // Don't throw error to avoid breaking the main workflow
+    }
   }
 }
 

@@ -17,6 +17,7 @@ import KioskGDriveFolderManager from '../components/admin/KioskGDriveFolderManag
 import RevenueAnalytics from '../components/admin/RevenueAnalytics';
 import Analytics from '../components/admin/Analytics';
 import CustomAdManagement from '../components/admin/CustomAdManagement';
+import PartnersManagement from '../components/admin/PartnersManagement';
 
 export default function AdminPortal() {
   return (
@@ -31,6 +32,7 @@ export default function AdminPortal() {
         <Route path="/custom-ads" element={<CustomAdManagement />} />
         <Route path="/users" element={<UserManagement />} />
         <Route path="/kiosks" element={<KioskManagement />} />
+        <Route path="/partners" element={<PartnersManagement />} />
         <Route path="/coupons" element={<CouponManager />} />
         <Route path="/marketing" element={<MarketingTools />} />
         <Route path="/integrations" element={<IntegrationManagement />} />

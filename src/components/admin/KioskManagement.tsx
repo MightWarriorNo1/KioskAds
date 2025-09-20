@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Monitor, MapPin, Wifi, WifiOff, Settings, Search, Download, Upload, RefreshCw, FileText, X, Folder, User, UserPlus, UserMinus } from 'lucide-react';
+import { Monitor, MapPin, Wifi, WifiOff, Settings, Search, Download, Upload, RefreshCw, FileText, X, Folder, User, UserPlus, UserMinus, Plus } from 'lucide-react';
 import { useNotification } from '../../contexts/NotificationContext';
 import { AdminService } from '../../services/adminService';
 import { supabase } from '../../lib/supabaseClient';
@@ -62,6 +62,7 @@ export default function KioskManagement() {
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedKiosk, setSelectedKiosk] = useState<Kiosk | null>(null);
   const [savingSettings, setSavingSettings] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Kiosk>>({});
@@ -70,6 +71,20 @@ export default function KioskManagement() {
     hostId: '',
     commissionRate: 70.00
   });
+  const [createForm, setCreateForm] = useState({
+    name: '',
+    location: '',
+    address: '',
+    city: '',
+    state: '',
+    traffic_level: 'medium' as 'low' | 'medium' | 'high',
+    base_rate: 0,
+    price: 0,
+    status: 'active' as 'active' | 'inactive' | 'maintenance',
+    coordinates: { lat: 0, lng: 0 },
+    description: ''
+  });
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     loadKiosks();
@@ -238,6 +253,43 @@ export default function KioskManagement() {
     }
   };
 
+  const handleCreateKiosk = async () => {
+    try {
+      setCreating(true);
+      
+      // Validate required fields
+      if (!createForm.name || !createForm.location || !createForm.address || 
+          !createForm.city || !createForm.state || createForm.base_rate <= 0 || 
+          createForm.price <= 0 || createForm.coordinates.lat === 0 || createForm.coordinates.lng === 0) {
+        addNotification('error', 'Validation Error', 'Please fill in all required fields including valid coordinates');
+        return;
+      }
+
+      const newKiosk = await AdminService.createKiosk(createForm);
+      addNotification('success', 'Kiosk Created', `Successfully created kiosk "${newKiosk.name}"`);
+      setShowCreateModal(false);
+      setCreateForm({
+        name: '',
+        location: '',
+        address: '',
+        city: '',
+        state: '',
+        traffic_level: 'medium',
+        base_rate: 0,
+        price: 0,
+        status: 'active',
+        coordinates: { lat: 0, lng: 0 },
+        description: ''
+      });
+      await loadKiosks();
+    } catch (error) {
+      console.error('Error creating kiosk:', error);
+      addNotification('error', 'Error', 'Failed to create kiosk');
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const importKiosks = async () => {
     if (!importFile) return;
 
@@ -372,6 +424,13 @@ export default function KioskManagement() {
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
+          </button>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Create New Kiosk</span>
           </button>
           <button
             onClick={() => setShowAssignModal(true)}
@@ -895,6 +954,252 @@ export default function KioskManagement() {
                   <span>Assign to Host</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Kiosk Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Create New Kiosk</h3>
+              <button 
+                onClick={() => { 
+                  setShowCreateModal(false); 
+                  setCreateForm({
+                    name: '',
+                    location: '',
+                    address: '',
+                    city: '',
+                    state: '',
+                    traffic_level: 'medium',
+                    base_rate: 0,
+                    price: 0,
+                    status: 'active',
+                    coordinates: { lat: 0, lng: 0 },
+                    description: ''
+                  });
+                }} 
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Kiosk Name *</label>
+                <input
+                  type="text"
+                  value={createForm.name}
+                  onChange={(e) => setCreateForm(f => ({ ...f, name: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Enter kiosk name"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Location *</label>
+                <input
+                  type="text"
+                  value={createForm.location}
+                  onChange={(e) => setCreateForm(f => ({ ...f, location: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Enter location"
+                />
+              </div>
+              
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address *</label>
+                <input
+                  type="text"
+                  value={createForm.address}
+                  onChange={(e) => setCreateForm(f => ({ ...f, address: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Enter full address"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">City *</label>
+                <input
+                  type="text"
+                  value={createForm.city}
+                  onChange={(e) => setCreateForm(f => ({ ...f, city: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Enter city"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">State *</label>
+                <input
+                  type="text"
+                  value={createForm.state}
+                  onChange={(e) => setCreateForm(f => ({ ...f, state: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Enter state"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Traffic Level *</label>
+                <select
+                  value={createForm.traffic_level}
+                  onChange={(e) => setCreateForm(f => ({ ...f, traffic_level: e.target.value as 'low' | 'medium' | 'high' }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+                <select
+                  value={createForm.status}
+                  onChange={(e) => setCreateForm(f => ({ ...f, status: e.target.value as 'active' | 'inactive' | 'maintenance' }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="maintenance">Maintenance</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Base Rate ($) *</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={createForm.base_rate}
+                  onChange={(e) => setCreateForm(f => ({ ...f, base_rate: Number(e.target.value) }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="0.00"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Price ($) *</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={createForm.price}
+                  onChange={(e) => setCreateForm(f => ({ ...f, price: Number(e.target.value) }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="0.00"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Latitude *</label>
+                <input
+                  type="number"
+                  step="0.000001"
+                  value={createForm.coordinates.lat}
+                  onChange={(e) => setCreateForm(f => ({ ...f, coordinates: { ...f.coordinates, lat: Number(e.target.value) } }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="0.000000"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Longitude *</label>
+                <input
+                  type="number"
+                  step="0.000001"
+                  value={createForm.coordinates.lng}
+                  onChange={(e) => setCreateForm(f => ({ ...f, coordinates: { ...f.coordinates, lng: Number(e.target.value) } }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="0.000000"
+                />
+              </div>
+              
+              <div className="md:col-span-2">
+                <div className="bg-blue-50 dark:bg-gray-800 border border-blue-200 dark:border-gray-600 rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-2">Coordinate Helper</h4>
+                  <p className="text-xs text-blue-800 dark:text-blue-300 mb-3">
+                    You can get coordinates from Google Maps by right-clicking on a location and copying the coordinates.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(
+                          (position) => {
+                            setCreateForm(f => ({
+                              ...f,
+                              coordinates: {
+                                lat: position.coords.latitude,
+                                lng: position.coords.longitude
+                              }
+                            }));
+                            addNotification('success', 'Location Found', 'Current location coordinates have been set');
+                          },
+                          (error) => {
+                            console.error('Geolocation error:', error);
+                            addNotification('error', 'Location Error', 'Could not get current location. Please enter coordinates manually.');
+                          }
+                        );
+                      } else {
+                        addNotification('error', 'Not Supported', 'Geolocation is not supported by this browser. Please enter coordinates manually.');
+                      }
+                    }}
+                    className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition-colors"
+                  >
+                    Use Current Location
+                  </button>
+                </div>
+              </div>
+              
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+                <textarea
+                  value={createForm.description}
+                  onChange={(e) => setCreateForm(f => ({ ...f, description: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Enter kiosk description (optional)"
+                  rows={3}
+                />
+              </div>
+            </div>
+            
+            <div className="mt-6 flex justify-end space-x-3">
+              <button
+                onClick={() => { 
+                  setShowCreateModal(false); 
+                  setCreateForm({
+                    name: '',
+                    location: '',
+                    address: '',
+                    city: '',
+                    state: '',
+                    traffic_level: 'medium',
+                    base_rate: 0,
+                    price: 0,
+                    status: 'active',
+                    coordinates: { lat: 0, lng: 0 },
+                    description: ''
+                  });
+                }}
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-500 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateKiosk}
+                disabled={creating}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center space-x-2 transition-colors"
+              >
+                {creating && <RefreshCw className="h-4 w-4 animate-spin" />}
+                <Plus className="h-4 w-4" />
+                <span>{creating ? 'Creating...' : 'Create Kiosk'}</span>
+              </button>
             </div>
           </div>
         </div>

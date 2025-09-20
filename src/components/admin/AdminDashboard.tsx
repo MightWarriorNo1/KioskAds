@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Monitor, CheckSquare, DollarSign, AlertTriangle, TrendingUp, Upload, Mail, Send } from 'lucide-react';
+import { Users, Monitor, CheckSquare, DollarSign, AlertTriangle, TrendingUp, Upload, Mail, Send, Settings } from 'lucide-react';
 import { AdminService, AdminMetrics } from '../../services/adminService';
 import { useNotification } from '../../contexts/NotificationContext';
 import MetricsCard from '../shared/MetricsCard';
 import RecentActivity from '../shared/RecentActivity';
 import QuickActions from '../shared/QuickActions';
+import NotificationManager from './NotificationManager';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import { useNavigate } from 'react-router-dom';
@@ -15,11 +16,20 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [activities, setActivities] = useState<Array<{ action: string; time: string; type: 'success' | 'info' | 'warning' | 'error'; }>>([]);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [systemNotices, setSystemNotices] = useState<Array<{
+    id: string;
+    title: string;
+    message: string;
+    type: 'info' | 'warning' | 'error' | 'success';
+    priority: 'low' | 'normal' | 'high' | 'critical';
+  }>>([]);
+  const [showNotificationManager, setShowNotificationManager] = useState(false);
   const { addNotification } = useNotification();
 
   useEffect(() => {
     loadMetrics();
     loadRecentActivity();
+    loadSystemNotices();
   }, []);
 
   const loadMetrics = async () => {
@@ -41,6 +51,15 @@ export default function AdminDashboard() {
       setActivities(data);
     } catch (error) {
       console.error('Error loading recent activity:', error);
+    }
+  };
+
+  const loadSystemNotices = async () => {
+    try {
+      const notices = await AdminService.getSystemNotices();
+      setSystemNotices(notices);
+    } catch (error) {
+      console.error('Error loading system notices:', error);
     }
   };
 
@@ -122,6 +141,13 @@ export default function AdminDashboard() {
       icon: Send,
       color: 'green',
       loading: isSendingEmail
+    },
+    {
+      title: 'Notification Manager',
+      description: 'Manage system notices and clear notifications',
+      onClick: () => setShowNotificationManager(true),
+      icon: Settings,
+      color: 'purple'
     }
   ];
 
@@ -143,12 +169,34 @@ export default function AdminDashboard() {
       </div>
 
       {/* System Alerts */}
-      <Card className="animate-fade-in-up bg-yellow-50/60 dark:bg-yellow-500/10 border-yellow-200/60 dark:border-yellow-600/30" title="System Notice">
-        <div className="flex items-start gap-3">
-          <AlertTriangle className="h-5 w-5 text-yellow-700 dark:text-yellow-400 mt-0.5" />
-          <p className="text-sm">Scheduled maintenance window: Jan 25, 2025 at 2:00 AM - 4:00 AM PST</p>
-        </div>
-      </Card>
+      {systemNotices.length > 0 && systemNotices.map((notice) => {
+        const getNoticeColor = (type: string) => {
+          switch (type) {
+            case 'success': return 'bg-green-50/60 dark:bg-green-500/10 border-green-200/60 dark:border-green-600/30';
+            case 'warning': return 'bg-yellow-50/60 dark:bg-yellow-500/10 border-yellow-200/60 dark:border-yellow-600/30';
+            case 'error': return 'bg-red-50/60 dark:bg-red-500/10 border-red-200/60 dark:border-red-600/30';
+            default: return 'bg-blue-50/60 dark:bg-blue-500/10 border-blue-200/60 dark:border-blue-600/30';
+          }
+        };
+        
+        const getNoticeIcon = (type: string) => {
+          switch (type) {
+            case 'success': return 'text-green-700 dark:text-green-400';
+            case 'warning': return 'text-yellow-700 dark:text-yellow-400';
+            case 'error': return 'text-red-700 dark:text-red-400';
+            default: return 'text-blue-700 dark:text-blue-400';
+          }
+        };
+        
+        return (
+          <Card key={notice.id} className={`animate-fade-in-up ${getNoticeColor(notice.type)}`} title={notice.title}>
+            <div className="flex items-start gap-3">
+              <AlertTriangle className={`h-5 w-5 ${getNoticeIcon(notice.type)} mt-0.5`} />
+              <p className="text-sm">{notice.message}</p>
+            </div>
+          </Card>
+        );
+      })}
 
       {/* Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
@@ -182,7 +230,13 @@ export default function AdminDashboard() {
                     <div className="text-sm text-gray-500 dark:text-gray-400 truncate">{qa.description}</div>
                   </div>
                 </div>
-                <Button variant="secondary" size="sm" onClick={() => navigate(qa.href)} className="flex-shrink-0 ml-2">Open</Button>
+                {qa.href ? (
+                  <Button variant="secondary" size="sm" onClick={() => navigate(qa.href)} className="flex-shrink-0 ml-2">Open</Button>
+                ) : (
+                  <Button variant="secondary" size="sm" onClick={qa.onClick} disabled={qa.loading} className="flex-shrink-0 ml-2">
+                    {qa.loading ? 'Loading...' : 'Execute'}
+                  </Button>
+                )}
               </div>
             ))}
           </div>
@@ -219,6 +273,27 @@ export default function AdminDashboard() {
           </div>
         </Card>
       </div>
+
+      {/* Notification Manager Modal */}
+      {showNotificationManager && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold">Notification Manager</h2>
+                <Button
+                  onClick={() => setShowNotificationManager(false)}
+                  variant="outline"
+                  size="sm"
+                >
+                  Close
+                </Button>
+              </div>
+              <NotificationManager />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

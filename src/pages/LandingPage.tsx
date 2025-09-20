@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { MapPin, Clock, Upload, Check, Star ,Aperture, Camera, Videotape} from 'lucide-react';
 import SiteHeader from '../components/layouts/SiteHeader';
+import PartnersSection from '../components/shared/PartnersSection';
 
 export default function LandingPage() {
 
@@ -161,7 +162,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      
+      {/* Our Partners Section */}
+      <PartnersSection />
 
       {/* Pricing Section */}
       <section 

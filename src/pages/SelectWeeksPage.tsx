@@ -88,6 +88,7 @@ export default function SelectWeeksPage() {
     const id = fmt(d);
     setSelectedMondays((prev) => {
       if (prev.includes(id)) {
+        // Allow unselecting by clicking on selected date
         return prev.filter(x => x !== id);
       } else {
         // Check if we're at the 4 weeks max limit
@@ -101,7 +102,13 @@ export default function SelectWeeksPage() {
 
   const selectSubscriptionStart = (d: Date) => {
     if (isPastDate(d)) return; // Prevent selection of past dates
-    setSubStartMonday(fmt(d));
+    const id = fmt(d);
+    // Allow unselecting by clicking on the same date again
+    if (subStartMonday === id) {
+      setSubStartMonday(null);
+    } else {
+      setSubStartMonday(id);
+    }
   };
 
   const weeklyValid = selectedMondays.length > 0;
@@ -381,7 +388,7 @@ export default function SelectWeeksPage() {
                 </div>
                 <div className="flex items-center space-x-2">
                   <span className="inline-block w-3 h-3 md:w-4 md:h-4 bg-blue-500 rounded"/>
-                  <span>Selected Weeks</span>
+                  <span>Selected Weeks (click to unselect)</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <span className="inline-block w-3 h-3 md:w-4 md:h-4 bg-red-100 dark:bg-red-900/20 rounded border"/>
@@ -420,7 +427,15 @@ export default function SelectWeeksPage() {
                 <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow-soft">
                   <div className="flex items-center justify-between mb-2">
                     <div className="font-semibold text-gray-900 dark:text-white">Selected Weeks</div>
-                    <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800">{selectedMondays.length} week{selectedMondays.length > 1 ? 's' : ''} selected</span>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800">{selectedMondays.length} week{selectedMondays.length > 1 ? 's' : ''} selected</span>
+                      <button
+                        onClick={() => setSelectedMondays([])}
+                        className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-800 hover:bg-red-200 transition-colors"
+                      >
+                        Clear All
+                      </button>
+                    </div>
                   </div>
                   {sortedMondays.map((iso, idx) => {
                     const start = toDate(iso);
@@ -606,7 +621,7 @@ export default function SelectWeeksPage() {
                  </div>
                  <div className="flex items-center space-x-2">
                    <span className="inline-block w-4 h-4 bg-blue-500 rounded"/>
-                   <span>Selected Start</span>
+                   <span>Selected Start (click to unselect)</span>
                  </div>
                  <div className="flex items-center space-x-2">
                    <span className="inline-block w-4 h-4 bg-red-100 dark:bg-red-900/20 rounded border"/>
@@ -621,16 +636,24 @@ export default function SelectWeeksPage() {
 
             {subStartMonday && (
               <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-xl p-4 mb-6">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                    <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
-                  </div>
-                  <div>
-                    <div className="font-semibold text-green-800 dark:text-green-200">Start Week Selected</div>
-                    <div className="text-sm text-green-600 dark:text-green-400">
-                      Your subscription will begin the week of {formatRange(toDate(subStartMonday), addDays(toDate(subStartMonday), 6))}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                      <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-green-800 dark:text-green-200">Start Week Selected</div>
+                      <div className="text-sm text-green-600 dark:text-green-400">
+                        Your subscription will begin the week of {formatRange(toDate(subStartMonday), addDays(toDate(subStartMonday), 6))}
+                      </div>
                     </div>
                   </div>
+                  <button
+                    onClick={() => setSubStartMonday(null)}
+                    className="text-xs px-3 py-1 rounded-full bg-red-100 text-red-800 hover:bg-red-200 transition-colors"
+                  >
+                    Clear
+                  </button>
                 </div>
               </div>
             )}

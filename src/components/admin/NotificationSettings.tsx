@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Mail, Bell, AlertCircle, Save, Settings, Clock, Users, Send, Plus, X, CheckCircle } from 'lucide-react';
+import { Mail, Bell, AlertCircle, Settings, Clock, Users, Send, Plus, X, CheckCircle } from 'lucide-react';
 import { AdminService } from '../../services/adminService';
 import { useNotification } from '../../contexts/NotificationContext';
 
@@ -17,7 +17,17 @@ interface DailyEmailSettings {
   recipients: string[];
 }
 
-export default function NotificationSettings() {
+interface EmailConfigSettings {
+  fromEmail: string;
+  replyToEmail: string;
+}
+
+interface NotificationSettingsProps {
+  onSave?: (saveFunction: () => Promise<void>) => void;
+  onHasChanges?: (hasChanges: boolean) => void;
+}
+
+export default function NotificationSettings({ onSave, onHasChanges }: NotificationSettingsProps = {}) {
   const { addNotification } = useNotification();
   const [configs, setConfigs] = useState<NotificationConfig[]>([
     {
@@ -71,6 +81,10 @@ export default function NotificationSettings() {
     time: '09:00',
     recipients: []
   });
+  const [emailConfigSettings, setEmailConfigSettings] = useState<EmailConfigSettings>({
+    fromEmail: 'noreply@yourcompany.com',
+    replyToEmail: 'support@yourcompany.com'
+  });
   const [newRecipient, setNewRecipient] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSendingTest, setIsSendingTest] = useState(false);
@@ -96,6 +110,15 @@ export default function NotificationSettings() {
           ? recipientsSetting.value 
           : (recipientsSetting?.value ? JSON.parse(recipientsSetting.value) : [])
       });
+
+      // Load email configuration settings
+      const fromEmailSetting = settings.find(s => s.key === 'email_from_address');
+      const replyToEmailSetting = settings.find(s => s.key === 'email_reply_to_address');
+
+      setEmailConfigSettings({
+        fromEmail: fromEmailSetting?.value || 'noreply@yourcompany.com',
+        replyToEmail: replyToEmailSetting?.value || 'support@yourcompany.com'
+      });
     } catch (error) {
       console.error('Error loading settings:', error);
       addNotification('error', 'Error', 'Failed to load notification settings');
@@ -113,6 +136,7 @@ export default function NotificationSettings() {
       )
     );
     setHasChanges(true);
+    onHasChanges?.(true);
   };
 
   const handleSave = async () => {
@@ -123,11 +147,14 @@ export default function NotificationSettings() {
       await Promise.all([
         AdminService.updateSystemSetting('daily_pending_review_email_enabled', dailyEmailSettings.enabled),
         AdminService.updateSystemSetting('daily_pending_review_email_time', dailyEmailSettings.time),
-        AdminService.updateSystemSetting('daily_pending_review_email_recipients', dailyEmailSettings.recipients)
+        AdminService.updateSystemSetting('daily_pending_review_email_recipients', dailyEmailSettings.recipients),
+        AdminService.updateSystemSetting('email_from_address', emailConfigSettings.fromEmail),
+        AdminService.updateSystemSetting('email_reply_to_address', emailConfigSettings.replyToEmail)
       ]);
 
       addNotification('success', 'Success', 'Notification settings saved successfully');
       setHasChanges(false);
+      onHasChanges?.(false);
     } catch (error) {
       console.error('Failed to save notification settings:', error);
       addNotification('error', 'Error', 'Failed to save notification settings');
@@ -136,14 +163,23 @@ export default function NotificationSettings() {
     }
   };
 
+  // Expose save function to parent
+  useEffect(() => {
+    if (onSave) {
+      onSave(handleSave);
+    }
+  }, [onSave, handleSave]);
+
   const handleDailyEmailToggle = () => {
     setDailyEmailSettings(prev => ({ ...prev, enabled: !prev.enabled }));
     setHasChanges(true);
+    onHasChanges?.(true);
   };
 
   const handleTimeChange = (time: string) => {
     setDailyEmailSettings(prev => ({ ...prev, time }));
     setHasChanges(true);
+    onHasChanges?.(true);
   };
 
   const addRecipient = () => {
@@ -154,6 +190,7 @@ export default function NotificationSettings() {
       }));
       setNewRecipient('');
       setHasChanges(true);
+      onHasChanges?.(true);
     }
   };
 
@@ -163,6 +200,19 @@ export default function NotificationSettings() {
       recipients: prev.recipients.filter(r => r !== email)
     }));
     setHasChanges(true);
+    onHasChanges?.(true);
+  };
+
+  const handleFromEmailChange = (email: string) => {
+    setEmailConfigSettings(prev => ({ ...prev, fromEmail: email }));
+    setHasChanges(true);
+    onHasChanges?.(true);
+  };
+
+  const handleReplyToEmailChange = (email: string) => {
+    setEmailConfigSettings(prev => ({ ...prev, replyToEmail: email }));
+    setHasChanges(true);
+    onHasChanges?.(true);
   };
 
   const sendTestEmail = async () => {
@@ -417,7 +467,8 @@ export default function NotificationSettings() {
             </label>
             <input
               type="email"
-              defaultValue="noreply@yourcompany.com"
+              value={emailConfigSettings.fromEmail}
+              onChange={(e) => handleFromEmailChange(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             />
           </div>
@@ -427,26 +478,14 @@ export default function NotificationSettings() {
             </label>
             <input
               type="email"
-              defaultValue="support@yourcompany.com"
+              value={emailConfigSettings.replyToEmail}
+              onChange={(e) => handleReplyToEmailChange(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             />
           </div>
         </div>
       </div>
 
-      {/* Save Button */}
-      {hasChanges && (
-        <div className="flex justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center space-x-2 disabled:opacity-60"
-          >
-            <Save className="h-4 w-4" />
-            <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
-          </button>
-        </div>
-      )}
     </div>
   );
 }

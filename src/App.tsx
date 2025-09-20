@@ -7,6 +7,7 @@ import LandingPage from './pages/LandingPage';
 import HostLanding from './pages/HostLanding';
 import KiosksPage from './pages/KiosksPage';
 import CustomAdsPage from './pages/CustomAdsPage';
+import PartnersPage from './pages/PartnersPage';
 import SignIn from './pages/SignIn';
 import SignUp from './pages/SignUp';
 import ContactPage from './pages/ContactPage';
@@ -35,6 +36,7 @@ function App() {
                   <Route path="/privacy" element={<PrivacyPolicy />} />
                   <Route path="/terms" element={<TermsOfService />} />
                   <Route path="/custom-ads" element={<CustomAdsPage />} />
+                  <Route path="/partners" element={<PartnersPage />} />
                   <Route path="/hosting" element={<HostLanding />} />
                   <Route path="/kiosks" element={<KiosksPage />} />
                   <Route path="/auth/callback" element={<AuthCallback />} />

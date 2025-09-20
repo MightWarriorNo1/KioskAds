@@ -555,7 +555,7 @@ export default function AddMediaDurationPage() {
                       <div className="w-full h-16 bg-black rounded-lg shadow-lg"></div>
                       
                       {/* Kiosk Main Body */}
-                      <div className="w-64 h-80 mx-auto bg-black rounded-lg shadow-2xl relative">
+                      <div className="w-full h-80 mx-auto p-4 bg-black rounded-lg shadow-2xl relative">
                         {/* Top sensors/camera dots */}
                         <div className="absolute top-2 left-1/2 transform -translate-x-1/2 flex space-x-1">
                           <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
@@ -563,11 +563,11 @@ export default function AddMediaDurationPage() {
                         </div>
                         
                         {/* Screen Area */}
-                        <div className="w-full h-full bg-white rounded-lg overflow-hidden relative">
+                        <div className="w-full h-48 bg-white rounded-lg overflow-hidden relative object-contain">
                           {/* Preview Image/Video */}
                           {filePreview && (
                             <div 
-                              className="w-full h-full bg-cover bg-center bg-no-repeat"
+                              className="w-full h-full bg-cover bg-center bg-no-repeat object-contain"
                               style={{
                                 backgroundImage: `url(${filePreview})`,
                                 backgroundColor: backgroundColor
@@ -577,8 +577,6 @@ export default function AddMediaDurationPage() {
                         </div>
                       </div>
                       
-                      {/* Connecting strip */}
-                      <div className="w-72 h-1 bg-gray-300 mx-auto -mt-1 rounded-full"></div>
                     </div>
                     
                     {/* Remove File Button */}
@@ -606,30 +604,6 @@ export default function AddMediaDurationPage() {
                       <div>{uploadedFile?.name}</div>
                       <div>({uploadedFile ? (uploadedFile.size / 1024 / 1024).toFixed(2) : '0'} MB)</div>
                       <div>Type: {uploadedFile?.type.startsWith('image/') ? 'Image' : 'Video'}</div>
-                    </div>
-                  </div>
-
-                  {/* Background Color */}
-                  <div>
-                    <h5 className="font-medium text-gray-900 dark:text-white mb-3">Background Color</h5>
-                    <div className="flex items-center space-x-3">
-                      <div 
-                        className="w-8 h-8 rounded border border-gray-300"
-                        style={{ backgroundColor: backgroundColor }}
-                      />
-                      <input
-                        type="color"
-                        value={backgroundColor}
-                        onChange={(e) => setBackgroundColor(e.target.value)}
-                        className="w-16 h-8 border border-gray-300 rounded cursor-pointer"
-                      />
-                      <input
-                        type="text"
-                        value={backgroundColor}
-                        onChange={(e) => setBackgroundColor(e.target.value)}
-                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                        placeholder="#000000"
-                      />
                     </div>
                   </div>
 

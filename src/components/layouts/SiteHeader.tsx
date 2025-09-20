@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import Logo from '../shared/Logo';
-import ThemeToggle from '../shared/ThemeToggle';
+import ThemeToggle from '../shared/ThemeToggle';   
 
 export default function SiteHeader() {
   const { user } = useAuth();
@@ -135,16 +135,6 @@ export default function SiteHeader() {
             }`}
           >
             Contact
-          </Link>
-          <Link 
-            to="/custom-ads" 
-            className={`transition-colors ${
-              isActive('/custom-ads') 
-                ? 'text-primary-600 dark:text-primary-400 font-semibold' 
-                : 'text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
-            }`}
-          >
-            Custom Ads
           </Link>
           <Link 
             to="/hosting" 

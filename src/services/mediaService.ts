@@ -445,5 +445,113 @@ export class MediaService {
       return false;
     }
   }
+
+  // Swap media asset (for approved assets only)
+  static async swapMediaAsset(
+    mediaId: string,
+    newFile: File,
+    validation: ValidationResult
+  ): Promise<MediaAsset> {
+    try {
+      // First, verify the media asset is approved
+      const { data: existing, error: fetchError } = await supabase
+        .from('media_assets')
+        .select('*')
+        .eq('id', mediaId)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (!existing) throw new Error('Media asset not found');
+      if (existing.status !== 'approved') {
+        throw new Error('Only approved media assets can be swapped');
+      }
+
+      // Generate new filename
+      const fileExt = newFile.name.split('.').pop();
+      const fileName = `${existing.user_id}/${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+
+      // Upload new file to storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('media-assets')
+        .upload(fileName, newFile, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) {
+        throw new Error(`Upload failed: ${uploadError.message}`);
+      }
+
+      // Get public URL for new file
+      const { data: urlData } = supabase.storage
+        .from('media-assets')
+        .getPublicUrl(fileName);
+
+      // Update the media asset with new file and set status to swapped
+      const updateData: Updates<'media_assets'> = {
+        file_name: newFile.name,
+        file_path: fileName,
+        file_size: newFile.size,
+        file_type: newFile.type.startsWith('image/') ? 'image' : 'video',
+        mime_type: newFile.type,
+        dimensions: validation.dimensions!,
+        duration: validation.duration ? Math.round(validation.duration) : undefined,
+        status: 'swapped',
+        metadata: {
+          ...existing.metadata,
+          originalName: newFile.name,
+          swappedAt: new Date().toISOString(),
+          publicUrl: urlData.publicUrl,
+          previousFile: existing.file_path
+        },
+        updated_at: new Date().toISOString()
+      };
+
+      const { data, error } = await supabase
+        .from('media_assets')
+        .update(updateData)
+        .eq('id', mediaId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error swapping media asset:', error);
+      throw error;
+    }
+  }
+
+  // Submit swapped media asset for review
+  static async submitSwappedMediaForReview(mediaId: string): Promise<void> {
+    try {
+      // Verify the media asset is in swapped status
+      const { data: existing, error: fetchError } = await supabase
+        .from('media_assets')
+        .select('status')
+        .eq('id', mediaId)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (!existing) throw new Error('Media asset not found');
+      if (existing.status !== 'swapped') {
+        throw new Error('Only swapped media assets can be submitted for review');
+      }
+
+      // Update status to processing (which will trigger admin review)
+      const { error } = await supabase
+        .from('media_assets')
+        .update({ 
+          status: 'processing',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', mediaId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error submitting swapped media for review:', error);
+      throw error;
+    }
+  }
 }
 

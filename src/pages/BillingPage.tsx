@@ -96,7 +96,7 @@ export default function BillingPage() {
       return (
         <div className="space-y-6">
           {[1, 2].map((i) => (
-            <div key={i} className="bg-white rounded-lg border border-gray-200 p-6">
+            <div key={i} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 p-6">
               <div className="animate-pulse">
                 <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
                 <div className="h-3 bg-gray-200 rounded w-1/2 mb-4"></div>
@@ -128,13 +128,13 @@ export default function BillingPage() {
     return (
       <div className="space-y-6">
         {activeCampaigns.map((campaign) => (
-          <div key={campaign.id} className="bg-white rounded-lg border border-gray-200 p-6">
+          <div key={campaign.id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 p-6">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h3 className="font-semibold text-gray-900 mb-1">
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
                   {campaign.name || `Campaign ${formatDate(campaign.start_date)} - ${formatDate(campaign.end_date)}`}
                 </h3>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-gray-600 dark:text-gray-300">
                   Active until {formatDate(campaign.end_date)}
                 </p>
               </div>
@@ -142,14 +142,14 @@ export default function BillingPage() {
                 {campaign.status}
               </span>
             </div>
-            <div className="space-y-2 text-sm text-gray-600 mb-4">
+            <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300 mb-4">
               <div>Start Date: {formatDate(campaign.start_date)}</div>
               <div>End Date: {formatDate(campaign.end_date)}</div>
               <div>Total Price: {formatCurrency(campaign.total_cost)}</div>
             </div>
             <button 
               onClick={() => navigate(`/client/campaigns/${campaign.id}`)}
-              className="bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors"
+              className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 py-2 px-4 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
             >
               View Details
             </button>
@@ -164,7 +164,7 @@ export default function BillingPage() {
       return (
         <div className="space-y-6">
           {[1, 2].map((i) => (
-            <div key={i} className="bg-white rounded-lg border border-gray-200 p-6">
+            <div key={i} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 p-6">
               <div className="animate-pulse">
                 <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
                 <div className="h-3 bg-gray-200 rounded w-1/2 mb-4"></div>
@@ -196,17 +196,17 @@ export default function BillingPage() {
     return (
       <div className="space-y-6">
         {subscriptions.map((subscription) => (
-          <div key={subscription.id} className="bg-white rounded-lg border border-gray-200 p-6">
+          <div key={subscription.id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 p-6">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h3 className="font-semibold text-gray-900 mb-1">Subscription</h3>
-                <p className="text-sm text-gray-600">Started: {formatDate(subscription.start_date)}</p>
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-1">Subscription</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-300">Started: {formatDate(subscription.start_date)}</p>
               </div>
               <span className={`${getStatusColor(subscription.status)} text-white text-xs px-2 py-1 rounded capitalize`}>
                 {subscription.status}
               </span>
             </div>
-            <div className="space-y-2 text-sm text-gray-600 mb-4">
+            <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300 mb-4">
               <div>Start Date: {formatDate(subscription.start_date)}</div>
               {subscription.end_date && <div>End Date: {formatDate(subscription.end_date)}</div>}
               <div>Status: {subscription.status}</div>
@@ -216,13 +216,13 @@ export default function BillingPage() {
               <div className="mb-4">
                 <h4 className="font-medium text-gray-900 mb-2">Linked Campaigns</h4>
                 {subscription.linked_campaigns.map((campaignId, index) => (
-                  <div key={index} className="flex items-center justify-between bg-gray-50 p-3 rounded">
+                  <div key={index} className="flex items-center justify-between bg-gray-50 dark:bg-gray-700 p-3 rounded">
                     <span className="text-sm text-gray-700">Campaign {campaignId}</span>
                     <span className="bg-green-600 text-white text-xs px-2 py-1 rounded">Active</span>
                   </div>
                 ))}
                 <div className="mt-2">
-                  <button className="text-sm text-gray-600 underline hover:no-underline">
+                  <button className="text-sm text-gray-600 dark:text-gray-300 underline hover:no-underline">
                     View details
                   </button>
                 </div>
@@ -231,7 +231,7 @@ export default function BillingPage() {
             {subscription.status === 'active' && (
               <button 
                 onClick={() => handleCancelSubscription(subscription.id)}
-                className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors"
+                className="w-full bg-red-600 text-white dark:text-gray-900 py-2 px-4 rounded-lg hover:bg-red-700 transition-colors"
               >
                 Cancel Subscription
               </button>

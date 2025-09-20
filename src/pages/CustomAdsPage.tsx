@@ -523,9 +523,65 @@ export default function CustomAdsPage() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
             Custom Ad Creation Services
           </h1>
-          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-8">
             Choose from graphic design, photography, or videography services to create stunning vertical ads for our kiosk network.
           </p>
+          
+          {/* New Custom Ad Creation Feature */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-6 mb-8 border border-blue-200 dark:border-blue-800">
+            <div className="flex items-center justify-center mb-4">
+              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mr-4">
+                <Upload className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="text-left">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  New: Flexible Custom Ad Creation
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  Upload any media files with any dimensions
+                </p>
+              </div>
+            </div>
+            <p className="text-gray-700 dark:text-gray-300 mb-4">
+              Create custom ads with complete flexibility - upload images, videos, and documents of any size or format. 
+              Perfect for complex projects that need custom dimensions or multiple media types.
+            </p>
+            <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-600 dark:text-gray-400 mb-4">
+              <span className="flex items-center">
+                <Check className="w-4 h-4 mr-1 text-green-500" />
+                Any dimensions supported
+              </span>
+              <span className="flex items-center">
+                <Check className="w-4 h-4 mr-1 text-green-500" />
+                Multiple file types
+              </span>
+              <span className="flex items-center">
+                <Check className="w-4 h-4 mr-1 text-green-500" />
+                Up to 20 files per project
+              </span>
+              <span className="flex items-center">
+                <Check className="w-4 h-4 mr-1 text-green-500" />
+                100MB per file
+              </span>
+            </div>
+            <div className="flex gap-3 justify-center">
+              <Button
+                onClick={() => navigate('/client/custom-ads/create')}
+                className="flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Create Custom Ad
+              </Button>
+              <Button
+                onClick={() => navigate('/client/custom-ads/manage')}
+                variant="secondary"
+                className="flex items-center gap-2"
+              >
+                <Eye className="w-4 h-4" />
+                Manage My Ads
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -927,6 +983,7 @@ export default function CustomAdsPage() {
                         
                         setPaymentMessage('Payment succeeded and your order has been saved.');
                       } catch (e) {
+                        console.error('Error saving order after payment:', e);
                         setPaymentMessage('Payment succeeded, but saving your order failed. Please contact support.');
                       }
                     }}

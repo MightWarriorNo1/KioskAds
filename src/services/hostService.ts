@@ -34,7 +34,7 @@ export interface HostAd {
   media_url: string;
   media_type: 'image' | 'video';
   duration: number;
-  status: 'draft' | 'pending_review' | 'approved' | 'rejected' | 'active' | 'paused';
+  status: 'draft' | 'pending_review' | 'approved' | 'rejected' | 'active' | 'paused' | 'swapped';
   rejection_reason?: string;
   created_at: string;
   updated_at: string;
@@ -377,6 +377,153 @@ export class HostService {
       };
     } catch (error) {
       console.error('Error creating ad assignment:', error);
+      throw error;
+    }
+  }
+
+  // Delete ad
+  static async deleteAd(adId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('host_ads')
+        .delete()
+        .eq('id', adId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error deleting ad:', error);
+      throw error;
+    }
+  }
+
+  // Pause ad
+  static async pauseAd(adId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('host_ads')
+        .update({ status: 'paused' })
+        .eq('id', adId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error pausing ad:', error);
+      throw error;
+    }
+  }
+
+  // Resume ad
+  static async resumeAd(adId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('host_ads')
+        .update({ status: 'active' })
+        .eq('id', adId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error resuming ad:', error);
+      throw error;
+    }
+  }
+
+  // Swap ad asset (for active ads only)
+  static async swapAdAsset(
+    adId: string,
+    newMediaUrl: string,
+    newMediaType: 'image' | 'video',
+    newDuration?: number
+  ): Promise<HostAd> {
+    try {
+      // First, verify the ad is active
+      const { data: existing, error: fetchError } = await supabase
+        .from('host_ads')
+        .select('*')
+        .eq('id', adId)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (!existing) throw new Error('Ad not found');
+      if (existing.status !== 'active') {
+        throw new Error('Only active ads can have their assets swapped');
+      }
+
+      // Update the ad with new asset and set status to swapped
+      const updateData: any = {
+        media_url: newMediaUrl,
+        media_type: newMediaType,
+        status: 'swapped',
+        updated_at: new Date().toISOString()
+      };
+
+      if (newDuration !== undefined) {
+        updateData.duration = newDuration;
+      }
+
+      const { data, error } = await supabase
+        .from('host_ads')
+        .update(updateData)
+        .eq('id', adId)
+        .select('*')
+        .single();
+
+      if (error) throw error;
+      return data as HostAd;
+    } catch (error) {
+      console.error('Error swapping ad asset:', error);
+      throw error;
+    }
+  }
+
+  // Submit swapped ad for review
+  static async submitSwappedAdForReview(adId: string): Promise<void> {
+    try {
+      // Verify the ad is in swapped status
+      const { data: existing, error: fetchError } = await supabase
+        .from('host_ads')
+        .select('status')
+        .eq('id', adId)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (!existing) throw new Error('Ad not found');
+      if (existing.status !== 'swapped') {
+        throw new Error('Only swapped ads can be submitted for review');
+      }
+
+      // Update status to pending_review
+      const { error } = await supabase
+        .from('host_ads')
+        .update({ 
+          status: 'pending_review',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', adId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error submitting swapped ad for review:', error);
+      throw error;
+    }
+  }
+
+  // Update ad details
+  static async updateAd(adId: string, updates: {
+    name?: string;
+    description?: string;
+    duration?: number;
+  }): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('host_ads')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', adId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error updating ad:', error);
       throw error;
     }
   }
