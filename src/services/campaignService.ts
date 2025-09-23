@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
+import { CampaignEmailService } from './campaignEmailService';
 
 export interface Campaign {
   id: string;
@@ -320,8 +321,7 @@ export class CampaignService {
     status: Campaign['status']
   ): Promise<void> {
     try {
-      // Import the campaign email service dynamically to avoid circular dependencies
-      const { CampaignEmailService } = await import('./campaignEmailService');
+      // Use CampaignEmailService (now statically imported)
       
       const emailData = {
         campaign_id: campaignData.id,
