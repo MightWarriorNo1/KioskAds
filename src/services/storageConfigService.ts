@@ -212,7 +212,8 @@ export class StorageConfigService {
       console.log('Testing S3 configuration:', config.bucket_name, config.region);
       
       // Import AWSS3Service dynamically to avoid circular dependencies
-      const { AWSS3Service } = await import('./awsS3Service');
+      // Use browser-compatible version in client-side environment
+      const { AWSS3Service } = await import('./awsS3Service.browser');
       
       const awsConfig = {
         bucketName: config.bucket_name,

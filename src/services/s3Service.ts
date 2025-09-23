@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabaseClient';
 import { S3Configuration, OptiSignsImportJob, OptiSignsProofOfPlay } from '../types/database';
-import { AWSS3Service, S3Config as AWSS3Config } from './awsS3Service';
+import { AWSS3Service, S3Config as AWSS3Config } from './awsS3Service.browser';
 
 export interface S3Config {
   bucketName: string;
