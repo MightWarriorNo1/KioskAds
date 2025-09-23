@@ -1,10 +1,11 @@
-import { Suspense } from 'react';
+import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { DesignerService, type CustomAdOrder } from '../services/designerService';
 import { useNotification } from '../contexts/NotificationContext';
 import DesignerLayout from '../components/layouts/DesignerLayout';
+import { AdminService } from '../services/adminService';
 import { supabase } from '../lib/supabaseClient';
 import { CustomAdsService } from '../services/customAdsService';
 import Card from '../components/ui/Card';
@@ -236,7 +237,7 @@ function DesignerOrders() {
   );
 }
 
-import StripeConnectSetup from '../components/host/StripeConnectSetup';
+const StripeConnectSetupLazy = lazy(() => import('../components/host/StripeConnectSetup'));
 
 function DesignerRevenue() {
   return (
@@ -244,7 +245,7 @@ function DesignerRevenue() {
       <h2 className="text-lg font-medium">Revenue</h2>
       <div className="border rounded p-4">
         <Suspense fallback={<div className="text-sm text-gray-600">Loading Stripe Connect…</div>}>
-          <StripeConnectSetup onSetupComplete={() => {}} />
+          <StripeConnectSetupLazy onSetupComplete={() => {}} />
         </Suspense>
       </div>
       {/* @ts-ignore reuse payout history list via HostService for now */}
@@ -263,7 +264,7 @@ function DesignerOrderDetails() {
   const { id } = useParams<{ id: string }>();
   const { addNotification } = useNotification();
   const [order, setOrder] = useState<CustomAdOrder | null>(null);
-  const [, setComments] = useState<any[]>([]);
+  const [comments, setComments] = useState<any[]>([]);
   const [proofs, setProofs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -293,6 +294,8 @@ function DesignerOrderDetails() {
     try {
       setUploading(true);
       // Upload files to custom-ad-uploads and create a proof in custom_ad_proofs
+      const { user } = (await import('../contexts/AuthContext')).useAuth();
+      // Fallback if hook not accessible here; we'll instead rely on order.designer or prompt
       // Upload files using CustomAdsService.uploadFiles requires a userId
       const currentUserId = (window as any).__currentUserId || (order as any)?.assigned_designer_id || '';
       const uploadedSummaries = await CustomAdsService.uploadFiles(currentUserId, files);

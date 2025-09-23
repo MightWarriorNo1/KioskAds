@@ -1,9 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
 import { GoogleDriveService } from './googleDriveService';
-import { GmailService } from './gmailService';
-import { CustomAdEmailService } from './customAdEmailService';
-import { CustomAdsService } from './customAdsService';
-import { CampaignEmailService } from './campaignEmailService';
 
 // Types for admin operations
 export interface AdminMetrics {
@@ -1893,6 +1889,7 @@ export class AdminService {
 
       try {
         // Try local Gmail first; if not configured, invoke edge processor
+        const { GmailService } = await import('./gmailService');
         if (GmailService.isConfigured()) {
           await GmailService.processEmailQueue();
         } else {
@@ -1946,6 +1943,7 @@ export class AdminService {
         });
 
       try {
+        const { GmailService } = await import('./gmailService');
         if (GmailService.isConfigured()) {
           await GmailService.processEmailQueue();
         } else {
@@ -2521,6 +2519,7 @@ export class AdminService {
   ): Promise<void> {
     try {
       // Import the campaign email service dynamically to avoid circular dependencies
+      const { CampaignEmailService } = await import('./campaignEmailService');
       
       const emailData = {
         campaign_id: campaignData.id,
@@ -3392,7 +3391,8 @@ export class AdminService {
 
       // Optionally notify client/host that proofs are ready (reuse existing email flow if available)
       try {
-        const order = await CustomAdsService.getOrder(orderId);
+        const { CustomAdEmailService } = await import('./customAdEmailService');
+        const order = await (await import('./customAdsService')).CustomAdsService.getOrder(orderId);
         if (order) {
           await (CustomAdEmailService as any).sendProofsReadyNotification(order as any, null);
         }

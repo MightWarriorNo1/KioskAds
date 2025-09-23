@@ -1,5 +1,4 @@
 import { supabase } from '../lib/supabaseClient';
-import { AWSS3Service } from './awsS3Service';
 
 export interface StorageConfig {
   id: string;
@@ -212,7 +211,8 @@ export class StorageConfigService {
     try {
       console.log('Testing S3 configuration:', config.bucket_name, config.region);
       
-      // Use AWSS3Service (now statically imported)
+      // Import AWSS3Service dynamically to avoid circular dependencies
+      const { AWSS3Service } = await import('./awsS3Service');
       
       const awsConfig = {
         bucketName: config.bucket_name,

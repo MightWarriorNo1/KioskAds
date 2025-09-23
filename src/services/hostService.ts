@@ -506,6 +506,27 @@ export class HostService {
     }
   }
 
+  // Update ad details
+  static async updateAd(adId: string, updates: {
+    name?: string;
+    description?: string;
+    duration?: number;
+  }): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('host_ads')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', adId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error updating ad:', error);
+      throw error;
+    }
+  }
 
   // Get host revenue data
   static async getHostRevenue(
