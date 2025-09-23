@@ -30,8 +30,7 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   optimizeDeps: {
-    exclude: ['lucide-react', 'googleapis'],
-    include: ['@aws-sdk/client-s3', '@aws-sdk/s3-request-presigner'],
+    exclude: ['lucide-react', 'googleapis', '@aws-sdk/client-s3', '@aws-sdk/s3-request-presigner'],
   },
   define: {
     global: 'globalThis',
@@ -45,10 +44,7 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
-      external: ['googleapis'],
-    },
-    commonjsOptions: {
-      include: [/node_modules/],
+      external: ['googleapis', '@aws-sdk/client-s3', '@aws-sdk/s3-request-presigner'],
     },
   },
 });
