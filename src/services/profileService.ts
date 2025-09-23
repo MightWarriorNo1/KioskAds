@@ -4,7 +4,7 @@ export interface Profile {
   id: string;
   email: string;
   full_name: string;
-  role: 'client' | 'host' | 'admin';
+  role: 'client' | 'host' | 'designer' | 'admin';
   company_name?: string;
   avatar_url?: string;
   subscription_tier: 'free' | 'basic' | 'premium' | 'enterprise';

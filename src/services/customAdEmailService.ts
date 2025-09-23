@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabaseClient';
 import { GmailService } from './gmailService';
-import type { CustomAdOrder, CustomAdProof, CustomAdNotification } from './customAdsService';
+import type { CustomAdOrder, CustomAdProof } from './customAdsService';
 
 export interface EmailTemplate {
   id: string;
@@ -410,7 +410,9 @@ export class CustomAdEmailService {
         .select('*')
         .eq('type', type)
         .eq('is_active', true)
-        .single();
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       if (error) throw error;
       return data;
@@ -445,10 +447,10 @@ export class CustomAdEmailService {
         .select('*')
         .eq('service_key', serviceKey)
         .eq('is_active', true)
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
-      return data;
+      if (error) return null;
+      return data || null;
     } catch (error) {
       console.error('Error getting custom ad service:', error);
       return null;
@@ -512,6 +514,15 @@ export class CustomAdEmailService {
           retry_count: 0,
           max_retries: 3
         });
+
+      // Attempt immediate delivery if Gmail is configured
+      try {
+        if (GmailService.isConfigured()) {
+          await GmailService.processEmailQueue();
+        } else {
+          try { await supabase.functions.invoke('email-queue-processor'); } catch (_) {}
+        }
+      } catch (_) {}
     } catch (error) {
       console.error('Error queuing email:', error);
     }

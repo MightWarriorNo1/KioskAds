@@ -56,6 +56,8 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
     switch (user.role) {
       case 'host':
         return <Navigate to="/host" replace />;
+      case 'designer':
+        return <Navigate to="/designer" replace />;
       default:
         return <Navigate to="/client" replace />;
     }

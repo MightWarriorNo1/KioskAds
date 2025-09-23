@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { CustomAdsService, CustomAdOrder, WorkflowStep } from '../../services/customAdsService';
 import { useNotification } from '../../contexts/NotificationContext';
-import ProgressSteps from '../shared/ProgressSteps';
+import { BillingService } from '../../services/billingService';
+import { MediaService } from '../../services/mediaService';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements, useElements, useStripe, PaymentElement } from '@stripe/react-stripe-js';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import { 
@@ -16,7 +20,6 @@ import {
   Image,
   Video,
   Download,
-  MessageSquare,
   Calendar,
   User,
   DollarSign
@@ -258,9 +261,15 @@ interface OrderDetailsModalProps {
 }
 
 function OrderDetailsModal({ order, onClose, userRole }: OrderDetailsModalProps) {
+  const { user } = useAuth();
+  const { addNotification } = useNotification();
+  const navigate = useNavigate();
   const [proofs, setProofs] = useState<any[]>([]);
   const [loadingProofs, setLoadingProofs] = useState(false);
   const [activeTab, setActiveTab] = useState<'details' | 'proofs' | 'workflow'>('details');
+  const [showPayment, setShowPayment] = useState(false);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [paymentMessage, setPaymentMessage] = useState<string | null>(null);
 
   useEffect(() => {
     loadProofs();
@@ -279,6 +288,99 @@ function OrderDetailsModal({ order, onClose, userRole }: OrderDetailsModalProps)
   };
 
   const workflowSteps = CustomAdsService.getWorkflowSteps(order);
+
+  const handleApproveProof = async (proofId: string) => {
+    try {
+      await CustomAdsService.approveProof(proofId);
+      addNotification('success', 'Approved', 'Proof approved successfully');
+      await loadProofs();
+    } catch (e) {
+      console.error(e);
+      addNotification('error', 'Failed', 'Could not approve proof');
+    }
+  };
+
+  const handleRequestEdits = async (proofId: string) => {
+    const feedback = window.prompt('Enter requested edits/comments for the designer:');
+    if (!feedback) return;
+    try {
+      await CustomAdsService.rejectProof(proofId, feedback);
+      addNotification('success', 'Requested', 'Revision requested');
+      await loadProofs();
+    } catch (e) {
+      console.error(e);
+      addNotification('error', 'Failed', 'Could not request revisions');
+    }
+  };
+
+  const handleCreateCampaignFromProof = async (proof: any) => {
+    try {
+      if (!user) return;
+      const file = (proof.files || []).find((f: any) => f.type.startsWith('image/') || f.type.startsWith('video/')) || proof.files?.[0];
+      if (!file) {
+        addNotification('error', 'No Media', 'No media file found in this proof');
+        return;
+      }
+      const asset = await MediaService.createMediaFromApprovedCustomAd({
+        userId: user.id,
+        sourceId: order.id,
+        fileName: file.name,
+        publicUrl: file.url,
+        fileSize: file.size,
+        mimeType: file.type,
+        fileType: file.type.startsWith('image/') ? 'image' : 'video'
+      });
+      localStorage.setItem('preselectedMediaAssetId', asset.id);
+      addNotification('success', 'Media Ready', 'Approved ad prepared. Continue to create your campaign.');
+      navigate(userRole === 'host' ? '/host/new-campaign' : '/client/new-campaign');
+    } catch (e) {
+      console.error(e);
+      addNotification('error', 'Failed', 'Could not prepare media from approved proof');
+    }
+  };
+
+  const handlePayNow = async () => {
+    if (!user) return;
+    
+    try {
+      setPaymentMessage(null);
+      const intent = await BillingService.createPaymentIntent({
+        amount: Math.round(order.total_amount * 100),
+        currency: 'usd',
+        metadata: {
+          orderId: order.id,
+          serviceKey: order.service_key,
+          email: order.email,
+        },
+      });
+
+      if (!intent?.clientSecret) {
+        setPaymentMessage('Unable to start payment. Please try again.');
+        return;
+      }
+
+      setClientSecret(intent.clientSecret);
+      setShowPayment(true);
+    } catch (error) {
+      console.error('Error creating payment intent:', error);
+      setPaymentMessage('Error creating payment intent. Please try again.');
+    }
+  };
+
+  const handlePaymentSuccess = async () => {
+    try {
+      // Update order payment status
+      await CustomAdsService.updateOrderPaymentStatus(order.id, 'succeeded');
+      addNotification('success', 'Payment Successful', 'Your payment has been processed successfully.');
+      setShowPayment(false);
+      setClientSecret(null);
+      // Refresh the order data or close modal
+      onClose();
+    } catch (error) {
+      console.error('Error updating payment status:', error);
+      addNotification('error', 'Payment Error', 'Payment succeeded but failed to update order status.');
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -320,7 +422,14 @@ function OrderDetailsModal({ order, onClose, userRole }: OrderDetailsModalProps)
         {/* Content */}
         <div className="p-6 overflow-y-auto max-h-[60vh]">
           {activeTab === 'details' && (
-            <OrderDetailsTab order={order} />
+            <OrderDetailsTab 
+              order={order} 
+              onPayNow={handlePayNow}
+              showPayment={showPayment}
+              clientSecret={clientSecret}
+              paymentMessage={paymentMessage}
+              onPaymentSuccess={handlePaymentSuccess}
+            />
           )}
           
           {activeTab === 'proofs' && (
@@ -329,6 +438,9 @@ function OrderDetailsModal({ order, onClose, userRole }: OrderDetailsModalProps)
               proofs={proofs} 
               loading={loadingProofs}
               userRole={userRole}
+              onApprove={handleApproveProof}
+              onRequestEdit={handleRequestEdits}
+              onCreateCampaign={handleCreateCampaignFromProof}
             />
           )}
           
@@ -341,7 +453,21 @@ function OrderDetailsModal({ order, onClose, userRole }: OrderDetailsModalProps)
   );
 }
 
-function OrderDetailsTab({ order }: { order: CustomAdOrder }) {
+function OrderDetailsTab({ 
+  order, 
+  onPayNow, 
+  showPayment, 
+  clientSecret, 
+  paymentMessage, 
+  onPaymentSuccess 
+}: { 
+  order: CustomAdOrder;
+  onPayNow: () => void;
+  showPayment: boolean;
+  clientSecret: string | null;
+  paymentMessage: string | null;
+  onPaymentSuccess: () => void;
+}) {
   return (
     <div className="space-y-6">
       {/* Order Information */}
@@ -358,6 +484,29 @@ function OrderDetailsTab({ order }: { order: CustomAdOrder }) {
             <div>
               <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Amount</label>
               <p className="text-gray-900 dark:text-white">${order.total_amount}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Payment Status</label>
+              <div className="flex items-center gap-2">
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  order.payment_status === 'succeeded' 
+                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                    : order.payment_status === 'failed'
+                    ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                    : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                }`}>
+                  {order.payment_status.toUpperCase()}
+                </span>
+                {order.payment_status === 'pending' && (
+                  <Button
+                    onClick={onPayNow}
+                    className="ml-2"
+                    size="sm"
+                  >
+                    Pay Now
+                  </Button>
+                )}
+              </div>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Status</label>
@@ -455,15 +604,37 @@ function OrderDetailsTab({ order }: { order: CustomAdOrder }) {
           </div>
         </div>
       )}
+
+      {/* Payment Form */}
+      {showPayment && clientSecret && (
+        <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Complete Payment
+          </h3>
+          {paymentMessage && (
+            <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg">
+              {paymentMessage}
+            </div>
+          )}
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+            <Elements stripe={loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string)} options={{ clientSecret }}>
+              <PaymentForm onSuccess={onPaymentSuccess} />
+            </Elements>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function ProofsTab({ order, proofs, loading, userRole }: { 
+function ProofsTab({ proofs, loading, userRole, onApprove, onRequestEdit, onCreateCampaign }: { 
   order: CustomAdOrder; 
   proofs: any[]; 
   loading: boolean;
   userRole: 'client' | 'host' | 'admin';
+  onApprove: (proofId: string) => void;
+  onRequestEdit: (proofId: string) => void;
+  onCreateCampaign: (proof: any) => void;
 }) {
   if (loading) {
     return (
@@ -552,24 +723,37 @@ function ProofsTab({ order, proofs, loading, userRole }: {
             </div>
           )}
 
-          {/* Client Actions */}
-          {userRole === 'client' && proof.status === 'submitted' && (
-            <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-              <Button
-                onClick={() => {/* Handle approve */}}
-                className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
-              >
-                <CheckCircle className="w-4 h-4" />
-                Approve
-              </Button>
-              <Button
-                onClick={() => {/* Handle reject */}}
-                variant="secondary"
-                className="flex items-center gap-2"
-              >
-                <XCircle className="w-4 h-4" />
-                Request Revision
-              </Button>
+          {/* Client/Host Actions */}
+          {(userRole === 'client' || userRole === 'host') && (
+            <div className="flex flex-wrap gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+              {proof.status === 'submitted' && (
+                <>
+                  <Button
+                    onClick={() => onApprove(proof.id)}
+                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    Approve
+                  </Button>
+                  <Button
+                    onClick={() => onRequestEdit(proof.id)}
+                    variant="secondary"
+                    className="flex items-center gap-2"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    Request Edits
+                  </Button>
+                </>
+              )}
+              {proof.status === 'approved' && (
+                <Button
+                  onClick={() => onCreateCampaign(proof)}
+                  className="flex items-center gap-2"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  Create Campaign
+                </Button>
+              )}
             </div>
           )}
         </Card>
@@ -578,7 +762,7 @@ function ProofsTab({ order, proofs, loading, userRole }: {
   );
 }
 
-function WorkflowTab({ order, workflowSteps }: { order: CustomAdOrder; workflowSteps: WorkflowStep[] }) {
+function WorkflowTab({ workflowSteps }: { order: CustomAdOrder; workflowSteps: WorkflowStep[] }) {
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
@@ -620,6 +804,57 @@ function WorkflowTab({ order, workflowSteps }: { order: CustomAdOrder; workflowS
         ))}
       </div>
     </div>
+  );
+}
+
+function PaymentForm({ onSuccess }: { onSuccess: () => void }) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (!stripe || !elements) {
+      return;
+    }
+
+    setIsProcessing(true);
+    setMessage(null);
+
+    const { error } = await stripe.confirmPayment({
+      elements,
+      confirmParams: {
+        return_url: window.location.origin + '/custom-ads-dashboard',
+      },
+    });
+
+    if (error) {
+      setMessage(error.message || 'An unexpected error occurred.');
+    } else {
+      onSuccess();
+    }
+
+    setIsProcessing(false);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <PaymentElement />
+      <Button
+        type="submit"
+        disabled={!stripe || isProcessing}
+        className="w-full"
+      >
+        {isProcessing ? 'Processing...' : 'Pay Now'}
+      </Button>
+      {message && (
+        <div className="text-red-600 dark:text-red-400 text-sm">
+          {message}
+        </div>
+      )}
+    </form>
   );
 }
 

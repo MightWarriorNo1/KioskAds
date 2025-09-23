@@ -229,8 +229,30 @@ export default function HostReviewSubmitPage() {
         <PurchaseModal
           isOpen={isPaymentOpen}
           onClose={() => setIsPaymentOpen(false)}
-          amount={calculateTotalCost()}
-          onPaymentSuccess={async () => {
+          package={{
+            id: 'host-campaign-payment',
+            title: 'Campaign Payment',
+            description: 'Pay to submit your campaign for review',
+            price: Number(calculateTotalCost().toFixed(2)),
+            rating: 5,
+            reviews: 0,
+            thumbnail: 'https://dummyimage.com/256x256/ededed/aaa&text=Campaign',
+            category: 'bundle',
+            tags: ['Campaign', 'Submission', 'Payment'],
+            deliveryTime: 'Instant'
+          }}
+          campaignDetails={{
+            name: `${kiosks.length > 1 ? `${kiosks[0]?.name} +${kiosks.length - 1}` : kiosks[0]?.name} - ${selectedWeeks.length} week${selectedWeeks.length > 1 ? 's' : ''} campaign`,
+            description: `Campaign for ${kiosks.map(k => k.name).join(', ')} running for ${selectedWeeks.length} week${selectedWeeks.length > 1 ? 's' : ''}`,
+            startDate: selectedWeeks[0]?.startDate || '',
+            endDate: selectedWeeks[selectedWeeks.length - 1]?.endDate || '',
+            kiosks: kiosks.map(k => ({ id: k.id, name: k.name })),
+            totalSlots: totalSlots,
+            totalCost: Number(calculateTotalCost().toFixed(2)),
+            assetUrl: uploadedMediaAsset?.metadata?.publicUrl,
+            assetType: uploadedMediaAsset?.file_type === 'image' ? 'image' : 'video'
+          }}
+          onPurchase={async () => {
             setHasPaid(true);
             setIsPaymentOpen(false);
             await createCampaignAfterPayment();

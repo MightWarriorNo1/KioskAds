@@ -26,6 +26,7 @@ import { useNotification } from '../contexts/NotificationContext';
 import { CustomAdCreationService, CustomAdCreationWithFiles } from '../services/customAdCreationService';
 import { formatFileSize, getFileIcon, getFileTypeDisplayName, getAspectRatio } from '../utils/customAdFileValidation';
 import Button from '../components/ui/Button';
+import { MediaService } from '../services/mediaService';
 
 export default function CustomAdDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -150,6 +151,36 @@ export default function CustomAdDetailsPage() {
     }
   };
 
+  const handleCreateCampaign = async () => {
+    if (!customAd || !user) return;
+    try {
+      // Pick the first media file with a public URL
+      const file = customAd.media_files.find(f => !!f.public_url) || customAd.media_files[0];
+      if (!file || !file.public_url) {
+        addNotification('error', 'No Media Available', 'No media file with a public URL is available for this custom ad.');
+        return;
+      }
+      const asset = await MediaService.createMediaFromApprovedCustomAd({
+        userId: user.id,
+        sourceId: customAd.id,
+        fileName: file.original_name || file.file_name,
+        publicUrl: file.public_url as string,
+        fileSize: file.file_size,
+        mimeType: file.mime_type || 'application/octet-stream',
+        fileType: (file.file_type as any) || 'image',
+        dimensions: file.dimensions || undefined,
+        duration: file.duration || undefined
+      });
+      // Stash for campaign flow to pick up
+      localStorage.setItem('preselectedMediaAssetId', asset.id);
+      addNotification('success', 'Media Ready', 'Your approved custom ad has been prepared. Continue to create your campaign.');
+      navigate('/client/new-campaign');
+    } catch (error) {
+      console.error('Error preparing media from custom ad:', error);
+      addNotification('error', 'Failed', 'Could not prepare media from custom ad.');
+    }
+  };
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'urgent':
@@ -260,6 +291,15 @@ export default function CustomAdDetailsPage() {
                 <span>Delete</span>
               </Button>
             </>
+          )}
+          {(customAd.status === 'approved' || customAd.status === 'completed') && (
+            <Button
+              onClick={handleCreateCampaign}
+              className="flex items-center space-x-2"
+            >
+              <CheckCircle className="w-4 h-4" />
+              <span>Create Campaign</span>
+            </Button>
           )}
         </div>
       </div>

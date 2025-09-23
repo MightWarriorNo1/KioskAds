@@ -30,6 +30,8 @@ import Button from '../ui/Button';
 import Input from '../ui/Input';
 import { useNotification } from '../../contexts/NotificationContext';
 import { AdminService } from '../../services/adminService';
+import { CustomAdsService } from '../../services/customAdsService';
+import { supabase } from '../../lib/supabaseClient';
 
 interface CustomAdOrder {
   id: string;
@@ -44,7 +46,8 @@ interface CustomAdOrder {
   files: Array<{ name: string; url: string; size: number; type: string }>;
   total_amount: number;
   payment_status: 'pending' | 'succeeded' | 'failed';
-  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+  workflow_status?: 'submitted' | 'in_review' | 'designer_assigned' | 'proofs_ready' | 'client_review' | 'approved' | 'rejected' | 'completed' | 'cancelled';
+  assigned_designer_id?: string | null;
   created_at: string;
   updated_at: string;
   user: {
@@ -95,11 +98,15 @@ export default function CustomAdManagement() {
   const [newComment, setNewComment] = useState('');
   const [proofFiles, setProofFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [designers, setDesigners] = useState<Array<{ id: string; full_name: string; email: string }>>([]);
+  const [assigning, setAssigning] = useState(false);
+  const [selectedDesignerId, setSelectedDesignerId] = useState<string>('');
   const { addNotification } = useNotification();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadCustomAdOrders();
+    loadDesigners();
   }, []);
 
   useEffect(() => {
@@ -119,6 +126,20 @@ export default function CustomAdManagement() {
     }
   };
 
+  const loadDesigners = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, role')
+        .eq('role', 'designer')
+        .order('full_name', { ascending: true });
+      if (error) throw error;
+      setDesigners((data as any[])?.map(d => ({ id: d.id, full_name: d.full_name, email: d.email })) || []);
+    } catch (e) {
+      console.error('Error loading designers:', e);
+    }
+  };
+
   const filterOrders = () => {
     let filtered = orders;
 
@@ -133,15 +154,15 @@ export default function CustomAdManagement() {
     }
 
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(order => order.status === statusFilter);
+      filtered = filtered.filter(order => (order.workflow_status || 'submitted') === statusFilter);
     }
 
     setFilteredOrders(filtered);
   };
 
-  const handleStatusUpdate = async (orderId: string, newStatus: string) => {
+  const handleStatusUpdate = async (orderId: string, newStatus: CustomAdOrder['workflow_status']) => {
     try {
-      await AdminService.updateCustomAdOrderStatus(orderId, newStatus);
+      await CustomAdsService.updateOrderStatus(orderId, (newStatus as any) || 'in_review');
       await loadCustomAdOrders();
       addNotification('success', 'Success', 'Order status updated successfully');
     } catch (error) {
@@ -182,6 +203,21 @@ export default function CustomAdManagement() {
     }
   };
 
+  const handleAssignDesigner = async () => {
+    if (!selectedOrder || !selectedDesignerId) return;
+    try {
+      setAssigning(true);
+      await CustomAdsService.assignDesigner(selectedOrder.id, selectedDesignerId);
+      addNotification('success', 'Assigned', 'Designer assigned to order');
+      await loadCustomAdOrders();
+    } catch (e) {
+      console.error('Error assigning designer:', e);
+      addNotification('error', 'Error', 'Failed to assign designer');
+    } finally {
+      setAssigning(false);
+    }
+  };
+
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     setProofFiles(prev => [...prev, ...files]);
@@ -199,12 +235,17 @@ export default function CustomAdManagement() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status?: CustomAdOrder['workflow_status']) => {
     switch (status) {
-      case 'pending': return 'text-yellow-600 bg-yellow-100';
-      case 'in_progress': return 'text-blue-600 bg-blue-100';
-      case 'completed': return 'text-green-600 bg-green-100';
-      case 'cancelled': return 'text-red-600 bg-red-100';
+      case 'submitted': return 'text-yellow-700 bg-yellow-100';
+      case 'in_review': return 'text-blue-700 bg-blue-100';
+      case 'designer_assigned': return 'text-purple-700 bg-purple-100';
+      case 'proofs_ready': return 'text-indigo-700 bg-indigo-100';
+      case 'client_review': return 'text-amber-700 bg-amber-100';
+      case 'approved': return 'text-green-700 bg-green-100';
+      case 'rejected': return 'text-red-700 bg-red-100';
+      case 'completed': return 'text-emerald-700 bg-emerald-100';
+      case 'cancelled': return 'text-gray-700 bg-gray-200';
       default: return 'text-gray-600 bg-gray-100';
     }
   };
@@ -262,8 +303,13 @@ export default function CustomAdManagement() {
               className="input"
             >
               <option value="all">All Statuses</option>
-              <option value="pending">Pending</option>
-              <option value="in_progress">In Progress</option>
+              <option value="submitted">Submitted</option>
+              <option value="in_review">In Review</option>
+              <option value="designer_assigned">Designer Assigned</option>
+              <option value="proofs_ready">Proofs Ready</option>
+              <option value="client_review">Client Review</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
             </select>
@@ -301,8 +347,8 @@ export default function CustomAdManagement() {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <span className="font-medium">{order.first_name} {order.last_name}</span>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-                        {order.status}
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(order.workflow_status)}`}>
+                        {(order.workflow_status || 'submitted').replace('_',' ')}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -340,17 +386,39 @@ export default function CustomAdManagement() {
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold">Order Details</h2>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <select
-                    value={selectedOrder.status}
-                    onChange={(e) => handleStatusUpdate(selectedOrder.id, e.target.value)}
+                    value={selectedOrder.workflow_status || 'submitted'}
+                    onChange={(e) => handleStatusUpdate(selectedOrder.id, e.target.value as any)}
                     className="input text-sm"
                   >
-                    <option value="pending">Pending</option>
-                    <option value="in_progress">In Progress</option>
+                    <option value="submitted">Submitted</option>
+                    <option value="in_review">In Review</option>
+                    <option value="designer_assigned">Designer Assigned</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
                     <option value="completed">Completed</option>
                     <option value="cancelled">Cancelled</option>
                   </select>
+
+                  {/* Assign Designer */}
+                  {designers.length > 0 && (
+                    <>
+                      <select
+                        value={selectedDesignerId}
+                        onChange={(e) => setSelectedDesignerId(e.target.value)}
+                        className="input text-sm"
+                      >
+                        <option value="">Assign Designer…</option>
+                        {designers.map(d => (
+                          <option key={d.id} value={d.id}>{d.full_name} ({d.email})</option>
+                        ))}
+                      </select>
+                      <Button size="sm" onClick={handleAssignDesigner} disabled={!selectedDesignerId || assigning}>
+                        {assigning ? 'Assigning…' : 'Assign'}
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
 

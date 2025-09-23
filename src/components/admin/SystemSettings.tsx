@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Settings, Mail, CreditCard, Cloud, Key, Globe, Save, DollarSign, Database, Tag, TrendingUp, Upload, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AdminService } from '../../services/adminService';
 import S3Configuration from './S3Configuration';
@@ -126,13 +126,13 @@ export default function SystemSettings() {
     }
   };
 
-  const handleNotificationSave = (saveFunction: () => Promise<void>) => {
+  const handleNotificationSave = useCallback((saveFunction: () => Promise<void>) => {
     setNotificationSaveFunction(() => saveFunction);
-  };
+  }, []);
 
-  const handleNotificationChanges = (hasChanges: boolean) => {
+  const handleNotificationChanges = useCallback((hasChanges: boolean) => {
     setHasChanges(hasChanges);
-  };
+  }, []);
 
   return (
     <div className="space-y-4 lg:space-y-6">

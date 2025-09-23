@@ -31,6 +31,28 @@ export class GmailService {
   // Initialize Gmail configuration
   static async initialize(): Promise<void> {
     try {
+      // 1) Prefer environment variables (useful for local dev or self-hosted)
+      const envClientId = (import.meta as any)?.env?.VITE_GMAIL_CLIENT_ID as string | undefined;
+      const envClientSecret = (import.meta as any)?.env?.VITE_GMAIL_CLIENT_SECRET as string | undefined;
+      const envRefreshToken = (import.meta as any)?.env?.VITE_GMAIL_REFRESH_TOKEN as string | undefined;
+      const envSenderEmail = (import.meta as any)?.env?.VITE_GMAIL_SENDER_EMAIL as string | undefined;
+      const envSenderName = (import.meta as any)?.env?.VITE_GMAIL_SENDER_NAME as string | undefined;
+
+      if (envClientId && envClientSecret && envRefreshToken) {
+        this.config = {
+          clientId: envClientId,
+          clientSecret: envClientSecret,
+          refreshToken: envRefreshToken,
+        };
+
+        // Stash sender fields alongside (used only when composing MIME)
+        // We keep them in memory; DB update below is skipped when using env.
+        (this.config as any).senderEmail = envSenderEmail;
+        (this.config as any).senderName = envSenderName || 'EZ Kiosk Ads';
+        return;
+      }
+
+      // 2) Fallback to database-stored integration
       const { data: integration } = await supabase
         .from('system_integrations')
         .select('config')

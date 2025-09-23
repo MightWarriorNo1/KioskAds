@@ -68,6 +68,57 @@ export class MediaService {
     }
   }
 
+  // Create a media asset record from an existing, approved custom-ad media file (no re-upload)
+  static async createMediaFromApprovedCustomAd(params: {
+    userId: string,
+    sourceId?: string,
+    fileName: string,
+    publicUrl: string,
+    fileSize: number,
+    mimeType: string,
+    fileType: 'image' | 'video' | 'document' | 'other',
+    dimensions?: { width: number; height: number },
+    duration?: number
+  }): Promise<MediaAsset> {
+    try {
+      const inferredType = params.mimeType.startsWith('image/') ? 'image' : params.mimeType.startsWith('video/') ? 'video' : 'other';
+      const insertData: Inserts<'media_assets'> = {
+        user_id: params.userId,
+        file_name: params.fileName,
+        // Store the external path for traceability; actual content remains in custom-ad bucket
+        file_path: `external/custom-ad/${params.sourceId || 'unknown'}/${params.fileName}`,
+        file_size: params.fileSize,
+        file_type: (inferredType as any),
+        mime_type: params.mimeType,
+        dimensions: params.dimensions,
+        duration: params.duration ? Math.round(params.duration) : undefined,
+        status: 'approved',
+        metadata: {
+          publicUrl: params.publicUrl,
+          source: 'custom_ad',
+          sourceId: params.sourceId,
+          createdFrom: 'approved_custom_ad_media',
+          originalName: params.fileName
+        }
+      };
+
+      const { data, error } = await supabase
+        .from('media_assets')
+        .insert(insertData)
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(`Failed to create media from custom ad: ${error.message}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error creating media from approved custom ad:', error);
+      throw error;
+    }
+  }
+
   // Upload media directly associated with a campaign
   static async uploadMediaToCampaign(
     file: File,
@@ -198,7 +249,7 @@ export class MediaService {
           campaign_media!inner(display_order, weight)
         `)
         .eq('campaign_id', campaignId)
-        .order('campaign_media.display_order', { ascending: true });
+        .order('display_order', { ascending: true, foreignTable: 'campaign_media' });
 
       if (error) {
         throw new Error(`Failed to fetch campaign media: ${error.message}`);

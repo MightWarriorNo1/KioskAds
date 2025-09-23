@@ -34,7 +34,7 @@ export interface PaymentHistory {
 }
 
 export class BillingService {
-  static async createPaymentIntent(params: { amount: number; currency?: string; metadata?: Record<string, string>; recaptchaToken?: string; setupForFutureUse?: boolean }): Promise<{ clientSecret: string } | null> {
+  static async createPaymentIntent(params: { amount: number; currency?: string; metadata?: Record<string, string>; setupForFutureUse?: boolean }): Promise<{ clientSecret: string } | null> {
     try {
       const requestBody: Record<string, unknown> = {
         amount: Math.round(params.amount),
@@ -42,10 +42,6 @@ export class BillingService {
         metadata: params.metadata,
         setupForFutureUse: params.setupForFutureUse || false,
       };
-      if (params.recaptchaToken) {
-        requestBody.recaptchaToken = params.recaptchaToken;
-        requestBody.captchaRequired = true;
-      }
       const { data, error } = await supabase.functions.invoke('create-payment-intent', {
         body: requestBody,
       });
@@ -397,7 +393,6 @@ export class BillingService {
     currency?: string; 
     paymentMethodId?: string;
     metadata?: Record<string, string>; 
-    recaptchaToken?: string 
   }): Promise<{ clientSecret: string } | null> {
     try {
       const requestBody: Record<string, unknown> = {
@@ -410,10 +405,6 @@ export class BillingService {
         requestBody.paymentMethodId = params.paymentMethodId;
       }
       
-      if (params.recaptchaToken) {
-        requestBody.recaptchaToken = params.recaptchaToken;
-        requestBody.captchaRequired = true;
-      }
       
       const { data, error } = await supabase.functions.invoke('create-payment-intent', {
         body: requestBody,

@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabaseClient';
 
-export type UserRole = 'client' | 'host' | 'admin';
+export type UserRole = 'client' | 'host' | 'designer' | 'admin';
 
 export interface User {
   id: string;
@@ -31,7 +31,7 @@ async function mapSupabaseUserToUser(supabaseUser: SupabaseUser, lastKnownRole?:
                       'client';
   
   // Prevent role downgrades - if we have a higher privilege role, don't downgrade
-  const roleHierarchy = { 'client': 1, 'host': 2, 'admin': 3 };
+  const roleHierarchy = { 'client': 1, 'host': 2, 'designer': 2, 'admin': 3 };
   const currentRoleLevel = roleHierarchy[role] || 1;
   const lastKnownRoleLevel = lastKnownRole ? roleHierarchy[lastKnownRole] || 1 : 0;
   const storedRoleLevel = localStorage.getItem('user_role') ? roleHierarchy[localStorage.getItem('user_role') as UserRole] || 1 : 0;

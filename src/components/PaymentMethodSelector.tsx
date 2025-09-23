@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import Card from './ui/Card';
 import Button from './ui/Button';
 import { CreditCard, Plus } from 'lucide-react';
@@ -10,6 +9,8 @@ interface PaymentMethodSelectorProps {
   onMethodSelect: (methodId: string | null) => void;
   onAddNewMethod: () => void | Promise<void>;
   amount: number;
+  onPayWithSavedMethod?: () => void;
+  isProcessing?: boolean;
 }
 
 export default function PaymentMethodSelector({
@@ -17,23 +18,10 @@ export default function PaymentMethodSelector({
   selectedMethodId,
   onMethodSelect,
   onAddNewMethod,
-  amount
+  amount,
+  onPayWithSavedMethod,
+  isProcessing
 }: PaymentMethodSelectorProps) {
-  const [isProcessing, setIsProcessing] = useState(false);
-
-  const handlePayment = async () => {
-    if (!selectedMethodId) return;
-    
-    setIsProcessing(true);
-    try {
-      // This will be handled by the parent component
-      // The parent will use the selected payment method to process payment
-    } catch (error) {
-      console.error('Payment processing error:', error);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
 
   const formatCardNumber = (last4: string | undefined) => {
     return last4 ? `**** **** **** ${last4}` : '**** **** **** ****';
@@ -147,10 +135,11 @@ export default function PaymentMethodSelector({
         </div>
       </div>
 
+
       {selectedMethodId && (
         <Button
-          onClick={handlePayment}
-          disabled={isProcessing}
+          onClick={onPayWithSavedMethod}
+          disabled={!onPayWithSavedMethod || isProcessing}
           className="w-full"
           size="lg"
         >
@@ -161,11 +150,10 @@ export default function PaymentMethodSelector({
       {selectedMethodId === null && (
         <Button
           onClick={onAddNewMethod}
-          disabled={isProcessing}
           className="w-full"
           size="lg"
         >
-          {isProcessing ? 'Processing...' : `Add Payment Method & Pay $${amount}`}
+          Add Payment Method & Pay ${amount}
         </Button>
       )}
     </div>

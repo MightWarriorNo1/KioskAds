@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
+import { GoogleDriveService } from './googleDriveService';
 
 // Types for admin operations
 export interface AdminMetrics {
@@ -874,6 +875,14 @@ export class AdminService {
       // Send email notification to host
       if (action === 'approve') {
         await this.sendHostAdApprovalEmail(hostAdId);
+
+        // Upload the approved host ad to all currently active kiosk assignments' Google Drive folders
+        try {
+          await GoogleDriveService.uploadApprovedHostAdToAssignedKiosks(hostAdId);
+        } catch (err) {
+          console.error('Error uploading host ad to Google Drive after approval:', err);
+          // Don't throw; approval should not be blocked by Drive upload issues
+        }
       } else {
         await this.sendHostAdRejectionEmail(hostAdId, rejectionReason);
       }
@@ -1022,7 +1031,7 @@ export class AdminService {
           updated_at: new Date().toISOString()
         })
         .eq('id', campaignId)
-        .select('id')
+        .select('id, selected_kiosk_ids')
         .maybeSingle();
 
       if (error) throw error;
@@ -1039,6 +1048,36 @@ export class AdminService {
       // Send email notification to client
       if (action === 'approve') {
         await this.sendCampaignApprovalEmail(campaignId);
+
+        // Schedule immediate Google Drive uploads for all approved campaign assets to each kiosk folder
+        try {
+          // First, mark linked media assets as approved so scheduling can pick them up
+          await supabase
+            .from('media_assets')
+            .update({ status: 'approved', updated_at: new Date().toISOString() })
+            .eq('campaign_id', campaignId)
+            .neq('status', 'approved');
+
+          const kioskIds: string[] = Array.isArray(data.selected_kiosk_ids) ? data.selected_kiosk_ids : [];
+          if (kioskIds.length > 0) {
+            const jobIds = await GoogleDriveService.scheduleImmediateUpload(campaignId, kioskIds, 'immediate');
+
+            // Trigger the edge function to process the pending upload jobs right away
+            try {
+              await GoogleDriveService.triggerUploadProcessor();
+            } catch (invokeErr) {
+              console.warn('Unable to trigger gdrive-upload-processor; it may be running on a schedule:', invokeErr);
+            }
+
+            // If no jobs were created (table missing or RPC issue), fallback to direct upload now
+            if (!jobIds || jobIds.length === 0) {
+              await GoogleDriveService.directUploadCampaignAssets(campaignId, kioskIds);
+            }
+          }
+        } catch (uploadErr) {
+          console.error('Error scheduling Google Drive uploads after approval:', uploadErr);
+          // Do not throw; approval should succeed even if scheduling fails
+        }
       } else {
         await this.sendCampaignRejectionEmail(campaignId, rejectionReason);
       }
@@ -1641,7 +1680,9 @@ export class AdminService {
         .select('*')
         .eq('type', 'ad_approval')
         .eq('is_active', true)
-        .single();
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       if (!template) return;
 
@@ -1691,7 +1732,9 @@ export class AdminService {
         .select('*')
         .eq('type', 'ad_rejection')
         .eq('is_active', true)
-        .single();
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       if (!template) return;
 
@@ -1736,7 +1779,9 @@ export class AdminService {
         .select('*')
         .eq('type', 'host_ad_approval')
         .eq('is_active', true)
-        .single();
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       if (!template) return;
 
@@ -1841,6 +1886,16 @@ export class AdminService {
             .replace('{{end_date}}', new Date(campaign.end_date).toLocaleDateString())
             .replace('{{budget}}', campaign.budget.toString())
         });
+
+      try {
+        // Try local Gmail first; if not configured, invoke edge processor
+        const { GmailService } = await import('./gmailService');
+        if (GmailService.isConfigured()) {
+          await GmailService.processEmailQueue();
+        } else {
+          try { await supabase.functions.invoke('email-queue-processor'); } catch (_) {}
+        }
+      } catch (_) {}
     } catch (error) {
       console.error('Error sending campaign approval email:', error);
     }
@@ -1886,6 +1941,15 @@ export class AdminService {
             ?.replace('{{campaign_name}}', campaign.name)
             .replace('{{rejection_reason}}', rejectionReason || 'Campaign does not meet our guidelines')
         });
+
+      try {
+        const { GmailService } = await import('./gmailService');
+        if (GmailService.isConfigured()) {
+          await GmailService.processEmailQueue();
+        } else {
+          try { await supabase.functions.invoke('email-queue-processor'); } catch (_) {}
+        }
+      } catch (_) {}
     } catch (error) {
       console.error('Error sending campaign rejection email:', error);
     }
@@ -1974,8 +2038,8 @@ export class AdminService {
         .from('kiosk_gdrive_folders')
         .select(`
           *,
-          kiosk:kiosks(*),
-          gdrive_config:google_drive_configs(*)
+          kiosks!kiosk_id(*),
+          google_drive_configs!gdrive_config_id(*)
         `)
         .order('created_at', { ascending: false });
 
@@ -3068,6 +3132,9 @@ export class AdminService {
         .from('email_queue')
         .insert(emailQueue);
 
+      // Trigger server-side processor to deliver immediately (avoid client-side Gmail auth)
+      try { await supabase.functions.invoke('email-queue-processor'); } catch (_) {}
+
       console.log(`Daily pending review email queued for ${recipients.length} recipients`);
     } catch (error) {
       console.error('Error sending daily pending review email:', error);
@@ -3162,12 +3229,10 @@ export class AdminService {
   // Get all custom ad orders for admin management
   static async getCustomAdOrders(): Promise<any[]> {
     try {
+      // Use a simple select to avoid dependency on FK relationships that may not exist in some envs
       const { data, error } = await supabase
         .from('custom_ad_orders')
-        .select(`
-          *,
-          user:profiles!custom_ad_orders_user_id_fkey(id, full_name, email, company_name)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -3175,6 +3240,17 @@ export class AdminService {
       // Get comments and proofs for each order
       const ordersWithDetails = await Promise.all(
         (data || []).map(async (order) => {
+          // fetch minimal user profile data separately (best-effort)
+          let userProfile: any = null;
+          try {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('id, full_name, email, company_name')
+              .eq('id', order.user_id)
+              .single();
+            userProfile = profile || null;
+          } catch (_) {}
+
           const [commentsRes, proofsRes] = await Promise.all([
             supabase
               .from('custom_ad_order_comments')
@@ -3182,14 +3258,16 @@ export class AdminService {
               .eq('order_id', order.id)
               .order('created_at', { ascending: true }),
             supabase
-              .from('custom_ad_order_proofs')
-              .select('*')
+              .from('custom_ad_proofs')
+              .select('id, files, status, created_at, version_number, designer_id, title')
               .eq('order_id', order.id)
               .order('created_at', { ascending: true })
           ]);
 
           return {
             ...order,
+            status: order.status || 'pending',
+            user: userProfile,
             comments: commentsRes.data || [],
             proofs: proofsRes.data || []
           };
@@ -3267,8 +3345,8 @@ export class AdminService {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      // Upload files to storage
-      const uploadedFiles = [];
+      // Upload files to storage and build files JSON array
+      const uploaded: Array<{ name: string; url: string; size: number; type: string }> = [];
       for (const file of files) {
         const path = `custom-ad-proofs/${orderId}/${Date.now()}-${Math.random().toString(36).slice(2)}-${file.name}`;
         const { error: uploadError } = await supabase.storage
@@ -3278,43 +3356,47 @@ export class AdminService {
             upsert: false,
             contentType: file.type,
           });
-
         if (uploadError) throw uploadError;
-
         const { data: pubUrl } = supabase.storage
           .from('custom-ad-proofs')
           .getPublicUrl(path);
-
-        uploadedFiles.push({
-          file_name: file.name,
-          file_url: pubUrl.publicUrl,
-          file_type: file.type,
-          file_size: file.size
-        });
+        uploaded.push({ name: file.name, url: pubUrl.publicUrl, size: file.size, type: file.type });
       }
 
-      // Save proof records
-      const proofRecords = uploadedFiles.map(file => ({
-        order_id: orderId,
-        file_name: file.file_name,
-        file_url: file.file_url,
-        file_type: file.file_type,
-        file_size: file.file_size,
-        created_at: new Date().toISOString()
-      }));
+      // Determine next version number
+      const { data: existing } = await supabase
+        .from('custom_ad_proofs')
+        .select('version_number')
+        .eq('order_id', orderId)
+        .order('version_number', { ascending: false })
+        .limit(1);
+      const nextVersion = existing && existing.length > 0 ? (existing[0] as any).version_number + 1 : 1;
 
-      const { error } = await supabase
-        .from('custom_ad_order_proofs')
-        .insert(proofRecords);
+      // Insert a proof row into custom_ad_proofs with status submitted
+      const { error: insertError } = await supabase
+        .from('custom_ad_proofs')
+        .insert({
+          order_id: orderId,
+          designer_id: user.id,
+          version_number: nextVersion,
+          title: 'Admin Proof',
+          description: null,
+          files: uploaded,
+          status: 'submitted',
+          submitted_at: new Date().toISOString()
+        });
+      if (insertError) throw insertError;
 
-      if (error) throw error;
+      await this.logAdminAction('submit_custom_ad_order_proof', 'custom_ad_proof', orderId, { file_count: files.length });
 
-      await this.logAdminAction('submit_custom_ad_order_proof', 'custom_ad_order_proof', orderId, {
-        file_count: files.length
-      });
-
-      // Send email notification
-      await this.sendCustomAdOrderProofEmail(orderId);
+      // Optionally notify client/host that proofs are ready (reuse existing email flow if available)
+      try {
+        const { CustomAdEmailService } = await import('./customAdEmailService');
+        const order = await (await import('./customAdsService')).CustomAdsService.getOrder(orderId);
+        if (order) {
+          await (CustomAdEmailService as any).sendProofsReadyNotification(order as any, null);
+        }
+      } catch (_) {}
     } catch (error) {
       console.error('Error submitting custom ad order proof:', error);
       throw error;
@@ -3814,30 +3896,58 @@ export class AdminService {
     try {
       // Update kiosk-specific limit if exists
       if (kioskId) {
-        const { error: kioskError } = await supabase
+        const { data: kioskLimit, error: kioskSelectError } = await supabase
           .from('ad_upload_limits')
-          .update({ current_ads: supabase.raw('current_ads + 1') })
+          .select('id, current_ads')
           .eq('kiosk_id', kioskId)
-          .eq('is_active', true);
+          .eq('is_active', true)
+          .single();
 
-        if (!kioskError) return; // Successfully updated kiosk limit
+        if (!kioskSelectError && kioskLimit) {
+          const { error: kioskUpdateError } = await supabase
+            .from('ad_upload_limits')
+            .update({ current_ads: (kioskLimit.current_ads ?? 0) + 1 })
+            .eq('id', kioskLimit.id);
+
+          if (!kioskUpdateError) return; // Successfully updated kiosk limit
+        }
       }
 
       // Update host-specific limit if exists
-      const { error: hostError } = await supabase
-        .from('ad_upload_limits')
-        .update({ current_ads: supabase.raw('current_ads + 1') })
-        .eq('host_id', hostId)
-        .eq('is_active', true);
+      {
+        const { data: hostLimit, error: hostSelectError } = await supabase
+          .from('ad_upload_limits')
+          .select('id, current_ads')
+          .eq('host_id', hostId)
+          .eq('is_active', true)
+          .single();
 
-      if (!hostError) return; // Successfully updated host limit
+        if (!hostSelectError && hostLimit) {
+          const { error: hostUpdateError } = await supabase
+            .from('ad_upload_limits')
+            .update({ current_ads: (hostLimit.current_ads ?? 0) + 1 })
+            .eq('id', hostLimit.id);
+
+          if (!hostUpdateError) return; // Successfully updated host limit
+        }
+      }
 
       // Update global limit if exists
-      await supabase
-        .from('ad_upload_limits')
-        .update({ current_ads: supabase.raw('current_ads + 1') })
-        .eq('limit_type', 'global')
-        .eq('is_active', true);
+      {
+        const { data: globalLimit, error: globalSelectError } = await supabase
+          .from('ad_upload_limits')
+          .select('id, current_ads')
+          .eq('limit_type', 'global')
+          .eq('is_active', true)
+          .single();
+
+        if (!globalSelectError && globalLimit) {
+          await supabase
+            .from('ad_upload_limits')
+            .update({ current_ads: (globalLimit.current_ads ?? 0) + 1 })
+            .eq('id', globalLimit.id);
+        }
+      }
     } catch (error) {
       console.error('Error incrementing ad upload count:', error);
       // Don't throw error to prevent blocking ad uploads
@@ -3848,30 +3958,61 @@ export class AdminService {
     try {
       // Update kiosk-specific limit if exists
       if (kioskId) {
-        const { error: kioskError } = await supabase
+        const { data: kioskLimit, error: kioskSelectError } = await supabase
           .from('ad_upload_limits')
-          .update({ current_ads: supabase.raw('GREATEST(current_ads - 1, 0)') })
+          .select('id, current_ads')
           .eq('kiosk_id', kioskId)
-          .eq('is_active', true);
+          .eq('is_active', true)
+          .single();
 
-        if (!kioskError) return; // Successfully updated kiosk limit
+        if (!kioskSelectError && kioskLimit) {
+          const newValue = Math.max((kioskLimit.current_ads ?? 0) - 1, 0);
+          const { error: kioskUpdateError } = await supabase
+            .from('ad_upload_limits')
+            .update({ current_ads: newValue })
+            .eq('id', kioskLimit.id);
+
+          if (!kioskUpdateError) return; // Successfully updated kiosk limit
+        }
       }
 
       // Update host-specific limit if exists
-      const { error: hostError } = await supabase
-        .from('ad_upload_limits')
-        .update({ current_ads: supabase.raw('GREATEST(current_ads - 1, 0)') })
-        .eq('host_id', hostId)
-        .eq('is_active', true);
+      {
+        const { data: hostLimit, error: hostSelectError } = await supabase
+          .from('ad_upload_limits')
+          .select('id, current_ads')
+          .eq('host_id', hostId)
+          .eq('is_active', true)
+          .single();
 
-      if (!hostError) return; // Successfully updated host limit
+        if (!hostSelectError && hostLimit) {
+          const newValue = Math.max((hostLimit.current_ads ?? 0) - 1, 0);
+          const { error: hostUpdateError } = await supabase
+            .from('ad_upload_limits')
+            .update({ current_ads: newValue })
+            .eq('id', hostLimit.id);
+
+          if (!hostUpdateError) return; // Successfully updated host limit
+        }
+      }
 
       // Update global limit if exists
-      await supabase
-        .from('ad_upload_limits')
-        .update({ current_ads: supabase.raw('GREATEST(current_ads - 1, 0)') })
-        .eq('limit_type', 'global')
-        .eq('is_active', true);
+      {
+        const { data: globalLimit, error: globalSelectError } = await supabase
+          .from('ad_upload_limits')
+          .select('id, current_ads')
+          .eq('limit_type', 'global')
+          .eq('is_active', true)
+          .single();
+
+        if (!globalSelectError && globalLimit) {
+          const newValue = Math.max((globalLimit.current_ads ?? 0) - 1, 0);
+          await supabase
+            .from('ad_upload_limits')
+            .update({ current_ads: newValue })
+            .eq('id', globalLimit.id);
+        }
+      }
     } catch (error) {
       console.error('Error decrementing ad upload count:', error);
       // Don't throw error to prevent blocking ad operations

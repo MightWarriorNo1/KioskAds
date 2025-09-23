@@ -20,13 +20,13 @@ import ThemeToggle from '../shared/ThemeToggle';
 const navigation = [
   { name: 'Dashboard', href: '/host', icon: BarChart3 },
   { name: 'Kiosk Manager', href: '/host/kiosks', icon: MapPin },
-  { name: 'Ad Assignment', href: '/host/ads', icon: Calendar },
+  { name: 'My Kiosk Ad Upload', href: '/host/ads', icon: Calendar },
   { name: 'Create Campaign', href: '/host/new-campaign', icon: PlusCircle },
   { name: 'Campaigns & Billing', href: '/host/campaigns-billing', icon: Receipt },
   { name: 'Revenue Tracker', href: '/host/revenue', icon: DollarSign },
   { name: 'Payout History', href: '/host/payouts', icon: CreditCard },
   { name: 'Analytics', href: '/host/analytics', icon: FileText },
-  { name: 'Custom Ads', href: '/host/custom-ads', icon: Megaphone },
+  { name: 'My Custom Ads', href: '/host/custom-ads', icon: Megaphone },
 ];
 
 interface HostLayoutProps {

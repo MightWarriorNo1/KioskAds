@@ -202,30 +202,26 @@ export class StorageConfigService {
     }
   }
 
-  // Test S3 configuration
+  // Test S3 configuration using real AWS SDK
   private static async testS3Config(config: S3ConfigData): Promise<{
     success: boolean;
     message: string;
     details?: any;
   }> {
     try {
-      // In a real implementation, this would use AWS SDK to test the connection
       console.log('Testing S3 configuration:', config.bucket_name, config.region);
       
-      // Mock test - in production, this would:
-      // 1. Create an S3 client with the provided credentials
-      // 2. Try to list objects in the bucket
-      // 3. Verify permissions
+      // Import AWSS3Service dynamically to avoid circular dependencies
+      const { AWSS3Service } = await import('./awsS3Service');
       
-      return {
-        success: true,
-        message: 'S3 connection test successful!',
-        details: {
-          bucket: config.bucket_name,
-          region: config.region,
-          access_key_id: config.access_key_id.substring(0, 8) + '...'
-        }
+      const awsConfig = {
+        bucketName: config.bucket_name,
+        region: config.region,
+        accessKeyId: config.access_key_id,
+        secretAccessKey: config.secret_access_key
       };
+      
+      return await AWSS3Service.testConnection(awsConfig);
     } catch (error) {
       return {
         success: false,

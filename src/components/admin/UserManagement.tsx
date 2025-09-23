@@ -8,7 +8,7 @@ interface User {
   id: string;
   full_name: string;
   email: string;
-  role: 'client' | 'host' | 'admin';
+  role: 'client' | 'host' | 'designer' | 'admin';
   company_name?: string;
   subscription_tier: 'free' | 'basic' | 'premium' | 'enterprise';
   created_at: string;
@@ -32,7 +32,7 @@ export default function UserManagement() {
   const [editForm, setEditForm] = useState({
     full_name: '',
     email: '',
-    role: 'client' as 'client' | 'host' | 'admin',
+    role: 'client' as 'client' | 'host' | 'designer' | 'admin',
     company_name: '',
     subscription_tier: 'free' as 'free' | 'basic' | 'premium' | 'enterprise'
   });
@@ -603,11 +603,12 @@ export default function UserManagement() {
                 </label>
                 <select
                   value={editForm.role}
-                  onChange={(e) => setEditForm({ ...editForm, role: e.target.value as 'client' | 'host' | 'admin' })}
+                  onChange={(e) => setEditForm({ ...editForm, role: e.target.value as 'client' | 'host' | 'designer' | 'admin' })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 >
                   <option value="client">Client</option>
                   <option value="host">Host</option>
+                  <option value="designer">Designer</option>
                 </select>
               </div>
 

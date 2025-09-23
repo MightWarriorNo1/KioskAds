@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Mail, Bell, AlertCircle, Settings, Clock, Users, Send, Plus, X, CheckCircle } from 'lucide-react';
 import { AdminService } from '../../services/adminService';
 import { useNotification } from '../../contexts/NotificationContext';
@@ -74,8 +74,7 @@ export default function NotificationSettings({ onSave, onHasChanges }: Notificat
     }
   ]);
 
-  const [isSaving, setIsSaving] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
+  
   const [dailyEmailSettings, setDailyEmailSettings] = useState<DailyEmailSettings>({
     enabled: false,
     time: '09:00',
@@ -135,13 +134,11 @@ export default function NotificationSettings({ onSave, onHasChanges }: Notificat
           : config
       )
     );
-    setHasChanges(true);
     onHasChanges?.(true);
   };
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     try {
-      setIsSaving(true);
       
       // Save daily email settings
       await Promise.all([
@@ -153,32 +150,29 @@ export default function NotificationSettings({ onSave, onHasChanges }: Notificat
       ]);
 
       addNotification('success', 'Success', 'Notification settings saved successfully');
-      setHasChanges(false);
       onHasChanges?.(false);
     } catch (error) {
       console.error('Failed to save notification settings:', error);
       addNotification('error', 'Error', 'Failed to save notification settings');
     } finally {
-      setIsSaving(false);
     }
-  };
+  }, [dailyEmailSettings, emailConfigSettings]);
 
   // Expose save function to parent
   useEffect(() => {
     if (onSave) {
       onSave(handleSave);
     }
+    // We intentionally depend only on stable callback identity from useCallback and onSave
   }, [onSave, handleSave]);
 
   const handleDailyEmailToggle = () => {
     setDailyEmailSettings(prev => ({ ...prev, enabled: !prev.enabled }));
-    setHasChanges(true);
     onHasChanges?.(true);
   };
 
   const handleTimeChange = (time: string) => {
     setDailyEmailSettings(prev => ({ ...prev, time }));
-    setHasChanges(true);
     onHasChanges?.(true);
   };
 
@@ -189,7 +183,6 @@ export default function NotificationSettings({ onSave, onHasChanges }: Notificat
         recipients: [...prev.recipients, newRecipient.trim()]
       }));
       setNewRecipient('');
-      setHasChanges(true);
       onHasChanges?.(true);
     }
   };
@@ -199,19 +192,16 @@ export default function NotificationSettings({ onSave, onHasChanges }: Notificat
       ...prev,
       recipients: prev.recipients.filter(r => r !== email)
     }));
-    setHasChanges(true);
     onHasChanges?.(true);
   };
 
   const handleFromEmailChange = (email: string) => {
     setEmailConfigSettings(prev => ({ ...prev, fromEmail: email }));
-    setHasChanges(true);
     onHasChanges?.(true);
   };
 
   const handleReplyToEmailChange = (email: string) => {
     setEmailConfigSettings(prev => ({ ...prev, replyToEmail: email }));
-    setHasChanges(true);
     onHasChanges?.(true);
   };
 

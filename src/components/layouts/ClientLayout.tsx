@@ -28,7 +28,7 @@ const navigation = [
   { name: 'Proof-of-Play', href: '/client/proof-of-play', icon: FileText },
   { name: 'Billing', href: '/client/billing', icon: CreditCard },
   { name: 'Marketplace', href: '/client/marketplace', icon: ShoppingCart },
-  { name: 'Custom Ads', href: '/client/custom-ads', icon: Megaphone },
+  { name: 'Manage Custom Ads', href: '/client/custom-ads', icon: Megaphone },
 ];
 
 interface ClientLayoutProps {

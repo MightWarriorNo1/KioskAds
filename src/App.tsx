@@ -17,6 +17,7 @@ import AuthCallback from './pages/AuthCallback';
 import ClientPortal from './pages/ClientPortal';
 import HostPortal from './pages/HostPortal';
 import AdminPortal from './pages/AdminPortal';
+import DesignerPortal from './pages/DesignerPortal';
 import NotFound from './pages/NotFound';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -54,6 +55,14 @@ function App() {
                     element={
                       <ProtectedRoute allowedRoles={['host']}>
                         <HostPortal />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/designer/*" 
+                    element={
+                      <ProtectedRoute allowedRoles={['designer']}>
+                        <DesignerPortal />
                       </ProtectedRoute>
                     } 
                   />

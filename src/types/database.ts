@@ -6,6 +6,7 @@ export interface Database {
           id: string;
           email: string;
           full_name: string;
+          role: 'client' | 'host' | 'designer' | 'admin';
           company_name?: string;
           avatar_url?: string;
           created_at: string;
@@ -17,6 +18,7 @@ export interface Database {
           id: string;
           email: string;
           full_name: string;
+          role?: 'client' | 'host' | 'designer' | 'admin';
           company_name?: string;
           avatar_url?: string;
           created_at?: string;
@@ -28,6 +30,7 @@ export interface Database {
           id?: string;
           email?: string;
           full_name?: string;
+          role?: 'client' | 'host' | 'designer' | 'admin';
           company_name?: string;
           avatar_url?: string;
           created_at?: string;

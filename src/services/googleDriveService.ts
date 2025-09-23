@@ -1,5 +1,21 @@
 import { supabase } from '../lib/supabaseClient';
-import { GoogleDriveConfig, KioskGDriveFolder, UploadJob, SyncJob, Kiosk, Campaign, MediaAsset } from '../types/database';
+import { GoogleDriveConfig, KioskGDriveFolder, UploadJob, SyncJob } from '../types/database';
+import { GoogleDriveApiServiceBrowser as GoogleDriveApiService } from './googleDriveApiServiceBrowser';
+
+// Define Kiosk interface since it's not in database types
+export interface Kiosk {
+  id: string;
+  name: string;
+  location?: string;
+  city?: string;
+  state?: string;
+  status?: string;
+}
+
+// Extend GoogleDriveConfig to include daily_upload_time
+export interface ExtendedGoogleDriveConfig extends GoogleDriveConfig {
+  daily_upload_time?: string;
+}
 
 export interface GoogleDriveCredentials {
   clientId: string;
@@ -24,11 +40,13 @@ export interface SyncJobData {
 }
 
 export interface FolderStructure {
+  id: string;
   kioskId: string;
   kioskName: string;
   activeFolderId: string;
   archiveFolderId: string;
   status: 'ready' | 'pending' | 'error';
+  folderPath?: string;
 }
 
 export class GoogleDriveService {
@@ -116,14 +134,11 @@ export class GoogleDriveService {
     message: string;
   }> {
     try {
-      // In a real implementation, this would use Google Drive API
-      // For now, return a mock response
       console.log('Testing Google Drive connection with config:', config.name);
       
-      return {
-        success: true,
-        message: 'Google Drive connection successful!'
-      };
+      // Use the real Google Drive API to test connection
+      const result = await GoogleDriveApiService.testConnection(config);
+      return result;
     } catch (error) {
       console.error('Error testing Google Drive connection:', error);
       return {
@@ -139,64 +154,25 @@ export class GoogleDriveService {
     kiosks: Kiosk[]
   ): Promise<FolderStructure[]> {
     try {
-      const results: FolderStructure[] = [];
-
-      for (const kiosk of kiosks) {
-        try {
-          // Check if folders already exist
-          const { data: existing } = await supabase
-            .from('kiosk_gdrive_folders')
-            .select('*')
-            .eq('kiosk_id', kiosk.id)
-            .eq('gdrive_config_id', configId)
-            .single();
-
-          if (existing) {
-            results.push({
-              kioskId: kiosk.id,
-              kioskName: kiosk.name,
-              activeFolderId: existing.active_folder_id,
-              archiveFolderId: existing.archive_folder_id,
-              status: 'ready'
-            });
-            continue;
-          }
-
-          // Create folders (mock implementation)
-          const activeFolderId = `kiosk-${kiosk.id}-active-${Date.now()}`;
-          const archiveFolderId = `kiosk-${kiosk.id}-archive-${Date.now()}`;
-
-          // Save folder mapping to database
-          const { error } = await supabase
-            .from('kiosk_gdrive_folders')
-            .insert({
-              kiosk_id: kiosk.id,
-              gdrive_config_id: configId,
-              active_folder_id: activeFolderId,
-              archive_folder_id: archiveFolderId
-            });
-
-          if (error) throw error;
-
-          results.push({
-            kioskId: kiosk.id,
-            kioskName: kiosk.name,
-            activeFolderId,
-            archiveFolderId,
-            status: 'ready'
-          });
-
-    } catch (error) {
-          console.error(`Error creating folders for kiosk ${kiosk.id}:`, error);
-          results.push({
-            kioskId: kiosk.id,
-            kioskName: kiosk.name,
-            activeFolderId: '',
-            archiveFolderId: '',
-            status: 'error'
-          });
+      // Use Edge Function for server-side Drive folder creation for reliability
+      const { data, error } = await supabase.functions.invoke('gdrive-folder-setup', {
+        body: {
+          gdrive_config_id: configId,
+          kiosks: kiosks.map(k => ({ id: k.id, name: k.name }))
         }
-      }
+      });
+
+      if (error) throw error;
+
+      const results: FolderStructure[] = (data?.results || []).map((r: any) => ({
+        id: r.kioskId ?? `kiosk-${Date.now()}`,
+        kioskId: r.kioskId,
+        kioskName: r.kioskName,
+        activeFolderId: r.activeFolderId,
+        archiveFolderId: r.archiveFolderId,
+        status: (r.status || 'ready') as 'ready' | 'pending' | 'error',
+        folderPath: r.folderPath
+      }));
 
       return results;
     } catch (error) {
@@ -239,10 +215,10 @@ export class GoogleDriveService {
         .from('upload_jobs')
         .select(`
           *,
-          kiosk:kiosks(name, location),
-          campaign:campaigns(name, status),
-          media_asset:media_assets(file_name, file_type),
-          gdrive_config:google_drive_configs(name)
+          kiosks!kiosk_id(name, location),
+          campaigns!campaign_id(name, status),
+          media_assets!media_asset_id(file_name, file_type),
+          google_drive_configs!gdrive_config_id(name)
         `)
         .order('scheduled_time', { ascending: false });
 
@@ -302,10 +278,10 @@ export class GoogleDriveService {
         .from('upload_jobs')
         .select(`
           *,
-          kiosk:kiosks(name),
-          campaign:campaigns(name, status),
-          media_asset:media_assets(file_name, file_path, file_type),
-          gdrive_config:google_drive_configs(*)
+          kiosks!kiosk_id(name),
+          campaigns!campaign_id(name, status),
+          media_assets!media_asset_id(file_name, file_path, file_type),
+          google_drive_configs!gdrive_config_id(*)
         `)
         .eq('status', 'pending')
         .lte('scheduled_time', now)
@@ -339,9 +315,9 @@ export class GoogleDriveService {
 
           // Upload file to Google Drive (mock implementation)
           const gdriveFileId = await this.uploadFileToGoogleDrive(
-            job.media_asset,
+            job.media_assets,
             targetFolderId,
-            job.gdrive_config
+            job.google_drive_configs
           );
 
           // Update job as completed
@@ -350,7 +326,7 @@ export class GoogleDriveService {
             completed_at: new Date().toISOString()
           });
 
-          console.log(`Successfully uploaded ${job.media_asset.file_name} to kiosk ${job.kiosk.name}`);
+          console.log(`Successfully uploaded ${job.media_assets?.file_name || 'Unknown'} to kiosk ${job.kiosks?.name || 'Unknown'}`);
 
         } catch (error) {
           console.error(`Error processing upload job ${job.id}:`, error);
@@ -365,21 +341,69 @@ export class GoogleDriveService {
     }
   }
 
-  // Upload file to Google Drive (mock implementation)
+  // Upload file to Google Drive using real API
   private static async uploadFileToGoogleDrive(
     mediaAsset: any,
     folderId: string,
     config: GoogleDriveConfig
   ): Promise<string> {
     try {
-      // In a real implementation, this would use Google Drive API
-      // For now, return a mock file ID
       console.log(`Uploading ${mediaAsset.file_name} to folder ${folderId}`);
       
-      // Mock file ID
-      const fileId = `gdrive-file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      // Determine MIME type based on file extension
+      const getMimeType = (fileName: string): string => {
+        const extension = fileName.split('.').pop()?.toLowerCase();
+        const mimeTypes: { [key: string]: string } = {
+          'jpg': 'image/jpeg',
+          'jpeg': 'image/jpeg',
+          'png': 'image/png',
+          'gif': 'image/gif',
+          'mp4': 'video/mp4',
+          'avi': 'video/avi',
+          'mov': 'video/quicktime',
+          'pdf': 'application/pdf',
+          'doc': 'application/msword',
+          'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        };
+        return mimeTypes[extension || ''] || 'application/octet-stream';
+      };
+
+      const mimeType = getMimeType(mediaAsset.file_name);
       
-      return fileId;
+      // For browser environment, we need to fetch the file from the server
+      // This assumes the file is accessible via a URL or stored in the database
+      let fileBuffer: ArrayBuffer;
+      
+      if (mediaAsset.file_url) {
+        // If we have a URL, fetch the file
+        const response = await fetch(mediaAsset.file_url);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`);
+        }
+        fileBuffer = await response.arrayBuffer();
+      } else if (mediaAsset.file_data) {
+        // If we have base64 data, convert it
+        const binaryString = atob(mediaAsset.file_data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        fileBuffer = bytes.buffer;
+      } else {
+        throw new Error('No file data available for upload');
+      }
+      
+      // Upload file using real Google Drive API
+      const uploadedFile = await GoogleDriveApiService.uploadFileFromBuffer(
+        config,
+        fileBuffer,
+        mediaAsset.file_name,
+        mimeType,
+        folderId
+      );
+      
+      console.log(`Successfully uploaded ${mediaAsset.file_name} with ID: ${uploadedFile.id}`);
+      return uploadedFile.id;
     } catch (error) {
       console.error('Error uploading file to Google Drive:', error);
       throw error;
@@ -415,8 +439,8 @@ export class GoogleDriveService {
         .from('sync_jobs')
         .select(`
           *,
-          kiosk:kiosks(name),
-          gdrive_config:google_drive_configs(*)
+          kiosks!kiosk_id(name),
+          google_drive_configs!gdrive_config_id(*)
         `)
         .eq('status', 'pending')
         .order('created_at', { ascending: true });
@@ -446,7 +470,7 @@ export class GoogleDriveService {
           const syncResult = await this.syncKioskFiles(
             job.kiosk_id,
             folderMapping,
-            job.gdrive_config
+            job.google_drive_configs
           );
 
           // Update job as completed
@@ -457,7 +481,7 @@ export class GoogleDriveService {
             completed_at: new Date().toISOString()
           });
 
-          console.log(`Successfully synced kiosk ${job.kiosk.name}: ${syncResult.filesSynced} files synced`);
+          console.log(`Successfully synced kiosk ${job.kiosks?.name || 'Unknown'}: ${syncResult.filesSynced} files synced`);
 
         } catch (error) {
           console.error(`Error processing sync job ${job.id}:`, error);
@@ -566,7 +590,7 @@ export class GoogleDriveService {
     }
   }
 
-  // Move file between Google Drive folders (mock implementation)
+  // Move file between Google Drive folders using real API
   private static async moveFileInGoogleDrive(
     assetId: string,
     fromFolderId: string,
@@ -574,14 +598,30 @@ export class GoogleDriveService {
     config: GoogleDriveConfig
   ): Promise<void> {
     try {
-      // In a real implementation, this would use Google Drive API
       console.log(`Moving asset ${assetId} from folder ${fromFolderId} to ${toFolderId}`);
       
-      // Mock implementation - in reality, this would:
-      // 1. Find the file in the source folder
-      // 2. Move it to the destination folder
-      // 3. Update the file's parent folder reference
+      // First, we need to find the Google Drive file ID for this asset
+      // This would typically be stored in the database when the file is uploaded
+      const { data: asset } = await supabase
+        .from('media_assets')
+        .select('gdrive_file_id')
+        .eq('id', assetId)
+        .single();
 
+      if (!asset?.gdrive_file_id) {
+        console.warn(`No Google Drive file ID found for asset ${assetId}, skipping move operation`);
+        return;
+      }
+
+      // Move the file using real Google Drive API
+      await GoogleDriveApiService.moveFile(
+        config,
+        asset.gdrive_file_id,
+        fromFolderId,
+        toFolderId
+      );
+      
+      console.log(`Successfully moved asset ${assetId} to folder ${toFolderId}`);
     } catch (error) {
       console.error('Error moving file in Google Drive:', error);
       throw error;
@@ -630,8 +670,8 @@ export class GoogleDriveService {
         .from('sync_jobs')
         .select(`
           *,
-          kiosk:kiosks(name, location),
-          gdrive_config:google_drive_configs(name)
+          kiosks!kiosk_id(name, location),
+          google_drive_configs!gdrive_config_id(name)
         `)
         .order('created_at', { ascending: false });
 
@@ -715,6 +755,166 @@ export class GoogleDriveService {
     }
   }
 
+  // Fallback: Directly upload approved campaign assets to Drive for provided kiosks
+  static async directUploadCampaignAssets(campaignId: string, kioskIds: string[]): Promise<void> {
+    try {
+      const gdriveConfig = await this.getGoogleDriveConfig();
+      if (!gdriveConfig) throw new Error('No active Google Drive configuration found');
+
+      // Get approved assets with metadata (publicUrl)
+      const { data: assets, error: assetsErr } = await supabase
+        .from('media_assets')
+        .select('file_name, file_path, metadata')
+        .eq('campaign_id', campaignId)
+        .eq('status', 'approved');
+
+      if (assetsErr) throw assetsErr;
+      if (!assets || assets.length === 0) return;
+
+      for (const kioskId of kioskIds) {
+        const { data: folderMapping } = await supabase
+          .from('kiosk_gdrive_folders')
+          .select('*')
+          .eq('kiosk_id', kioskId)
+          .eq('gdrive_config_id', gdriveConfig.id)
+          .maybeSingle();
+
+        if (!folderMapping) continue;
+
+        for (const asset of assets) {
+          const existingPublicUrl = (asset as any)?.metadata?.publicUrl as string | undefined;
+          let fileUrl = existingPublicUrl;
+          if (!fileUrl) {
+            const { data: urlData } = supabase.storage
+              .from('media-assets')
+              .getPublicUrl(asset.file_path);
+            fileUrl = urlData?.publicUrl;
+          }
+          if (!fileUrl) continue;
+          const pseudo = { file_name: asset.file_name, file_url: fileUrl } as any;
+          try {
+            await this.uploadFileToGoogleDrive(pseudo, folderMapping.active_folder_id, gdriveConfig);
+          } catch (e) {
+            console.error('Direct upload failed for asset', asset.file_name, 'kiosk', kioskId, e);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error in directUploadCampaignAssets:', error);
+    }
+  }
+
+  // Upload approved host ad media to all currently active kiosk assignments
+  static async uploadApprovedHostAdToAssignedKiosks(hostAdId: string): Promise<void> {
+    try {
+      // Fetch host ad
+      const { data: hostAd, error: hostAdErr } = await supabase
+        .from('host_ads')
+        .select('id, name, media_url, media_type, duration')
+        .eq('id', hostAdId)
+        .single();
+
+      if (hostAdErr || !hostAd) {
+        throw new Error('Host ad not found');
+      }
+
+      // Find active assignments (now within start/end)
+      const nowIso = new Date().toISOString();
+      const { data: assignments, error: assignErr } = await supabase
+        .from('host_ad_assignments')
+        .select('kiosk_id')
+        .eq('ad_id', hostAdId)
+        .lte('start_date', nowIso)
+        .gte('end_date', nowIso);
+
+      if (assignErr) throw assignErr;
+      const kioskIds: string[] = (assignments || []).map(a => a.kiosk_id);
+      if (kioskIds.length === 0) {
+        // Nothing to upload if no current assignments
+        return;
+      }
+
+      // Active Google Drive configuration
+      const gdriveConfig = await this.getGoogleDriveConfig();
+      if (!gdriveConfig) {
+        throw new Error('No active Google Drive configuration found');
+      }
+
+      // Prepare pseudo media asset for upload using URL
+      // Derive a file name from ad name or URL
+      const url = hostAd.media_url as string;
+      const urlTail = url.split('?')[0].split('/').pop() || 'asset';
+      const extension = urlTail.includes('.') ? urlTail.split('.').pop() : (hostAd.media_type === 'video' ? 'mp4' : 'png');
+      const safeBase = (hostAd.name || 'host-ad').replace(/[^a-z0-9-_]+/gi, '_');
+      const fileName = `${safeBase}.${extension}`;
+
+      // No direct upload object here; we'll create a media asset and enqueue jobs
+
+      // Instead of uploading directly, create a synthetic media_assets row and enqueue upload_jobs per kiosk
+      // Build file_path to be either the storage object path or a full URL
+      let filePath: string = url;
+      const marker = '/storage/v1/object/public/media-assets/';
+      const idx = url.indexOf(marker);
+      if (idx !== -1) {
+        filePath = url.substring(idx + marker.length);
+      }
+
+      // Infer mime type from extension
+      const ext = (extension || '').toLowerCase();
+      const mimeMap: Record<string, string> = {
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        png: 'image/png',
+        gif: 'image/gif',
+        mp4: 'video/mp4',
+        avi: 'video/avi',
+        mov: 'video/quicktime'
+      };
+      const mimeType = mimeMap[ext] || (hostAd.media_type === 'video' ? 'video/mp4' : 'image/png');
+
+      // Create synthetic media asset (approved)
+      const { data: mediaAsset, error: insertErr } = await supabase
+        .from('media_assets')
+        .insert({
+          user_id: (await supabase.auth.getUser()).data.user?.id || undefined,
+          file_name: fileName,
+          file_path: filePath,
+          file_size: 0,
+          file_type: hostAd.media_type === 'video' ? 'video' : 'image',
+          mime_type: mimeType,
+          dimensions: { width: 0, height: 0 },
+          duration: hostAd.duration || null,
+          status: 'approved',
+          metadata: { source: 'host_ad', host_ad_id: hostAdId }
+        })
+        .select('*')
+        .single();
+
+      if (insertErr || !mediaAsset) {
+        throw new Error('Failed to create media asset for host ad upload');
+      }
+
+      // Enqueue upload jobs per kiosk
+      for (const kioskId of kioskIds) {
+        await this.scheduleUpload({
+          gdrive_config_id: gdriveConfig.id,
+          kiosk_id: kioskId,
+          campaign_id: mediaAsset.campaign_id || '00000000-0000-0000-0000-000000000000',
+          media_asset_id: mediaAsset.id,
+          scheduled_time: new Date().toISOString(),
+          upload_type: 'immediate',
+          folder_type: 'active'
+        });
+      }
+
+      // Trigger processor
+      await this.triggerUploadProcessor();
+    } catch (error) {
+      console.error('Error uploading approved host ad to assigned kiosks:', error);
+      // Let caller decide whether to ignore; do not throw to avoid blocking approvals typically
+    }
+  }
+
   // Get folder structure status
   static async getFolderStructureStatus(): Promise<FolderStructure[]> {
     try {
@@ -722,23 +922,38 @@ export class GoogleDriveService {
         .from('kiosk_gdrive_folders')
         .select(`
           *,
-          kiosk:kiosks(name, location),
-          gdrive_config:google_drive_configs(name, is_active)
+          kiosks!kiosk_id(name, location),
+          google_drive_configs!gdrive_config_id(name, is_active)
         `)
-        .eq('gdrive_config.is_active', true);
+        .eq('google_drive_configs.is_active', true);
 
       if (error) throw error;
 
       return (folders || []).map(folder => ({
+        id: folder.id,
         kioskId: folder.kiosk_id,
-        kioskName: folder.kiosk.name,
+        kioskName: folder.kiosks?.name || 'Unknown',
         activeFolderId: folder.active_folder_id,
         archiveFolderId: folder.archive_folder_id,
-        status: 'ready' as const
+        status: 'ready' as const,
+        folderPath: `EZ Kiosk Ads > Kiosks > ${folder.kiosks?.name || 'Unknown'} > [Active/Archive]`
       }));
     } catch (error) {
       console.error('Error fetching folder structure status:', error);
       return [];
+    }
+  }
+
+  // Invoke the Edge Function that processes pending upload_jobs immediately
+  static async triggerUploadProcessor(): Promise<void> {
+    try {
+      await supabase.functions.invoke('gdrive-upload-processor', {
+        method: 'POST',
+        body: { trigger: 'manual' }
+      });
+    } catch (error) {
+      console.error('Error invoking gdrive-upload-processor:', error);
+      throw error;
     }
   }
 
@@ -775,10 +990,50 @@ export class GoogleDriveService {
     try {
       console.log(`Restoring asset ${assetId} with Google Drive file ID ${driveFileId}`);
       
-      // In a real implementation, this would:
-      // 1. Move the file from archive folder to active folder in Google Drive
-      // 2. Update the file's metadata
-      // For now, this is a mock implementation
+      // Get the Google Drive configuration
+      const config = await this.getGoogleDriveConfig();
+      if (!config) {
+        throw new Error('No active Google Drive configuration found');
+      }
+
+      // Get the kiosk folder mapping for this asset
+      const { data: asset } = await supabase
+        .from('media_assets')
+        .select(`
+          campaign_id,
+          campaigns!inner(selected_kiosk_ids)
+        `)
+        .eq('id', assetId)
+        .single();
+
+      if (!asset?.campaigns || !Array.isArray(asset.campaigns)) {
+        throw new Error('Asset campaign or kiosk information not found');
+      }
+
+      // Get the first campaign's selected kiosk IDs
+      const campaign = asset.campaigns[0];
+      if (!campaign?.selected_kiosk_ids) {
+        throw new Error('Campaign kiosk information not found');
+      }
+
+      // For each kiosk, move the file from archive to active folder
+      for (const kioskId of campaign.selected_kiosk_ids) {
+        const { data: folderMapping } = await supabase
+          .from('kiosk_gdrive_folders')
+          .select('*')
+          .eq('kiosk_id', kioskId)
+          .eq('gdrive_config_id', config.id)
+          .single();
+
+        if (folderMapping) {
+          await GoogleDriveApiService.moveFile(
+            config,
+            driveFileId,
+            folderMapping.archive_folder_id,
+            folderMapping.active_folder_id
+          );
+        }
+      }
       
       console.log(`Asset ${assetId} restored successfully`);
     } catch (error) {
@@ -802,10 +1057,10 @@ export class GoogleDriveService {
         .from('kiosk_gdrive_folders')
         .select(`
           *,
-          kiosk:kiosks(name, location),
-          gdrive_config:google_drive_configs(name, is_active)
+          kiosks!kiosk_id(name, location),
+          google_drive_configs!gdrive_config_id(name, is_active)
         `)
-        .eq('gdrive_config.is_active', true);
+        .eq('google_drive_configs.is_active', true);
 
       if (foldersError) throw foldersError;
 
@@ -824,7 +1079,7 @@ export class GoogleDriveService {
       // Process each kiosk folder
       for (const folderMapping of kioskFolders) {
         try {
-          console.log(`Syncing folders for kiosk: ${folderMapping.kiosk.name}`);
+          console.log(`Syncing folders for kiosk: ${folderMapping.kiosks?.name || 'Unknown'}`);
           
           // Create sync job for this kiosk
           const syncJobId = await this.createSyncJob({
@@ -837,10 +1092,10 @@ export class GoogleDriveService {
             // Process the sync job immediately
             await this.processSyncJobs();
             foldersSynced++;
-            console.log(`Successfully synced folders for kiosk: ${folderMapping.kiosk.name}`);
+            console.log(`Successfully synced folders for kiosk: ${folderMapping.kiosks?.name || 'Unknown'}`);
           }
         } catch (error) {
-          const errorMessage = `Failed to sync kiosk ${folderMapping.kiosk.name}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+          const errorMessage = `Failed to sync kiosk ${folderMapping.kiosks?.name || 'Unknown'}: ${error instanceof Error ? error.message : 'Unknown error'}`;
           console.error(errorMessage);
           errors.push(errorMessage);
         }
@@ -868,10 +1123,82 @@ export class GoogleDriveService {
     }
   }
 
+  // Ensure the main "EZ Kiosk Ads" folder exists
+  private static async ensureMainFolderExists(config: GoogleDriveConfig): Promise<{ id: string; name: string }> {
+    try {
+      // List root children and find exact folder name match
+      const rootChildren = await GoogleDriveApiService.listFiles(config, 'root', 200);
+      const mainFolder = rootChildren.find(folder =>
+        folder.name === 'EZ Kiosk Ads' &&
+        folder.mimeType === 'application/vnd.google-apps.folder'
+      );
+
+      if (mainFolder) {
+        return { id: mainFolder.id, name: mainFolder.name };
+      }
+
+      // Create the main folder in root if it doesn't exist
+      const newMainFolder = await GoogleDriveApiService.createFolder(
+        config,
+        'EZ Kiosk Ads',
+        undefined // Create in root
+      );
+
+      return { id: newMainFolder.id, name: newMainFolder.name };
+    } catch (error) {
+      console.error('Error ensuring main folder exists:', error);
+      throw error;
+    }
+  }
+
+  // Ensure the "Kiosks" subfolder exists inside the main folder
+  private static async ensureKiosksFolderExists(config: GoogleDriveConfig, mainFolderId: string): Promise<{ id: string; name: string }> {
+    try {
+      // List children of main folder and find exact folder name match
+      const mainChildren = await GoogleDriveApiService.listFiles(config, mainFolderId, 200);
+      const kiosksFolder = mainChildren.find(folder =>
+        folder.name === 'Kiosks' &&
+        folder.mimeType === 'application/vnd.google-apps.folder'
+      );
+
+      if (kiosksFolder) {
+        return { id: kiosksFolder.id, name: kiosksFolder.name };
+      }
+
+      // Create the Kiosks folder if it doesn't exist
+      const newKiosksFolder = await GoogleDriveApiService.createFolder(
+        config,
+        'Kiosks',
+        mainFolderId
+      );
+
+      return { id: newKiosksFolder.id, name: newKiosksFolder.name };
+    } catch (error) {
+      console.error('Error ensuring kiosks folder exists:', error);
+      throw error;
+    }
+  }
+
+  // Ensure a direct child folder with exact name exists under parent
+  private static async ensureChildFolderExists(
+    config: GoogleDriveConfig,
+    parentFolderId: string,
+    childName: string
+  ): Promise<{ id: string; name: string }> {
+    // List children of the parent and find exact-name folder match
+    const children = await GoogleDriveApiService.listFiles(config, parentFolderId, 200);
+    const match = children.find(f => f.name === childName && f.mimeType === 'application/vnd.google-apps.folder');
+    if (match) {
+      return { id: match.id, name: match.name };
+    }
+    const created = await GoogleDriveApiService.createFolder(config, childName, parentFolderId);
+    return { id: created.id, name: created.name };
+  }
+
   // Get daily upload time for active configuration
   static async getDailyUploadTime(): Promise<string | null> {
     try {
-      const config = await this.getGoogleDriveConfig();
+      const config = await this.getGoogleDriveConfig() as ExtendedGoogleDriveConfig;
       return config?.daily_upload_time || null;
     } catch (error) {
       console.error('Error getting daily upload time:', error);
@@ -882,7 +1209,7 @@ export class GoogleDriveService {
   // Schedule daily uploads based on configured time
   static async scheduleDailyUploads(): Promise<void> {
     try {
-      const config = await this.getGoogleDriveConfig();
+      const config = await this.getGoogleDriveConfig() as ExtendedGoogleDriveConfig;
       if (!config || !config.daily_upload_time) {
         console.log('No daily upload time configured');
         return;

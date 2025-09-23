@@ -56,6 +56,7 @@ export default function AddMediaDurationPage() {
   const [timeRemaining, setTimeRemaining] = useState(4 * 60 + 56); // 4:56 in seconds
   const [showConfig, setShowConfig] = useState(false);
   const [backgroundColor, setBackgroundColor] = useState('#000000');
+  const [preselectedAsset, setPreselectedAsset] = useState<any | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -95,6 +96,27 @@ export default function AddMediaDurationPage() {
     };
     
     checkStorage();
+  }, []);
+
+  // Check for preselected approved custom ad asset
+  useEffect(() => {
+    (async () => {
+      try {
+        const id = localStorage.getItem('preselectedMediaAssetId');
+        if (id) {
+          const asset = await MediaService.getMediaById(id);
+          if (asset) {
+            setPreselectedAsset(asset);
+            setFilePreview(asset.metadata?.publicUrl || null);
+            setShowConfig(true);
+          }
+          // clear so it is used once
+          localStorage.removeItem('preselectedMediaAssetId');
+        }
+      } catch (e) {
+        console.warn('Failed to load preselected media asset', e);
+      }
+    })();
   }, []);
 
   const formatTime = (seconds: number) => {
@@ -179,7 +201,7 @@ export default function AddMediaDurationPage() {
   };
 
   const handleContinue = async () => {
-    if (!uploadedFile || !user) {
+    if ((!uploadedFile && !preselectedAsset) || !user) {
       console.error('Missing uploadedFile or user:', { uploadedFile: !!uploadedFile, user: !!user });
       return;
     }
@@ -189,45 +211,48 @@ export default function AddMediaDurationPage() {
     setUploadError(null);
 
     try {
-      console.log('Getting file dimensions and duration...');
-      // Get actual file dimensions and duration
-      const [dimensions, duration] = await Promise.all([
-        getFileDimensions(uploadedFile),
-        getVideoDuration(uploadedFile)
-      ]);
+      let uploadedMediaAsset = preselectedAsset;
+      if (!uploadedMediaAsset && uploadedFile) {
+        console.log('Getting file dimensions and duration...');
+        // Get actual file dimensions and duration
+        const [dimensions, duration] = await Promise.all([
+          getFileDimensions(uploadedFile),
+          getVideoDuration(uploadedFile)
+        ]);
 
-      console.log('File dimensions:', dimensions, 'Duration:', duration);
+        console.log('File dimensions:', dimensions, 'Duration:', duration);
 
-      // Check aspect ratio (9:16 = 0.5625)
-      const aspectRatio = dimensions.width / dimensions.height;
-      const targetRatio = 9 / 16; // 0.5625
-      
-      if (Math.abs(aspectRatio - targetRatio) > 0.01) {
-        throw new Error(`Aspect ratio must be 9:16 (portrait). Current: ${dimensions.width}:${dimensions.height}. Please use an image with 9:16 aspect ratio.`);
+        // Check aspect ratio (9:16 = 0.5625)
+        const aspectRatio = dimensions.width / dimensions.height;
+        const targetRatio = 9 / 16; // 0.5625
+        
+        if (Math.abs(aspectRatio - targetRatio) > 0.01) {
+          throw new Error(`Aspect ratio must be 9:16 (portrait). Current: ${dimensions.width}:${dimensions.height}. Please use an image with 9:16 aspect ratio.`);
+        }
+
+        // Check resolution (must be 1080x1920 or 2160x3840)
+        const isValidResolution = (
+          (dimensions.width === 1080 && dimensions.height === 1920) ||
+          (dimensions.width === 2160 && dimensions.height === 3840)
+        );
+        
+        if (!isValidResolution) {
+          throw new Error(`Resolution must be 1080x1920 or 2160x3840. Current: ${dimensions.width}x${dimensions.height}. Please use the correct resolution.`);
+        }
+
+        // Create validation object with actual file data
+        const validation = {
+          isValid: true,
+          dimensions,
+          duration,
+          errors: []
+        };
+
+        console.log('Validation passed, uploading to Supabase...');
+        // Upload to Supabase Storage
+        uploadedMediaAsset = await MediaService.uploadMedia(uploadedFile, validation, user.id);
+        console.log('Upload successful:', uploadedMediaAsset);
       }
-
-      // Check resolution (must be 1080x1920 or 2160x3840)
-      const isValidResolution = (
-        (dimensions.width === 1080 && dimensions.height === 1920) ||
-        (dimensions.width === 2160 && dimensions.height === 3840)
-      );
-      
-      if (!isValidResolution) {
-        throw new Error(`Resolution must be 1080x1920 or 2160x3840. Current: ${dimensions.width}x${dimensions.height}. Please use the correct resolution.`);
-      }
-
-      // Create validation object with actual file data
-      const validation = {
-        isValid: true,
-        dimensions,
-        duration,
-        errors: []
-      };
-
-      console.log('Validation passed, uploading to Supabase...');
-      // Upload to Supabase Storage
-      const uploadedMediaAsset = await MediaService.uploadMedia(uploadedFile, validation, user.id);
-      console.log('Upload successful:', uploadedMediaAsset);
       
       console.log('Navigating to review page...');
       // Navigate to Review & Submit page with all campaign data

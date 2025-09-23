@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { GoogleDriveService } from '../../services/googleDriveService';
-import { GoogleDriveConfig, Kiosk } from '../../types/database';
+import { GoogleDriveService, Kiosk } from '../../services/googleDriveService';
+import { GoogleDriveConfig } from '../../types/database';
 import { supabase } from '../../lib/supabaseClient';
+import { AdminService } from '../../services/adminService';
 
 interface GoogleDriveConfigurationProps {
   onConfigChange?: () => void;
@@ -34,16 +35,22 @@ export const GoogleDriveConfiguration: React.FC<GoogleDriveConfigurationProps> =
     loadKiosks();
   }, []);
 
+  // Automatically load folder status when a config is available/changes
+  useEffect(() => {
+    if (selectedConfig) {
+      // Show any existing kiosk folder mappings immediately
+      loadFolderStatus();
+    }
+  }, [selectedConfig]);
+
   const loadConfigurations = async () => {
     try {
       setIsLoading(true);
-      // In a real implementation, this would fetch from the database
-      // For now, we'll use the service method
-      const config = await GoogleDriveService.getGoogleDriveConfig();
-      if (config) {
-        setConfigs([config]);
-        setSelectedConfig(config);
-      }
+      // Fetch all configs from DB and select the active one by default
+      const configsFromDb = await AdminService.getGoogleDriveConfigs();
+      setConfigs(configsFromDb || []);
+      const activeConfig = (configsFromDb || []).find((c: any) => c.is_active) || (configsFromDb || [])[0] || null;
+      setSelectedConfig(activeConfig ?? null);
     } catch (error) {
       console.error('Error loading configurations:', error);
     } finally {
@@ -275,14 +282,14 @@ export const GoogleDriveConfiguration: React.FC<GoogleDriveConfigurationProps> =
 
       {/* Edit Form */}
       {isEditing && (
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 rounded-lg p-6">
           <h4 className="text-lg font-medium text-gray-900 mb-4">
             {selectedConfig ? 'Edit Configuration' : 'New Configuration'}
           </h4>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Configuration Name
               </label>
               <input
@@ -295,7 +302,7 @@ export const GoogleDriveConfiguration: React.FC<GoogleDriveConfigurationProps> =
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Client ID
               </label>
               <input
@@ -308,7 +315,7 @@ export const GoogleDriveConfiguration: React.FC<GoogleDriveConfigurationProps> =
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Client Secret
               </label>
               <input
@@ -321,7 +328,7 @@ export const GoogleDriveConfiguration: React.FC<GoogleDriveConfigurationProps> =
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Refresh Token
               </label>
               <input
@@ -341,7 +348,7 @@ export const GoogleDriveConfiguration: React.FC<GoogleDriveConfigurationProps> =
                 onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
               />
-              <label htmlFor="is_active" className="ml-2 text-sm text-gray-700">
+              <label htmlFor="is_active" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
                 Active Configuration
               </label>
             </div>
@@ -362,7 +369,7 @@ export const GoogleDriveConfiguration: React.FC<GoogleDriveConfigurationProps> =
             <div className="flex justify-end space-x-3">
               <button
                 onClick={handleCancel}
-                className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+                className="px-4 py-2 text-sm text-gray-700 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 transition-colors"
               >
                 Cancel
               </button>
@@ -386,21 +393,21 @@ export const GoogleDriveConfiguration: React.FC<GoogleDriveConfigurationProps> =
             <div className="space-x-2">
               <button
                 onClick={loadFolderStatus}
-                className="px-3 py-1 text-sm text-blue-600 hover:text-blue-700 transition-colors"
+                className="px-3 py-1 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 transition-colors"
               >
                 Refresh Status
               </button>
               <button
                 onClick={handleCreateFolders}
                 disabled={isLoading}
-                className="px-3 py-1 text-sm text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors disabled:opacity-50"
+                className="px-3 py-1 text-sm text-white bg-green-600 dark:bg-green-400 rounded-md hover:bg-green-700 transition-colors disabled:opacity-50"
               >
                 {isLoading ? 'Creating...' : 'Create All Folders'}
               </button>
               <button
                 onClick={handleSyncAllNow}
                 disabled={isSyncing || !selectedConfig?.is_active}
-                className="px-3 py-1 text-sm text-white bg-purple-600 rounded-md hover:bg-purple-700 transition-colors disabled:opacity-50"
+                className="px-3 py-1 text-sm text-white bg-purple-600 dark:bg-purple-400 rounded-md hover:bg-purple-700 transition-colors disabled:opacity-50"
               >
                 {isSyncing ? 'Syncing...' : 'Sync All Now'}
               </button>
@@ -410,11 +417,16 @@ export const GoogleDriveConfiguration: React.FC<GoogleDriveConfigurationProps> =
           <div className="space-y-2">
             {folderStatus.map((folder) => (
               <div
-                key={folder.kioskId}
+                key={folder.id}
                 className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-md"
               >
                 <div>
                   <span className="font-medium text-gray-900 dark:text-white">{folder.kioskName}</span>
+                  {folder.folderPath && (
+                    <div className="text-xs text-blue-600 dark:text-blue-400 mb-1">
+                      📁 {folder.folderPath}
+                    </div>
+                  )}
                   <div className="text-sm text-gray-500 dark:text-gray-50">
                     Active: {folder.activeFolderId || 'Not created'}
                   </div>

@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient';
 import { S3Configuration, OptiSignsImportJob, OptiSignsProofOfPlay } from '../types/database';
+import { AWSS3Service, S3Config as AWSS3Config } from './awsS3Service';
 
 export interface S3Config {
   bucketName: string;
@@ -72,56 +73,60 @@ export class S3Service {
     }
   }
 
-  // List files in S3 bucket (mock implementation - would use AWS SDK in production)
-  static async listOptiSignsFiles(config: S3Config, prefix: string = 'optisigns/'): Promise<string[]> {
+  // List files in S3 bucket using real AWS SDK
+  static async listOptiSignsFiles(config: S3Config, prefix?: string): Promise<string[]> {
     try {
-      // In a real implementation, this would use AWS SDK
-      // For now, return mock data
-      console.log('Listing files from S3 bucket:', config.bucketName, 'with prefix:', prefix);
+      const envPrefix = (typeof import.meta !== 'undefined' ? (import.meta as any).env?.VITE_AWS_S3_PREFIX : undefined) || (globalThis as any).VITE_AWS_S3_PREFIX || '';
+      const effectivePrefix = prefix ?? envPrefix ?? '';
+      console.log('Listing files from S3 bucket:', config.bucketName, 'with prefix:', effectivePrefix);
       
-      // Mock response - in production, this would make actual S3 API calls
-      return [
-        'optisigns/proof-of-play-2024-01-15.csv',
-        'optisigns/proof-of-play-2024-01-16.csv',
-        'optisigns/proof-of-play-2024-01-17.csv'
-      ];
+      const awsConfig: AWSS3Config = {
+        bucketName: config.bucketName,
+        region: config.region,
+        accessKeyId: config.accessKeyId,
+        secretAccessKey: config.secretAccessKey
+      };
+
+      const objects = await AWSS3Service.listObjects(awsConfig, effectivePrefix);
+      return objects.map(obj => obj.key);
     } catch (error) {
       console.error('Error listing S3 files:', error);
       return [];
     }
   }
 
-  // Download and parse CSV file from S3
+  // Download and parse CSV file from S3 using real AWS SDK
   static async downloadAndParseCSV(config: S3Config, filePath: string): Promise<OptiSignsCSVRow[]> {
     try {
-      // In a real implementation, this would use AWS SDK to download the file
       console.log('Downloading CSV from S3:', filePath);
       
-      // Mock CSV data - in production, this would parse actual CSV content
-      const mockData: OptiSignsCSVRow[] = [
-        {
-          kiosk_id: 'a1b2c3d4-e5f6-4789-abcd-ef1234567890',
-          campaign_id: 'campaign-123',
-          media_id: 'media-456',
-          play_date: '2024-01-15T10:30:00Z',
-          play_duration: 15,
-          play_count: 1,
-          device_id: 'device-001',
-          location: 'Murrieta Town Center'
-        },
-        {
-          kiosk_id: 'b2c3d4e5-f6a7-4801-bcde-f23456789012',
-          campaign_id: 'campaign-123',
-          media_id: 'media-456',
-          play_date: '2024-01-15T11:45:00Z',
-          play_duration: 15,
-          play_count: 1,
-          device_id: 'device-002',
-          location: 'California Oaks Shopping Center'
-        }
-      ];
+      const awsConfig: AWSS3Config = {
+        bucketName: config.bucketName,
+        region: config.region,
+        accessKeyId: config.accessKeyId,
+        secretAccessKey: config.secretAccessKey
+      };
 
-      return mockData;
+      // Download the CSV file content
+      const csvContent = await AWSS3Service.getObjectAsText(awsConfig, filePath);
+      
+      // Parse CSV content
+      const csvRows = AWSS3Service.parseCSV(csvContent);
+      
+      // Convert to OptiSignsCSVRow format
+      const optiSignsData: OptiSignsCSVRow[] = csvRows.map(row => ({
+        kiosk_id: row.kiosk_id || '',
+        campaign_id: row.campaign_id || '',
+        media_id: row.media_id || '',
+        play_date: row.play_date || '',
+        play_duration: parseInt(row.play_duration) || 0,
+        play_count: parseInt(row.play_count) || 0,
+        device_id: row.device_id,
+        location: row.location,
+        ...row // Include any additional fields
+      }));
+
+      return optiSignsData;
     } catch (error) {
       console.error('Error downloading and parsing CSV:', error);
       return [];
@@ -253,6 +258,34 @@ export class S3Service {
     } catch (error) {
       console.error('Error fetching proof of play data:', error);
       return [];
+    }
+  }
+
+  // Test S3 connection using real AWS SDK
+  static async testS3Connection(config: S3Config): Promise<{
+    success: boolean;
+    message: string;
+    details?: any;
+  }> {
+    try {
+      const awsConfig: AWSS3Config = {
+        bucketName: config.bucketName,
+        region: config.region,
+        accessKeyId: config.accessKeyId,
+        secretAccessKey: config.secretAccessKey
+      };
+      const envPrefix = (typeof import.meta !== 'undefined' ? (import.meta as any).env?.VITE_AWS_S3_PREFIX : undefined) || (globalThis as any).VITE_AWS_S3_PREFIX || '';
+      return await AWSS3Service.testConnection(awsConfig, { prefix: envPrefix });
+    } catch (error) {
+      return {
+        success: false,
+        message: `S3 connection test failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        details: {
+          bucket: config.bucketName,
+          region: config.region,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }
+      };
     }
   }
 

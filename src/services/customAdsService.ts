@@ -164,8 +164,7 @@ export class CustomAdsService {
       .from('custom_ad_orders')
       .select(`
         *,
-        designer:profiles!custom_ad_orders_assigned_designer_id_fkey(id, full_name, email),
-        service:custom_ad_services!custom_ad_orders_service_key_fkey(id, name, description, base_price, turnaround_days)
+        designer:profiles!custom_ad_orders_assigned_designer_id_fkey(id, full_name, email)
       `)
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
@@ -180,8 +179,7 @@ export class CustomAdsService {
       .from('custom_ad_orders')
       .select(`
         *,
-        designer:profiles!custom_ad_orders_assigned_designer_id_fkey(id, full_name, email),
-        service:custom_ad_services!custom_ad_orders_service_key_fkey(id, name, description, base_price, turnaround_days)
+        designer:profiles!custom_ad_orders_assigned_designer_id_fkey(id, full_name, email)
       `)
       .eq('id', orderId)
       .single();
@@ -218,6 +216,19 @@ export class CustomAdsService {
 
     if (error) throw error;
     return data;
+  }
+
+  // Update order payment status
+  static async updateOrderPaymentStatus(orderId: string, paymentStatus: 'pending' | 'succeeded' | 'failed'): Promise<void> {
+    const { error } = await supabase
+      .from('custom_ad_orders')
+      .update({ 
+        payment_status: paymentStatus,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', orderId);
+
+    if (error) throw error;
   }
 
   // Submit proof for review
@@ -470,8 +481,7 @@ export class CustomAdsService {
       .from('custom_ad_orders')
       .select(`
         *,
-        designer:profiles!custom_ad_orders_assigned_designer_id_fkey(id, full_name, email),
-        service:custom_ad_services!custom_ad_orders_service_key_fkey(id, name, description, base_price, turnaround_days)
+        designer:profiles!custom_ad_orders_assigned_designer_id_fkey(id, full_name, email)
       `)
       .order('created_at', { ascending: false });
 

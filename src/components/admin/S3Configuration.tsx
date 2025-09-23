@@ -111,7 +111,7 @@ export default function S3Configuration() {
       setIsTesting(true);
       setTestResult(null);
 
-      // Test S3 connection by listing files
+      // Test S3 connection using real AWS SDK
       const s3Config = {
         bucketName: formData.bucket_name,
         region: formData.region,
@@ -119,12 +119,8 @@ export default function S3Configuration() {
         secretAccessKey: formData.secret_access_key
       };
 
-      const files = await S3Service.listOptiSignsFiles(s3Config);
-      
-      setTestResult({
-        success: true,
-        message: `Connection successful! Found ${files.length} files in the bucket.`
-      });
+      const result = await S3Service.testS3Connection(s3Config);
+      setTestResult(result);
     } catch (error) {
       console.error('Error testing S3 connection:', error);
       setTestResult({

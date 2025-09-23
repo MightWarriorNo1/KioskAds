@@ -45,7 +45,7 @@ export default function DashboardLayout({
     { name: 'Billing', href: '/client/billing', icon: FileText },
     { name: 'Profile', href: '/client/profile', icon: User },
     { name: 'Help Center', href: '/client/help', icon: HelpCircle },
-    { name: 'Custom Ads', href: '/client/custom-ads', icon: Megaphone },
+    { name: 'My Custom Ads', href: '/client/custom-ads', icon: Megaphone },
   ];
 
   const isActive = (href: string) => {

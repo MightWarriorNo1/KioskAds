@@ -19,7 +19,8 @@ import {
   ArrowLeft,
   Eye,
   Edit,
-  Plus
+  Plus,
+  CheckCircle
 } from 'lucide-react';
 import DashboardLayout from '../components/layouts/DashboardLayout';
 import Button from '../components/ui/Button';
@@ -32,7 +33,6 @@ import { CustomAdsService } from '../services/customAdsService';
 import PaymentMethodSelector from '../components/PaymentMethodSelector';
 import { PaymentMethod } from '../types/database';
 import { validateFile } from '../utils/fileValidation';
-import ReCAPTCHA from 'react-google-recaptcha';
 import ProgressSteps from '../components/shared/ProgressSteps';
 
 interface ServiceTile {
@@ -108,19 +108,20 @@ export default function CustomAdsPage() {
   const [fileValidationErrors, setFileValidationErrors] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [paymentStep, setPaymentStep] = useState<'form' | 'pay' | 'method'>('form');
+  const [paymentStep, setPaymentStep] = useState<'form' | 'pay' | 'method' | 'success'>('form');
   const [paymentMessage, setPaymentMessage] = useState<string | null>(null);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
   const [isLoadingPaymentMethods, setIsLoadingPaymentMethods] = useState(false);
   const [orderSubmitted, setOrderSubmitted] = useState(false);
   const [submittedOrderId, setSubmittedOrderId] = useState<string | null>(null);
+  const [submittedOrderProofs, setSubmittedOrderProofs] = useState<any[]>([]);
+  const [isLoadingProofs, setIsLoadingProofs] = useState(false);
   const { user }=useAuth();
   const navigate=useNavigate();
   const location = useLocation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string);
-  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
 
   const steps = [
     { number: 1, name: 'Service Selection', current: currentStep === 1, completed: currentStep > 1 },
@@ -128,6 +129,60 @@ export default function CustomAdsPage() {
     { number: 3, name: 'File Upload', current: currentStep === 3, completed: currentStep > 3 },
     { number: 4, name: 'Review & Submit', current: currentStep === 4, completed: currentStep > 4 },
   ];
+
+  // Load proofs for the just-submitted order so user can review/approve
+  React.useEffect(() => {
+    const loadProofs = async () => {
+      if (!submittedOrderId) return;
+      try {
+        setIsLoadingProofs(true);
+        const proofs = await CustomAdsService.getOrderProofs(submittedOrderId);
+        setSubmittedOrderProofs(proofs || []);
+      } catch (e) {
+        console.error('Error loading proofs for submitted order:', e);
+      } finally {
+        setIsLoadingProofs(false);
+      }
+    };
+    loadProofs();
+
+    // Poll for new proofs for a short time after order submission (designer may upload soon)
+    const interval = submittedOrderId ? setInterval(loadProofs, 15000) : undefined;
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [submittedOrderId]);
+
+  const handleApproveProof = async (proofId: string) => {
+    try {
+      await CustomAdsService.approveProof(proofId);
+      // Refresh proofs
+      if (submittedOrderId) {
+        const proofs = await CustomAdsService.getOrderProofs(submittedOrderId);
+        setSubmittedOrderProofs(proofs || []);
+      }
+      alert('Approved! You can now create a campaign.');
+    } catch (e) {
+      console.error(e);
+      alert('Failed to approve proof.');
+    }
+  };
+
+  const handleRequestEdits = async (proofId: string) => {
+    const feedback = window.prompt('Enter requested edits/comments for the designer:');
+    if (!feedback) return;
+    try {
+      await CustomAdsService.rejectProof(proofId, feedback);
+      if (submittedOrderId) {
+        const proofs = await CustomAdsService.getOrderProofs(submittedOrderId);
+        setSubmittedOrderProofs(proofs || []);
+      }
+      alert('Revision requested. Designer will be notified.');
+    } catch (e) {
+      console.error(e);
+      alert('Failed to request edits.');
+    }
+  };
 
   // Determine which portal we're in based on the current path
   const isHostPortal = location.pathname.startsWith('/host');
@@ -295,10 +350,6 @@ export default function CustomAdsPage() {
     
     if (!validateForm()) return;
 
-    if (!recaptchaToken) {
-      alert('Please complete the reCAPTCHA');
-      return;
-    }
 
     setIsUploading(true);
     
@@ -373,7 +424,6 @@ export default function CustomAdsPage() {
           serviceId: selectedService.id,
           email: formData.email,
         },
-        recaptchaToken: recaptchaToken || undefined,
         setupForFutureUse: true, // Setup for future use when adding new method
       });
 
@@ -410,7 +460,6 @@ export default function CustomAdsPage() {
           serviceId: selectedService.id,
           email: formData.email,
         },
-        recaptchaToken: recaptchaToken || undefined,
       });
 
       if (!intent?.clientSecret) {
@@ -866,25 +915,16 @@ export default function CustomAdsPage() {
                   )}
                 </div>
 
-                {/* reCAPTCHA */}
-                <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 text-center">
-                  <div className="flex justify-center">
-                    <ReCAPTCHA
-                      sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY as string}
-                      onChange={(token) => setRecaptchaToken(token)}
-                    />
-                  </div>
-                </div>
 
                 {/* Virus Scan Notice */}
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                {/* <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
                   <div className="flex items-center gap-2">
                     <Check className="w-5 h-5 text-blue-500" />
                     <p className="text-sm text-blue-700 dark:text-blue-300">
                       All uploaded files will be automatically scanned for viruses before processing.
                     </p>
                   </div>
-                </div>
+                </div> */}
 
                 {/* Submit Button */}
                 <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
@@ -923,6 +963,8 @@ export default function CustomAdsPage() {
                       onMethodSelect={handlePaymentMethodSelect}
                       onAddNewMethod={handleAddNewMethod}
                       amount={selectedService.price}
+                      onPayWithSavedMethod={handlePaymentWithSavedMethod}
+                      isProcessing={isUploading}
                     />
                   )}
 
@@ -935,15 +977,7 @@ export default function CustomAdsPage() {
                       Back
                     </Button>
                     
-                    {selectedPaymentMethodId && (
-                      <Button
-                        onClick={handlePaymentWithSavedMethod}
-                        disabled={isUploading}
-                        className="bg-blue-600 hover:bg-blue-700"
-                      >
-                        {isUploading ? 'Processing...' : `Pay $${selectedService.price}`}
-                      </Button>
-                    )}
+                    {/* Primary action now moved into PaymentMethodSelector */}
                   </div>
 
                   {paymentMessage && (
@@ -968,7 +1002,7 @@ export default function CustomAdsPage() {
                         if (!user) return;
                         
                         // Save the order
-                        await CustomAdsService.createOrder({
+                        const orderId = await CustomAdsService.createOrder({
                           userId: user.id,
                           serviceKey: selectedService.id,
                           firstName: formData.firstName,
@@ -981,6 +1015,8 @@ export default function CustomAdsPage() {
                           totalAmount: selectedService.price,
                         });
                         
+                        setSubmittedOrderId(orderId);
+                        setPaymentStep('success');
                         setPaymentMessage('Payment succeeded and your order has been saved.');
                       } catch (e) {
                         console.error('Error saving order after payment:', e);
@@ -989,6 +1025,123 @@ export default function CustomAdsPage() {
                     }}
                   />
                 </Elements>
+              )}
+
+              {paymentStep === 'success' && (
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                      Payment Successful!
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-400">
+                      Your custom ad order has been submitted and payment has been processed.
+                    </p>
+                    {paymentMessage && (
+                      <p className="text-sm text-green-600 dark:text-green-400 mt-2">
+                        {paymentMessage}
+                      </p>
+                    )}
+                  </div>
+
+          {/* Proof Preview & Approve/Reject - shows when designer uploads proofs */}
+          <Card className="p-4">
+            <h4 className="font-semibold mb-3">Design Proof</h4>
+            {isLoadingProofs ? (
+              <div className="text-sm text-gray-600">Checking for proofs…</div>
+            ) : submittedOrderProofs.length === 0 ? (
+              <div className="text-sm text-gray-600">No proofs yet. You will be notified once the designer submits a proof.</div>
+            ) : (
+              <div className="space-y-4">
+                {submittedOrderProofs.map((proof) => (
+                  <div key={proof.id} className="border rounded p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <div className="font-medium">{proof.title || 'Proof'} • V{proof.version_number || '?'}</div>
+                        <div className="text-xs text-gray-600">Status: {proof.status.replace('_',' ')} • {new Date(proof.created_at).toLocaleString()}</div>
+                      </div>
+                    </div>
+                    {/* files array when using custom_ad_proofs; fallback to single file fields if present */}
+                    {Array.isArray(proof.files) && proof.files.length > 0 ? (
+                      <div className="grid gap-3">
+                        {proof.files.map((file: any, idx: number) => (
+                          <div key={idx}>
+                            {file.type?.startsWith('image/') ? (
+                              <img src={file.url} alt={file.name} className="max-h-[420px] rounded mx-auto" />
+                            ) : file.type?.startsWith('video/') ? (
+                              <video src={file.url} controls className="max-h-[420px] rounded mx-auto" />
+                            ) : (
+                              <a href={file.url} className="text-blue-600 underline text-sm">View file</a>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-600">No previewable files attached.</div>
+                    )}
+
+                    {(proof.status === 'submitted' || proof.status === 'revision_requested') && (
+                      <div className="flex gap-3 pt-4">
+                        <Button onClick={() => handleApproveProof(proof.id)} className="bg-green-600 hover:bg-green-700">Approve</Button>
+                        <Button variant="secondary" onClick={() => handleRequestEdits(proof.id)}>Request Edits</Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
+                    <div className="flex items-start space-x-3">
+                      <div className="w-6 h-6 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className="text-blue-600 dark:text-blue-400 text-sm font-bold">i</span>
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-1">
+                          What's Next?
+                        </h4>
+                        <p className="text-sm text-blue-800 dark:text-blue-200">
+                          Our team will review your order and create your custom ad. Once approved, you can use it to create a campaign.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setPaymentStep('form');
+                        setCurrentStep(1);
+                        setFormData({
+                          firstName: '',
+                          lastName: '',
+                          email: '',
+                          phone: '',
+                          address: '',
+                          details: '',
+                          files: []
+                        });
+                        setFormErrors({});
+                        setFileValidationErrors([]);
+                        setPaymentMessage(null);
+                        setSubmittedOrderId(null);
+                      }}
+                      className="flex-1"
+                    >
+                      Create Another Ad
+                    </Button>
+                    <Button
+                      onClick={() => navigate('/client/new-campaign')}
+                      className="flex-1 bg-blue-600 hover:bg-blue-700"
+                    >
+                      Create Campaign
+                    </Button>
+                  </div>
+                </div>
               )}
             </div>
           </Card>

@@ -18,6 +18,9 @@ export default function AuthRedirect() {
         case 'host':
           navigate('/host', { replace: true });
           break;
+        case 'designer':
+          navigate('/designer', { replace: true });
+          break;
         default:
           navigate('/client', { replace: true });
       }

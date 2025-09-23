@@ -13,10 +13,10 @@ export default function AuthCallback() {
       if (!isMounted) return;
       if (user) {
         // Fetch role from profiles table (same logic as AuthContext)
-        let role: 'client' | 'host' | 'admin' = (user.user_metadata?.role as 'client' | 'host' | 'admin') || 'client';
+        let role: 'client' | 'host' | 'designer' | 'admin' = (user.user_metadata?.role as 'client' | 'host' | 'designer' | 'admin') || 'client';
         
         // Check localStorage for admin role preservation
-        const storedRole = localStorage.getItem('user_role') as 'client' | 'host' | 'admin';
+        const storedRole = localStorage.getItem('user_role') as 'client' | 'host' | 'designer' | 'admin';
         if (storedRole === 'admin') {
           role = 'admin';
         }
@@ -28,7 +28,7 @@ export default function AuthCallback() {
             .eq('id', user.id)
             .single();
           if (!error && profile && (profile as any).role) {
-            role = (profile as any).role as 'client' | 'host' | 'admin';
+            role = (profile as any).role as 'client' | 'host' | 'designer' | 'admin';
           }
         } catch (_e) {
           // Keep the metadata role if profile lookup fails - don't downgrade to 'client'
@@ -43,6 +43,9 @@ export default function AuthCallback() {
         switch (role) {
           case 'host':
             navigate('/host', { replace: true });
+            break;
+          case 'designer':
+            navigate('/designer', { replace: true });
             break;
           case 'admin':
             navigate('/admin', { replace: true });
