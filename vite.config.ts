@@ -47,5 +47,8 @@ export default defineConfig({
     rollupOptions: {
       external: ['googleapis'],
     },
+    commonjsOptions: {
+      include: [/node_modules/],
+    },
   },
 });
