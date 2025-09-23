@@ -44,7 +44,7 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
-      external: ['googleapis', '@aws-sdk/client-s3'],
+      external: ['googleapis', '@aws-sdk/client-s3', '@aws-sdk/s3-request-presigner', '@aws-sdk/client-iam'],
     },
   },
 });
