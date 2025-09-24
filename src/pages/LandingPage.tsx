@@ -35,32 +35,11 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="relative">
-            <div className="relative mx-auto w-80 h-96 md:w-96 md:h-[28rem] rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 text-white shadow-elevated overflow-hidden border border-slate-700">
-              {/* Kiosk Frame */}
-              <div className="absolute inset-4 rounded-xl bg-black border-2 border-slate-600 overflow-hidden">
-                {/* Sample Ad Display */}
-                <div className="h-full bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 flex flex-col items-center justify-center text-center px-4">
-                  <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-4">
-                    <Star className="w-8 h-8 text-white" />
-                  </div>
-                  <h3 className="text-xl font-bold mb-2 text-white">Your Brand Here</h3>
-                  <p className="text-sm text-white/90 mb-4">Reach customers at prime locations</p>
-                  <div className="bg-white/20 px-4 py-2 rounded-full text-xs font-medium">
-                    EZ Kiosk Ads
-                  </div>
-                </div>
-              </div>
-              
-              {/* Kiosk Stand */}
-              <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-32 h-8 bg-slate-700 rounded-b-lg"></div>
-              <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 w-40 h-4 bg-slate-600 rounded-lg"></div>
-              
-              {/* Floating Elements */}
-              <div className="absolute top-4 right-4 w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-              <div className="absolute bottom-16 left-4 text-xs text-slate-400 font-mono">
-                LIVE
-              </div>
-            </div>
+            <img
+              src="/7814298c-3468-4ad0-be3c-fec26df8fedf.jpg"
+              alt="Digital kiosk showcase"
+              className="relative mx-auto w-80 h-96 md:w-96 md:h-[28rem] rounded-2xl object-cover shadow-elevated border border-slate-300 dark:border-slate-700"
+            />
           </div>
         </div>
       </section>

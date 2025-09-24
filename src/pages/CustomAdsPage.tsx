@@ -33,7 +33,7 @@ import { BillingService } from '../services/billingService';
 import { CustomAdsService } from '../services/customAdsService';
 import PaymentMethodSelector from '../components/PaymentMethodSelector';
 import { PaymentMethod } from '../types/database';
-import { validateFile } from '../utils/fileValidation';
+import { validateCustomAdFile } from '../utils/customAdFileValidation';
 import ProgressSteps from '../components/shared/ProgressSteps';
 
 interface ServiceTile {
@@ -345,7 +345,7 @@ export default function CustomAdsPage() {
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
-    const maxFiles = 5;
+    const maxFiles = 20;
 
     if (files.length + formData.files.length > maxFiles) {
       alert(`Maximum ${maxFiles} files allowed`);
@@ -360,8 +360,8 @@ export default function CustomAdsPage() {
 
     for (const file of files) {
       try {
-        // Use comprehensive validation
-        const validation = await validateFile(file);
+        // Use custom-ad validation: allow any dimensions and broad types
+        const validation = await validateCustomAdFile(file, { allowAnyDimensions: true });
         
         if (!validation.isValid) {
           const errorMessage = `${file.name}: ${validation.errors.join(', ')}`;
@@ -985,14 +985,14 @@ export default function CustomAdsPage() {
                 {/* File Upload */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Upload Media Assets (Max 5 files)
+                    Upload Media Assets (Max 20 files)
                   </label>
                   <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center">
                     <input
                       ref={fileInputRef}
                       type="file"
                       multiple
-                      accept="image/jpeg,image/png,video/mp4"
+                      accept="image/*,video/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/zip,application/x-rar-compressed,text/plain"
                       onChange={handleFileUpload}
                       className="hidden"
                     />
@@ -1001,7 +1001,7 @@ export default function CustomAdsPage() {
                       Click to upload or drag and drop
                     </p>
                     <p className="text-sm text-gray-500">
-                      Images: 10MB max • Videos: 500MB max • 9:16 aspect ratio required
+                      Any dimensions allowed • Images up to 100MB • Videos up to 5 minutes • Many common document types supported
                     </p>
                     <Button
                       type="button"

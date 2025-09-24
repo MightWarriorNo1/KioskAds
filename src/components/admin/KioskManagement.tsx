@@ -22,6 +22,7 @@ interface Kiosk {
     lng: number;
   };
   description?: string;
+  content_restrictions?: string[];
   created_at: string;
   updated_at: string;
   host_assignments?: Array<{
@@ -164,7 +165,8 @@ export default function KioskManagement() {
       price: kiosk.price,
       status: kiosk.status,
       description: kiosk.description,
-      coordinates: { lat: kiosk.coordinates.lat, lng: kiosk.coordinates.lng }
+      coordinates: { lat: kiosk.coordinates.lat, lng: kiosk.coordinates.lng },
+      content_restrictions: kiosk.content_restrictions || []
     });
     setShowSettingsModal(true);
   };
@@ -236,7 +238,8 @@ export default function KioskManagement() {
           price: editForm.price,
           status: editForm.status,
           description: editForm.description,
-          coordinates: editForm.coordinates
+          coordinates: editForm.coordinates,
+          content_restrictions: (editForm.content_restrictions || [])
         })
         .eq('id', selectedKiosk.id);
 
@@ -850,6 +853,18 @@ export default function KioskManagement() {
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
                 <textarea value={editForm.description || ''} onChange={(e) => setEditForm(f => ({ ...f, description: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Content Restrictions</label>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">Enter one restriction per line, e.g. "No Gyms", "No Alcohol"</div>
+                <textarea
+                  value={(editForm.content_restrictions || []).join('\n')}
+                  onChange={(e) => {
+                    const lines = e.target.value.split('\n').map(s => s.trim()).filter(Boolean);
+                    setEditForm(f => ({ ...f, content_restrictions: lines }));
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded min-h-[120px]"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Latitude</label>

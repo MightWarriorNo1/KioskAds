@@ -39,6 +39,7 @@ export interface Kiosk {
     lng: number;
   };
   description?: string;
+  content_restrictions?: string[]; // array of disallowed categories/phrases set by admin
   created_at: string;
   updated_at: string;
 }

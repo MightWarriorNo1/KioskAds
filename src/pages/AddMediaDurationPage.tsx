@@ -517,20 +517,14 @@ export default function AddMediaDurationPage() {
                 ) : (
                   <div className="space-y-4">
                     {filePreview && (
-                      <div className="max-w-xs mx-auto">
-                        {uploadedFile.type.startsWith('image/') ? (
-                          <img 
-                            src={filePreview} 
-                            alt="Preview" 
-                            className="w-full h-auto rounded-lg"
-                          />
-                        ) : (
-                          <video 
-                            src={filePreview} 
-                            controls 
-                            className="w-full h-auto rounded-lg"
-                          />
-                        )}
+                      <div className="max-w-[270px] mx-auto">
+                        <div style={{ aspectRatio: '9 / 16' }} className="w-full rounded-lg overflow-hidden bg-black">
+                          {uploadedFile.type.startsWith('image/') ? (
+                            <img src={filePreview} alt="Preview" className="w-full h-full object-cover" />
+                          ) : (
+                            <video src={filePreview} controls className="w-full h-full object-cover" />
+                          )}
+                        </div>
                       </div>
                     )}
                     <div>
@@ -591,13 +585,11 @@ export default function AddMediaDurationPage() {
                         <div className="w-full h-48 bg-white rounded-lg overflow-hidden relative object-contain">
                           {/* Preview Image/Video */}
                           {filePreview && (
-                            <div 
-                              className="w-full h-full bg-cover bg-center bg-no-repeat object-contain"
-                              style={{
-                                backgroundImage: `url(${filePreview})`,
-                                backgroundColor: backgroundColor
-                              }}
-                            />
+                            <div className="w-full h-full">
+                              <div style={{ aspectRatio: '9 / 16' }} className="w-full bg-black rounded-md overflow-hidden">
+                                <img src={filePreview} alt="Preview" className="w-full h-full object-cover" />
+                              </div>
+                            </div>
                           )}
                         </div>
                       </div>

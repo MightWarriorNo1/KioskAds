@@ -313,10 +313,24 @@ export default function KioskSelectionPage() {
               <div className="font-semibold text-gray-900 dark:text-white mb-1 text-md md:text-base">Important Notice</div>
               <div className="text-md md:text-sm text-gray-600 dark:text-gray-300">Your business and advertisements must comply with the following limitations. Non-compliant ads will be rejected during the approval process.</div>
             </div>
-            <div className="text-gray-900 dark:text-gray-100 text-xs md:text-sm space-y-1 mb-6">
-              <div>No Gyms</div>
-              <div>No Workout Supplements</div>
-            </div>
+            {(() => {
+              const all = selectedKiosks
+                .flatMap(k => (k.content_restrictions || []))
+                .map(s => (s || '').trim())
+                .filter(Boolean);
+              const unique = Array.from(new Set(all));
+              return (
+                <div className="text-gray-900 dark:text-gray-100 text-xs md:text-sm space-y-1 mb-6">
+                  {unique.length === 0 ? (
+                    <div className="text-gray-500 dark:text-gray-400">No specific restrictions on selected kiosks.</div>
+                  ) : (
+                    unique.map((rule, idx) => (
+                      <div key={idx}>{rule}</div>
+                    ))
+                  )}
+                </div>
+              );
+            })()}
             <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
               <button onClick={() => setShowContentModal(false)} className="px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm md:text-base">Cancel</button>
               <button onClick={() => navigate('/client/select-weeks', { state: { kiosks: selectedKiosks.map(k => ({

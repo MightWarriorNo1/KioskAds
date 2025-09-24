@@ -90,19 +90,19 @@ function DesignerDashboard() {
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card className="p-4">
-            <div className="text-xs text-gray-500">Assigned Orders</div>
+            <div className="text-xs text-gray-300">Assigned Orders</div>
             <div className="text-2xl font-semibold">{stats.totalAssigned}</div>
           </Card>
           <Card className="p-4">
-            <div className="text-xs text-gray-500">Pending Client Review</div>
+            <div className="text-xs text-gray-200">Pending Client Review</div>
             <div className="text-2xl font-semibold">{stats.pendingReviews}</div>
           </Card>
           <Card className="p-4">
-            <div className="text-xs text-gray-500">Approved This Month</div>
+            <div className="text-xs text-gray-200">Approved This Month</div>
             <div className="text-2xl font-semibold">{stats.approvedThisMonth}</div>
           </Card>
           <Card className="p-4">
-            <div className="text-xs text-gray-500">Revision Requests</div>
+            <div className="text-xs text-gray-200">Revision Requests</div>
             <div className="text-2xl font-semibold">{stats.revisionRequests}</div>
           </Card>
         </div>

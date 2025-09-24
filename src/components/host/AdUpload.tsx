@@ -9,6 +9,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { validateFile } from '../../utils/fileValidation';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
+import AspectPreview from '../shared/AspectPreview';
 
 interface AdUploadProps {
   onUploadComplete?: (ad: HostAd) => void;
@@ -348,19 +349,7 @@ export default function AdUpload({ onUploadComplete, onCancel }: AdUploadProps) 
                 </div>
               ) : preview ? (
                 <div className="space-y-4">
-                  {mediaType === 'image' ? (
-                    <img
-                      src={preview}
-                      alt="Preview"
-                      className="max-h-64 mx-auto rounded-lg shadow-lg"
-                    />
-                  ) : (
-                    <video
-                      src={preview}
-                      controls
-                      className="max-h-64 mx-auto rounded-lg shadow-lg"
-                    />
-                  )}
+                  <AspectPreview src={preview} type={mediaType || 'image'} />
                   <div className="flex items-center justify-center gap-2 text-green-600 dark:text-green-400">
                     <CheckCircle className="h-5 w-5" />
                     <span className="font-medium">File selected successfully</span>

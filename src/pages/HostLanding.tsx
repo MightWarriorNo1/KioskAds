@@ -22,12 +22,11 @@ export default function HostLanding() {
             </div>
           </div>
           <div className="flex justify-center">
-            <div className="w-72 h-96 rounded-xl bg-gray-200 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 flex items-center justify-center">
-              <div className="text-center">
-                <div className="text-lg font-bold mb-2">WANT YOUR AD SHOWN HERE?</div>
-                <div className="text-sm">kioskads.com</div>
-              </div>
-            </div>
+            <img
+              src="/Kiosk File 2.0.png"
+              alt="Kiosk mockup for hosts"
+              className="w-72 h-96 rounded-xl object-cover border border-gray-300 dark:border-gray-700 shadow"
+            />
           </div>
         </div>
       </section>

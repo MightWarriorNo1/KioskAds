@@ -3818,13 +3818,10 @@ export class AdminService {
   // Ad Upload Limits Management
   static async getAdUploadLimits(): Promise<any[]> {
     try {
+      // Fetch plain rows to avoid PostgREST 406 issues with embedded relationship selects
       const { data, error } = await supabase
         .from('ad_upload_limits')
-        .select(`
-          *,
-          host:profiles!ad_upload_limits_host_id_fkey(id, full_name, email, company_name),
-          kiosk:kiosks!ad_upload_limits_kiosk_id_fkey(id, name, location, city, state)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -4006,7 +4003,7 @@ export class AdminService {
           .select('*')
           .eq('kiosk_id', kioskId)
           .eq('is_active', true)
-          .single();
+          .maybeSingle();
 
         if (!kioskError && kioskLimit) {
           return {
@@ -4024,7 +4021,7 @@ export class AdminService {
         .select('*')
         .eq('host_id', hostId)
         .eq('is_active', true)
-        .single();
+        .maybeSingle();
 
       if (!hostError && hostLimit) {
         return {
@@ -4041,7 +4038,7 @@ export class AdminService {
         .select('*')
         .eq('limit_type', 'global')
         .eq('is_active', true)
-        .single();
+        .maybeSingle();
 
       if (!globalError && globalLimit) {
         return {
@@ -4080,7 +4077,7 @@ export class AdminService {
           .select('id, current_ads')
           .eq('kiosk_id', kioskId)
           .eq('is_active', true)
-          .single();
+          .maybeSingle();
 
         if (!kioskSelectError && kioskLimit) {
           const { error: kioskUpdateError } = await supabase
@@ -4099,7 +4096,7 @@ export class AdminService {
           .select('id, current_ads')
           .eq('host_id', hostId)
           .eq('is_active', true)
-          .single();
+          .maybeSingle();
 
         if (!hostSelectError && hostLimit) {
           const { error: hostUpdateError } = await supabase
@@ -4118,7 +4115,7 @@ export class AdminService {
           .select('id, current_ads')
           .eq('limit_type', 'global')
           .eq('is_active', true)
-          .single();
+          .maybeSingle();
 
         if (!globalSelectError && globalLimit) {
           await supabase
@@ -4142,7 +4139,7 @@ export class AdminService {
           .select('id, current_ads')
           .eq('kiosk_id', kioskId)
           .eq('is_active', true)
-          .single();
+          .maybeSingle();
 
         if (!kioskSelectError && kioskLimit) {
           const newValue = Math.max((kioskLimit.current_ads ?? 0) - 1, 0);
@@ -4162,7 +4159,7 @@ export class AdminService {
           .select('id, current_ads')
           .eq('host_id', hostId)
           .eq('is_active', true)
-          .single();
+          .maybeSingle();
 
         if (!hostSelectError && hostLimit) {
           const newValue = Math.max((hostLimit.current_ads ?? 0) - 1, 0);
@@ -4182,7 +4179,7 @@ export class AdminService {
           .select('id, current_ads')
           .eq('limit_type', 'global')
           .eq('is_active', true)
-          .single();
+          .maybeSingle();
 
         if (!globalSelectError && globalLimit) {
           const newValue = Math.max((globalLimit.current_ads ?? 0) - 1, 0);

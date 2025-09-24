@@ -189,11 +189,15 @@ export default function HostAddMediaDurationPage() {
           <div className="p-4 border border-dashed border-gray-300 dark:border-gray-700 rounded-lg text-center">
             {filePreview ? (
               <div className="space-y-3">
-                {uploadedFile?.type.startsWith('image/') ? (
-                  <img src={filePreview} alt="preview" className="max-h-48 mx-auto rounded" />
-                ) : (
-                  <video src={filePreview} controls className="max-h-48 mx-auto rounded" />
-                )}
+                <div className="max-w-[270px] mx-auto w-full">
+                  <div style={{ aspectRatio: '9 / 16' }} className="w-full bg-black rounded overflow-hidden">
+                    {uploadedFile?.type.startsWith('image/') ? (
+                      <img src={filePreview} alt="preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <video src={filePreview} controls className="w-full h-full object-cover" />
+                    )}
+                  </div>
+                </div>
                 <div className="text-sm text-gray-600 dark:text-gray-300">{uploadedFile?.name}</div>
                 <button
                   onClick={() => fileInputRef.current?.click()}

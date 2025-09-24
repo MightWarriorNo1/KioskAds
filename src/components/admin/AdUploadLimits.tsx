@@ -77,6 +77,7 @@ export default function AdUploadLimits() {
         AdminService.getKiosksWithHosts()
       ]);
       
+      // If relationship fields were expected, resolve them separately here if needed
       setLimits(limitsData || []);
       setHosts(hostsData || []);
       setKiosks(kiosksData || []);
