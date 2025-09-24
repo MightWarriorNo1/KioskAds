@@ -18,7 +18,8 @@ import HostKioskSelectionPage from './host/KioskSelectionPage';
 import HostSelectWeeksPage from './host/SelectWeeksPage';
 import HostAddMediaDurationPage from './host/AddMediaDurationPage';
 import HostReviewSubmitPage from './host/ReviewSubmitPage';
-import HostCampaignsBillingPage from './host/CampaignsBillingPage';
+import HostManageCampaignsPage from './host/ManageCampaignsPage';
+import HostBillingPage from './host/BillingPage';
 import CustomAdsPage from './CustomAdsPage';
 
 export default function HostPortal() {
@@ -41,7 +42,8 @@ export default function HostPortal() {
         <Route path="/revenue" element={<RevenueTracker />} />
         <Route path="/payouts" element={<PayoutHistory />} />
         <Route path="/analytics" element={<HostAnalytics />} />
-        <Route path="/campaigns-billing" element={<HostCampaignsBillingPage />} />
+        <Route path="/campaigns" element={<HostManageCampaignsPage />} />
+        <Route path="/billing" element={<HostBillingPage />} />
         <Route path="/custom-ads" element={<CustomAdsPage />} />
       </Routes>
     </HostLayout>

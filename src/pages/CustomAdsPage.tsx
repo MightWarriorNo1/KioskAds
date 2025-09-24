@@ -20,7 +20,8 @@ import {
   Eye,
   Edit,
   Plus,
-  CheckCircle
+  CheckCircle,
+  Search
 } from 'lucide-react';
 import DashboardLayout from '../components/layouts/DashboardLayout';
 import Button from '../components/ui/Button';
@@ -55,6 +56,8 @@ interface OrderFormData {
   address: string;
   details: string;
   files: File[];
+  preferredDate?: string;
+  preferredTime?: string;
 }
 
 const services: ServiceTile[] = [
@@ -102,7 +105,9 @@ export default function CustomAdsPage() {
     phone: '',
     address: '',
     details: '',
-    files: []
+    files: [],
+    preferredDate: '',
+    preferredTime: ''
   });
   const [formErrors, setFormErrors] = useState<Partial<OrderFormData>>({});
   const [fileValidationErrors, setFileValidationErrors] = useState<string[]>([]);
@@ -117,10 +122,17 @@ export default function CustomAdsPage() {
   const [submittedOrderId, setSubmittedOrderId] = useState<string | null>(null);
   const [submittedOrderProofs, setSubmittedOrderProofs] = useState<any[]>([]);
   const [isLoadingProofs, setIsLoadingProofs] = useState(false);
+  const [addressSuggestions, setAddressSuggestions] = useState<string[]>([]);
+  const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
+  const [isLoadingAddress, setIsLoadingAddress] = useState(false);
+  const [showCommentsModal, setShowCommentsModal] = useState(false);
+  const [selectedProofForComments, setSelectedProofForComments] = useState<any>(null);
+  const [commentText, setCommentText] = useState('');
   const { user }=useAuth();
   const navigate=useNavigate();
   const location = useLocation();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const addressInputRef = useRef<HTMLInputElement>(null);
   const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string);
 
   const steps = [
@@ -153,9 +165,9 @@ export default function CustomAdsPage() {
     };
   }, [submittedOrderId]);
 
-  const handleApproveProof = async (proofId: string) => {
+  const handleApproveProof = async (proofId: string, comments?: string) => {
     try {
-      await CustomAdsService.approveProof(proofId);
+      await CustomAdsService.approveProof(proofId, comments);
       // Refresh proofs
       if (submittedOrderId) {
         const proofs = await CustomAdsService.getOrderProofs(submittedOrderId);
@@ -168,9 +180,7 @@ export default function CustomAdsPage() {
     }
   };
 
-  const handleRequestEdits = async (proofId: string) => {
-    const feedback = window.prompt('Enter requested edits/comments for the designer:');
-    if (!feedback) return;
+  const handleRequestEdits = async (proofId: string, feedback: string) => {
     try {
       await CustomAdsService.rejectProof(proofId, feedback);
       if (submittedOrderId) {
@@ -182,6 +192,30 @@ export default function CustomAdsPage() {
       console.error(e);
       alert('Failed to request edits.');
     }
+  };
+
+  const openCommentsModal = (proof: any, action: 'approve' | 'reject') => {
+    setSelectedProofForComments({ ...proof, action });
+    setCommentText('');
+    setShowCommentsModal(true);
+  };
+
+  const handleSubmitComments = async () => {
+    if (!selectedProofForComments) return;
+    
+    if (selectedProofForComments.action === 'approve') {
+      await handleApproveProof(selectedProofForComments.id, commentText);
+    } else {
+      if (!commentText.trim()) {
+        alert('Please provide feedback for the designer.');
+        return;
+      }
+      await handleRequestEdits(selectedProofForComments.id, commentText);
+    }
+    
+    setShowCommentsModal(false);
+    setSelectedProofForComments(null);
+    setCommentText('');
   };
 
   // Determine which portal we're in based on the current path
@@ -245,7 +279,9 @@ export default function CustomAdsPage() {
       phone: '',
       address: '',
       details: '',
-      files: []
+      files: [],
+      preferredDate: '',
+      preferredTime: ''
     });
     setFormErrors({});
     setFileValidationErrors([]);
@@ -269,6 +305,42 @@ export default function CustomAdsPage() {
     if (formErrors[field]) {
       setFormErrors(prev => ({ ...prev, [field]: undefined }));
     }
+    
+    // Handle address autocomplete
+    if (field === 'address' && value.length > 2) {
+      handleAddressAutocomplete(value);
+    } else if (field === 'address' && value.length <= 2) {
+      setAddressSuggestions([]);
+      setShowAddressSuggestions(false);
+    }
+  };
+
+  const handleAddressAutocomplete = async (query: string) => {
+    if (query.length < 3) return;
+    
+    setIsLoadingAddress(true);
+    try {
+      // Using a free geocoding service (you can replace with Google Places API or similar)
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`
+      );
+      const data = await response.json();
+      
+      const suggestions = data.map((item: any) => item.display_name);
+      setAddressSuggestions(suggestions);
+      setShowAddressSuggestions(true);
+    } catch (error) {
+      console.error('Address autocomplete error:', error);
+      setAddressSuggestions([]);
+    } finally {
+      setIsLoadingAddress(false);
+    }
+  };
+
+  const selectAddressSuggestion = (address: string) => {
+    setFormData(prev => ({ ...prev, address }));
+    setShowAddressSuggestions(false);
+    setAddressSuggestions([]);
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -333,6 +405,7 @@ export default function CustomAdsPage() {
   const validateForm = (): boolean => {
     const errors: Partial<OrderFormData> = {};
 
+    // All fields except uploads are required
     if (!formData.firstName.trim()) errors.firstName = 'First name is required';
     if (!formData.lastName.trim()) errors.lastName = 'Last name is required';
     if (!formData.email.trim()) errors.email = 'Email is required';
@@ -340,6 +413,14 @@ export default function CustomAdsPage() {
     if (!formData.phone.trim()) errors.phone = 'Phone number is required';
     if (!formData.address.trim()) errors.address = 'Address is required';
     if (!formData.details.trim()) errors.details = 'Project details are required';
+    
+    // Date and time are required for Photography/Videography services
+    if (selectedService?.id === 'photography' || selectedService?.id === 'videography') {
+      if (!formData.preferredDate) errors.preferredDate = 'Preferred date is required';
+      if (!formData.preferredTime) errors.preferredTime = 'Preferred time is required';
+    }
+    
+    // Note: Files are optional - no validation for uploads
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -736,7 +817,9 @@ export default function CustomAdsPage() {
                       phone: '',
                       address: '',
                       details: '',
-                      files: []
+                      files: [],
+                      preferredDate: '',
+                      preferredTime: ''
                     });
                     setFormErrors({});
                   }}
@@ -801,13 +884,87 @@ export default function CustomAdsPage() {
                   />
                 </div>
 
-                <Input
-                  label="Address"
-                  value={formData.address}
-                  onChange={(e) => handleInputChange('address', e.target.value)}
-                  error={formErrors.address}
-                  required
-                />
+                <div className="relative">
+                  <Input
+                    ref={addressInputRef}
+                    label={selectedService?.id === 'photography' || selectedService?.id === 'videography' 
+                      ? "Address you would like Photography/Videography" 
+                      : "Address"}
+                    value={formData.address}
+                    onChange={(e) => handleInputChange('address', e.target.value)}
+                    error={formErrors.address}
+                    required
+                    placeholder="Start typing to search for addresses..."
+                  />
+                  
+                  {/* Address Autocomplete Suggestions */}
+                  {showAddressSuggestions && addressSuggestions.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                      {addressSuggestions.map((suggestion, index) => (
+                        <div
+                          key={index}
+                          className="px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-b-0"
+                          onClick={() => selectAddressSuggestion(suggestion)}
+                        >
+                          <div className="flex items-center">
+                            <MapPin className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
+                            <span className="text-sm text-gray-900 dark:text-white truncate">
+                              {suggestion}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Loading indicator for address autocomplete */}
+                  {isLoadingAddress && (
+                    <div className="absolute right-3 top-8">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Date and Time Selection for Photography/Videography */}
+                {(selectedService?.id === 'photography' || selectedService?.id === 'videography') && (
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Preferred Date *
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.preferredDate}
+                        onChange={(e) => handleInputChange('preferredDate', e.target.value)}
+                        min={new Date().toISOString().split('T')[0]} // Only future dates
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          formErrors.preferredDate ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                        } bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+                        required
+                      />
+                      {formErrors.preferredDate && (
+                        <p className="text-red-500 text-sm mt-1">{formErrors.preferredDate}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Preferred Time *
+                      </label>
+                      <input
+                        type="time"
+                        value={formData.preferredTime}
+                        onChange={(e) => handleInputChange('preferredTime', e.target.value)}
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          formErrors.preferredTime ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                        } bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+                        required
+                      />
+                      {formErrors.preferredTime && (
+                        <p className="text-red-500 text-sm mt-1">{formErrors.preferredTime}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div className='dark:text-white'>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -1063,6 +1220,25 @@ export default function CustomAdsPage() {
                         <div className="text-xs text-gray-600">Status: {proof.status.replace('_',' ')} • {new Date(proof.created_at).toLocaleString()}</div>
                       </div>
                     </div>
+                    
+                    {proof.description && (
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{proof.description}</p>
+                    )}
+                    
+                    {/* Show existing feedback/comments */}
+                    {proof.client_feedback && (
+                      <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                        <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">Your Previous Feedback:</h4>
+                        <p className="text-sm text-blue-800 dark:text-blue-200">{proof.client_feedback}</p>
+                      </div>
+                    )}
+                    
+                    {proof.designer_notes && (
+                      <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg">
+                        <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">Designer Notes:</h4>
+                        <p className="text-sm text-gray-700 dark:text-gray-300">{proof.designer_notes}</p>
+                      </div>
+                    )}
                     {/* files array when using custom_ad_proofs; fallback to single file fields if present */}
                     {Array.isArray(proof.files) && proof.files.length > 0 ? (
                       <div className="grid gap-3">
@@ -1084,8 +1260,18 @@ export default function CustomAdsPage() {
 
                     {(proof.status === 'submitted' || proof.status === 'revision_requested') && (
                       <div className="flex gap-3 pt-4">
-                        <Button onClick={() => handleApproveProof(proof.id)} className="bg-green-600 hover:bg-green-700">Approve</Button>
-                        <Button variant="secondary" onClick={() => handleRequestEdits(proof.id)}>Request Edits</Button>
+                        <Button 
+                          onClick={() => openCommentsModal(proof, 'approve')} 
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          Approve
+                        </Button>
+                        <Button 
+                          variant="secondary" 
+                          onClick={() => openCommentsModal(proof, 'reject')}
+                        >
+                          Request Edits
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -1145,6 +1331,67 @@ export default function CustomAdsPage() {
               )}
             </div>
           </Card>
+        )}
+
+        {/* Comments Modal */}
+        {showCommentsModal && selectedProofForComments && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <Card className="max-w-md w-full">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-bold">
+                    {selectedProofForComments.action === 'approve' ? 'Approve Proof' : 'Request Edits'}
+                  </h3>
+                  <Button
+                    onClick={() => setShowCommentsModal(false)}
+                    variant="ghost"
+                    size="sm"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+                
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {selectedProofForComments.action === 'approve' 
+                      ? 'Comments (Optional)' 
+                      : 'Feedback for Designer *'}
+                  </label>
+                  <textarea
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    placeholder={
+                      selectedProofForComments.action === 'approve'
+                        ? 'Add any comments about the approved proof...'
+                        : 'Please provide specific feedback about what needs to be changed...'
+                    }
+                  />
+                </div>
+                
+                <div className="flex gap-3">
+                  <Button
+                    onClick={() => setShowCommentsModal(false)}
+                    variant="secondary"
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSubmitComments}
+                    className={`flex-1 ${
+                      selectedProofForComments.action === 'approve'
+                        ? 'bg-green-600 hover:bg-green-700'
+                        : 'bg-orange-600 hover:bg-orange-700'
+                    }`}
+                  >
+                    {selectedProofForComments.action === 'approve' ? 'Approve' : 'Request Edits'}
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          </div>
         )}
       </div>
   );

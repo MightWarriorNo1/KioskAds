@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Play, Pause, Edit, Trash2, Plus, Filter, RefreshCw } from 'lucide-react';
 import NewCampaignModal from './NewCampaignModal';
+import PhonePreview from '../admin/PhonePreview';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { CampaignService } from '../../services/campaignService';
+import { MediaService } from '../../services/mediaService';
 import { Campaign } from '../../types/database';
 
 export default function CampaignManager() {
@@ -13,6 +15,8 @@ export default function CampaignManager() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(true);
+  const [mediaPreviews, setMediaPreviews] = useState<Record<string, { url: string; type: 'image' | 'video' }>>({});
+  const [loadingPreviews, setLoadingPreviews] = useState(false);
 
   // Fetch campaigns on component mount
   useEffect(() => {
@@ -20,6 +24,48 @@ export default function CampaignManager() {
       fetchCampaigns();
     }
   }, [user]);
+
+  // Load media previews for Draft, Pending, Active campaigns
+  useEffect(() => {
+    const loadPreviews = async () => {
+      try {
+        setLoadingPreviews(true);
+        const candidates = campaigns.filter(c => ['draft', 'pending', 'active'].includes(c.status));
+        const results: Record<string, { url: string; type: 'image' | 'video' }> = {};
+        
+        await Promise.all(
+          candidates.map(async (c) => {
+            try {
+              const media = await MediaService.getCampaignAssets(c.id);
+              console.log(`Campaign ${c.id} media:`, media);
+              if (media && media.length > 0) {
+                const asset = media[0];
+                console.log(`Campaign ${c.id} asset:`, asset);
+                const url = asset.metadata?.publicUrl || MediaService.getMediaPreviewUrl(asset.file_path);
+                console.log(`Campaign ${c.id} preview URL:`, url);
+                results[c.id] = { url, type: asset.file_type };
+              } else {
+                console.log(`Campaign ${c.id} has no media assets`);
+              }
+            } catch (e) {
+              // ignore per-campaign errors
+              console.warn(`Failed to load preview for campaign ${c.id}:`, e);
+            }
+          })
+        );
+        
+        setMediaPreviews(prev => ({ ...prev, ...results }));
+      } catch (error) {
+        console.error('Error loading media previews:', error);
+      } finally {
+        setLoadingPreviews(false);
+      }
+    };
+    
+    if (campaigns.length > 0) {
+      loadPreviews();
+    }
+  }, [campaigns]);
 
   const fetchCampaigns = async () => {
     try {
@@ -212,6 +258,7 @@ export default function CampaignManager() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campaign</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preview</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Schedule</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Budget</th>
@@ -227,6 +274,27 @@ export default function CampaignManager() {
                         <div className="text-sm font-medium text-gray-900">{campaign.name}</div>
                         <div className="text-sm text-gray-500">{campaign.description || 'No description'}</div>
                       </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      {/* Media Preview for Draft, Pending, Active campaigns */}
+                      {['draft', 'pending', 'active'].includes(campaign.status) && mediaPreviews[campaign.id]?.url ? (
+                        <div className="flex justify-center">
+                          <PhonePreview
+                            mediaUrl={mediaPreviews[campaign.id].url}
+                            mediaType={mediaPreviews[campaign.id].type}
+                            title={`${campaign.name} - Ad Preview`}
+                            className="scale-75"
+                          />
+                        </div>
+                      ) : ['draft', 'pending', 'active'].includes(campaign.status) && loadingPreviews ? (
+                        <div className="flex justify-center">
+                          <div className="w-12 h-20 bg-gray-200 rounded-[1.5rem] p-1 animate-pulse">
+                            <div className="w-full h-full bg-gray-300 rounded-[1.2rem]"></div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-xs text-gray-400 text-center">No preview</div>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(campaign.status)}`}>

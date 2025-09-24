@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { DesignerService, type CustomAdOrder } from '../services/designerService';
 import { useNotification } from '../contexts/NotificationContext';
 import DesignerLayout from '../components/layouts/DesignerLayout';
-import { AdminService } from '../services/adminService';
+// import { AdminService } from '../services/adminService';
 import { supabase } from '../lib/supabaseClient';
 import { CustomAdsService } from '../services/customAdsService';
 import Card from '../components/ui/Card';
@@ -263,8 +263,9 @@ function DesignerProfile() {
 function DesignerOrderDetails() {
   const { id } = useParams<{ id: string }>();
   const { addNotification } = useNotification();
+  const { user } = useAuth();
   const [order, setOrder] = useState<CustomAdOrder | null>(null);
-  const [comments, setComments] = useState<any[]>([]);
+  const [comments, setComments] = useState<any[]>([]); // reserved for future inline comments UI
   const [proofs, setProofs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -294,10 +295,7 @@ function DesignerOrderDetails() {
     try {
       setUploading(true);
       // Upload files to custom-ad-uploads and create a proof in custom_ad_proofs
-      const { user } = (await import('../contexts/AuthContext')).useAuth();
-      // Fallback if hook not accessible here; we'll instead rely on order.designer or prompt
-      // Upload files using CustomAdsService.uploadFiles requires a userId
-      const currentUserId = (window as any).__currentUserId || (order as any)?.assigned_designer_id || '';
+      const currentUserId = user?.id || (order as any)?.assigned_designer_id || '';
       const uploadedSummaries = await CustomAdsService.uploadFiles(currentUserId, files);
       const proofId = await CustomAdsService.createProof(
         id,
@@ -316,6 +314,31 @@ function DesignerOrderDetails() {
     } finally {
       setUploading(false);
       setFiles([]);
+    }
+  };
+
+  const resolveSignedUrl = async (rawUrl: string, downloadName?: string): Promise<string> => {
+    try {
+      const match = rawUrl?.match(/\/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/(.+)$/);
+      if (!match) return rawUrl;
+      const [, bucket, path] = match;
+      const { data } = await supabase.storage
+        .from(bucket)
+        .createSignedUrl(path, 600, downloadName ? { download: downloadName } as any : undefined as any);
+      if (data?.signedUrl) return data.signedUrl as string;
+      return rawUrl;
+    } catch {
+      return rawUrl;
+    }
+  };
+
+  const handleDownload = async (file: { url: string; name: string }) => {
+    try {
+      const signed = await resolveSignedUrl(file.url, file.name);
+      window.open(signed, '_blank');
+    } catch (e) {
+      console.error(e);
+      addNotification('error', 'Download failed', 'Could not download file');
     }
   };
 
@@ -426,7 +449,10 @@ function DesignerOrderDetails() {
                       <a href={file.url} className="text-blue-600 underline text-sm">{file.name}</a>
                     )}
                   </div>
-                  <div className="p-2 text-xs text-gray-500 dark:text-gray-400 truncate">{file.name}</div>
+                  <div className="p-2 text-xs text-gray-500 dark:text-gray-400 flex items-center justify-between gap-2">
+                    <span className="truncate">{file.name}</span>
+                    <button className="px-2 py-1 border rounded text-[11px]" onClick={() => handleDownload(file)}>Download</button>
+                  </div>
                 </div>
               );
             })}
@@ -472,6 +498,9 @@ function DesignerOrderDetails() {
                         ) : (
                           <a href={f.url} className="text-blue-600 underline text-sm">View file</a>
                         )}
+                        <div className="mt-1">
+                          <button className="px-2 py-1 border rounded text-[11px]" onClick={() => handleDownload({ url: f.url, name: f.name || 'file' })}>Download</button>
+                        </div>
                       </div>
                     ))}
                   </div>

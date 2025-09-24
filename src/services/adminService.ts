@@ -1430,6 +1430,156 @@ export class AdminService {
     }
   }
 
+  // Get campaign assets for swapping
+  static async getCampaignAssets(campaignId: string): Promise<any[]> {
+    try {
+      const { data, error } = await supabase
+        .from('media_assets')
+        .select(`
+          id,
+          file_name,
+          file_path,
+          file_type,
+          status,
+          created_at,
+          user:profiles!media_assets_user_id_fkey(id, full_name, email, company_name)
+        `)
+        .eq('campaign_id', campaignId)
+        .eq('status', 'approved')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching campaign assets:', error);
+      throw error;
+    }
+  }
+
+  // Get available assets for swapping (excluding current campaign assets)
+  static async getAvailableAssetsForSwap(campaignId: string): Promise<any[]> {
+    try {
+      const { data, error } = await supabase
+        .from('media_assets')
+        .select(`
+          id,
+          file_name,
+          file_path,
+          file_type,
+          status,
+          created_at,
+          user:profiles!media_assets_user_id_fkey(id, full_name, email, company_name)
+        `)
+        .eq('status', 'approved')
+        .neq('campaign_id', campaignId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching available assets for swap:', error);
+      throw error;
+    }
+  }
+
+  // Swap campaign asset
+  static async swapCampaignAsset(
+    campaignId: string, 
+    oldAssetId: string, 
+    newAssetId: string
+  ): Promise<void> {
+    try {
+      // Start a transaction-like operation
+      const { error: removeError } = await supabase
+        .from('media_assets')
+        .update({ 
+          campaign_id: null,
+          status: 'swapped',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', oldAssetId)
+        .eq('campaign_id', campaignId);
+
+      if (removeError) throw removeError;
+
+      const { error: addError } = await supabase
+        .from('media_assets')
+        .update({ 
+          campaign_id: campaignId,
+          status: 'approved',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', newAssetId);
+
+      if (addError) throw addError;
+
+      // Log the admin action
+      await this.logAdminAction('swap_campaign_asset', 'media_asset', oldAssetId, {
+        campaign_id: campaignId,
+        old_asset_id: oldAssetId,
+        new_asset_id: newAssetId,
+        action: 'asset_swapped'
+      });
+
+    } catch (error) {
+      console.error('Error swapping campaign asset:', error);
+      throw error;
+    }
+  }
+
+  // Add asset to campaign
+  static async addAssetToCampaign(campaignId: string, assetId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('media_assets')
+        .update({ 
+          campaign_id: campaignId,
+          status: 'approved',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', assetId);
+
+      if (error) throw error;
+
+      // Log the admin action
+      await this.logAdminAction('add_asset_to_campaign', 'media_asset', assetId, {
+        campaign_id: campaignId,
+        action: 'asset_added'
+      });
+
+    } catch (error) {
+      console.error('Error adding asset to campaign:', error);
+      throw error;
+    }
+  }
+
+  // Remove asset from campaign
+  static async removeAssetFromCampaign(campaignId: string, assetId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('media_assets')
+        .update({ 
+          campaign_id: null,
+          status: 'swapped',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', assetId)
+        .eq('campaign_id', campaignId);
+
+      if (error) throw error;
+
+      // Log the admin action
+      await this.logAdminAction('remove_asset_from_campaign', 'media_asset', assetId, {
+        campaign_id: campaignId,
+        action: 'asset_removed'
+      });
+
+    } catch (error) {
+      console.error('Error removing asset from campaign:', error);
+      throw error;
+    }
+  }
+
   // Get email templates
   static async getEmailTemplates(): Promise<EmailTemplate[]> {
     try {
@@ -1614,7 +1764,13 @@ export class AdminService {
   }
 
   // Get recent admin activity
-  static async getRecentAdminActivity(limit: number = 10): Promise<Array<{ action: string; time: string; type: 'success' | 'info' | 'warning' | 'error'; }>> {
+  static async getRecentAdminActivity(limit: number = 10): Promise<Array<{ 
+    action: string; 
+    time: string; 
+    type: 'success' | 'info' | 'warning' | 'error';
+    adminName?: string;
+    details?: any;
+  }>> {
     try {
       const { data, error } = await supabase
         .from('admin_audit_log')
@@ -1634,12 +1790,35 @@ export class AdminService {
 
       return data?.map(activity => ({
         action: activity.action,
-        time: new Date(activity.created_at).toLocaleString(),
-        type: this.getActivityType(activity.action)
+        time: this.formatTimeAgo(new Date(activity.created_at)),
+        type: this.getActivityType(activity.action),
+        adminName: activity.admin?.full_name || 'System',
+        details: activity.details
       })) || [];
     } catch (error) {
       console.error('Error fetching recent admin activity:', error);
       return [];
+    }
+  }
+
+  // Helper method to format time as "X minutes ago", "X hours ago", etc.
+  private static formatTimeAgo(date: Date): string {
+    const now = new Date();
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    
+    if (diffInSeconds < 60) {
+      return `${diffInSeconds} seconds ago`;
+    } else if (diffInSeconds < 3600) {
+      const minutes = Math.floor(diffInSeconds / 60);
+      return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+    } else if (diffInSeconds < 86400) {
+      const hours = Math.floor(diffInSeconds / 3600);
+      return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    } else if (diffInSeconds < 2592000) {
+      const days = Math.floor(diffInSeconds / 86400);
+      return `${days} day${days > 1 ? 's' : ''} ago`;
+    } else {
+      return date.toLocaleDateString();
     }
   }
 
@@ -3348,9 +3527,9 @@ export class AdminService {
       // Upload files to storage and build files JSON array
       const uploaded: Array<{ name: string; url: string; size: number; type: string }> = [];
       for (const file of files) {
-        const path = `custom-ad-proofs/${orderId}/${Date.now()}-${Math.random().toString(36).slice(2)}-${file.name}`;
+        const path = `${user.id}/${orderId}/${Date.now()}-${Math.random().toString(36).slice(2)}-${file.name}`;
         const { error: uploadError } = await supabase.storage
-          .from('custom-ad-proofs')
+          .from('custom-ad-uploads')
           .upload(path, file, {
             cacheControl: '3600',
             upsert: false,
@@ -3358,7 +3537,7 @@ export class AdminService {
           });
         if (uploadError) throw uploadError;
         const { data: pubUrl } = supabase.storage
-          .from('custom-ad-proofs')
+          .from('custom-ad-uploads')
           .getPublicUrl(path);
         uploaded.push({ name: file.name, url: pubUrl.publicUrl, size: file.size, type: file.type });
       }

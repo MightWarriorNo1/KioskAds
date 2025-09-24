@@ -21,7 +21,8 @@ import {
   Monitor,
   TrendingUp,
   FileText,
-  Building2
+  Building2,
+  Smartphone
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import NotificationToast from '../NotificationToast';
@@ -45,6 +46,7 @@ const navigation = [
   { name: 'Integrations', href: '/admin/integrations', icon: Plug },
   { name: 'Asset Lifecycle', href: '/admin/assets', icon: Archive },
   { name: 'Revenue Analytics', href: '/admin/revenue', icon: DollarSign },
+  // { name: 'Phone Preview Demo', href: '/admin/phone-preview-demo', icon: Smartphone },
   { name: 'System Settings', href: '/admin/settings', icon: SettingsIcon },
 ];
 

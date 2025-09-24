@@ -5,6 +5,8 @@ interface Activity {
   action: string;
   time: string;
   type: 'success' | 'info' | 'warning' | 'error';
+  adminName?: string;
+  details?: any;
 }
 
 interface RecentActivityProps {
@@ -61,6 +63,12 @@ export default function RecentActivity({ activities, onActivityClick, onViewAllC
                 <div className="flex items-center space-x-2 mt-2">
                   <Clock className="h-3 w-3 text-slate-400 dark:text-slate-500" />
                   <span className="text-xs text-slate-500 dark:text-slate-400">{activity.time}</span>
+                  {activity.adminName && (
+                    <>
+                      <span className="text-xs text-slate-400 dark:text-slate-500">•</span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">by {activity.adminName}</span>
+                    </>
+                  )}
                 </div>
               </div>
               <div className="flex-shrink-0">

@@ -18,6 +18,7 @@ import RevenueAnalytics from '../components/admin/RevenueAnalytics';
 import Analytics from '../components/admin/Analytics';
 import CustomAdManagement from '../components/admin/CustomAdManagement';
 import PartnersManagement from '../components/admin/PartnersManagement';
+import PhonePreviewDemo from '../components/admin/PhonePreviewDemo';
 
 export default function AdminPortal() {
   return (
@@ -39,6 +40,7 @@ export default function AdminPortal() {
         <Route path="/assets" element={<AssetLifecycleManagement />} />
         <Route path="/kiosk-folders" element={<KioskGDriveFolderManager />} />
         <Route path="/revenue" element={<RevenueAnalytics />} />
+        <Route path="/phone-preview-demo" element={<PhonePreviewDemo />} />
         <Route path="/settings" element={<SystemSettings />} />
       </Routes>
     </AdminLayout>

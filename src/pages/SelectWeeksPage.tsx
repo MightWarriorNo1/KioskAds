@@ -341,7 +341,7 @@ export default function SelectWeeksPage() {
                 <div className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">
                   {calendarMonth.toLocaleString(undefined, { month: 'long', year: 'numeric' })}
                 </div>
-                <div className="flex items-center space-x-2 md:space-x-3">
+              <div className="flex items-center space-x-2 md:space-x-3">
                   <button 
                     onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth()-1, 1))} 
                     className="w-8 h-8 md:w-10 md:h-10 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 flex items-center justify-center shadow-soft"
@@ -354,6 +354,14 @@ export default function SelectWeeksPage() {
                   >
                     <ChevronRight className="h-4 w-4 md:h-5 md:w-5" />
                   </button>
+                {selectedMondays.length > 0 && (
+                  <button
+                    onClick={() => setSelectedMondays([])}
+                    className="hidden md:inline-flex items-center px-4 py-2 rounded-xl bg-red-600 text-white hover:bg-red-700 transition-colors shadow-soft ml-2"
+                  >
+                    Clear All
+                  </button>
+                )}
                 </div>
               </div>
               
@@ -427,15 +435,9 @@ export default function SelectWeeksPage() {
                 <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow-soft">
                   <div className="flex items-center justify-between mb-2">
                     <div className="font-semibold text-gray-900 dark:text-white">Selected Weeks</div>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800">{selectedMondays.length} week{selectedMondays.length > 1 ? 's' : ''} selected</span>
-                      <button
-                        onClick={() => setSelectedMondays([])}
-                        className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-800 hover:bg-red-200 transition-colors"
-                      >
-                        Clear All
-                      </button>
-                    </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800">{selectedMondays.length} week{selectedMondays.length > 1 ? 's' : ''} selected</span>
+                  </div>
                   </div>
                   {sortedMondays.map((iso, idx) => {
                     const start = toDate(iso);

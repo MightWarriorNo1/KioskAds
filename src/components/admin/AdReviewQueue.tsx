@@ -3,6 +3,7 @@ import { CheckSquare, X, Eye, Clock, AlertCircle, Check, RefreshCw } from 'lucid
 import { useNotification } from '../../contexts/NotificationContext';
 import { AdminService, AdReviewItem } from '../../services/adminService';
 import { MediaService } from '../../services/mediaService';
+import PhonePreview from './PhonePreview';
 
 export default function AdReviewQueue() {
   const [ads, setAds] = useState<AdReviewItem[]>([]);
@@ -381,15 +382,15 @@ export default function AdReviewQueue() {
                             if (media && media.file_path) {
                               const src = getFilePreview(media.file_type, media.file_path);
                               const isVideo = media.file_type === 'video';
-                              return (
-                                <div className="w-16 h-28 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
-                                  {isVideo ? (
-                                    <video src={src} className="w-full h-full object-cover" muted loop autoPlay />
-                                  ) : (
-                                    <img src={src} alt="Preview" className="w-full h-full object-cover" />
-                                  )}
-                                </div>
-                              );
+                            return (
+                              <div className="w-16 h-28 bg-black rounded-[0.5rem] overflow-hidden flex-shrink-0 shadow-lg">
+                                {isVideo ? (
+                                  <video src={src} className="w-full h-full object-cover" muted loop autoPlay />
+                                ) : (
+                                  <img src={src} alt="Preview" className="w-full h-full object-cover" />
+                                )}
+                              </div>
+                            );
                             }
                             return (
                               <div className="w-16 h-28 bg-gradient-to-br from-purple-100 to-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -401,7 +402,7 @@ export default function AdReviewQueue() {
                           const isVideo = hostItem ? item.media_type === 'video' : item.file_type === 'video';
                           const src = hostItem ? item.media_url : getFilePreview(item.file_type, item.file_path);
                           return (
-                            <div className="w-16 h-28 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+                            <div className="w-16 h-28 bg-black rounded-[0.5rem] overflow-hidden flex-shrink-0 shadow-lg">
                               {isVideo ? (
                                 <video
                                   src={src}
@@ -503,27 +504,102 @@ export default function AdReviewQueue() {
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 sticky top-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Review Details</h3>
               
-              {/* Preview */}
-              <div className="w-full h-48 bg-gray-200 rounded-lg overflow-hidden mb-4">
-                {selectedCampaign ? (
-                  <div className="w-full h-full bg-gradient-to-br from-purple-100 to-blue-100 flex items-center justify-center">
-                    <CheckSquare className="h-16 w-16 text-purple-600" />
-                  </div>
-                ) : (
-                  ((activeTab === 'client' ? selectedAd?.file_type : selectedHostAd?.media_type) === 'video') ? (
-                    <video
-                      src={activeTab === 'client' ? (selectedAd ? getFilePreview(selectedAd.file_type, selectedAd.file_path) : '') : (selectedHostAd?.media_url || '')}
-                      className="w-full h-full object-contain bg-black"
-                      controls
+              {/* Phone Preview */}
+              <div className="flex justify-center mb-6">
+                {(() => {
+                  // Debug logging
+                  console.log('Preview Debug:', {
+                    selectedCampaign: !!selectedCampaign,
+                    selectedAd: !!selectedAd,
+                    selectedHostAd: !!selectedHostAd,
+                    activeTab,
+                    campaignName: selectedCampaign?.name,
+                    adFileName: selectedAd?.file_name,
+                    hostAdName: selectedHostAd?.name
+                  });
+
+                  if (selectedCampaign) {
+                    console.log('Selected Campaign Data:', selectedCampaign);
+                    
+                    // Check if campaign has assets
+                    const campaignAssets = selectedCampaign.assets || selectedCampaign.campaign_media;
+                    if (campaignAssets && campaignAssets.length > 0) {
+                      const firstAsset = campaignAssets[0];
+                      const assetMedia = firstAsset.media || firstAsset;
+                      console.log('Campaign Asset:', assetMedia);
+                      
+                      if (assetMedia.file_path) {
+                        const assetUrl = getFilePreview(assetMedia.file_type, assetMedia.file_path);
+                        const assetType = assetMedia.file_type || 'image';
+                        const assetTitle = assetMedia.file_name || selectedCampaign.name || 'Campaign Asset';
+                        
+                        console.log('Campaign Asset URL:', assetUrl);
+                        
+                        return (
+                          <PhonePreview
+                            mediaUrl={assetUrl}
+                            mediaType={assetType}
+                            title={assetTitle}
+                            className="w-64 h-96"
+                          />
+                        );
+                      }
+                    }
+                    
+                    // Fallback to placeholder if no assets
+                    return (
+                      <div className="w-64 h-96 bg-gradient-to-br from-purple-100 to-blue-100 rounded-[2.5rem] p-2 shadow-2xl flex items-center justify-center">
+                        <div className="w-full h-full bg-white rounded-[2rem] flex items-center justify-center">
+                          <CheckSquare className="h-16 w-16 text-purple-600" />
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // Get media URL and type based on what's selected
+                  let mediaUrl = '';
+                  let mediaType: 'image' | 'video' = 'image';
+                  let title = 'Ad Preview';
+
+                  if (selectedAd) {
+                    console.log('Selected Ad Data:', selectedAd);
+                    mediaUrl = getFilePreview(selectedAd.file_type, selectedAd.file_path);
+                    mediaType = selectedAd.file_type;
+                    title = selectedAd.file_name || 'Ad Preview';
+                    console.log('Ad Media URL:', mediaUrl, 'File Path:', selectedAd.file_path);
+                  } else if (selectedHostAd) {
+                    console.log('Selected Host Ad Data:', selectedHostAd);
+                    mediaUrl = selectedHostAd.media_url || '';
+                    mediaType = selectedHostAd.media_type || 'image';
+                    title = selectedHostAd.name || 'Ad Preview';
+                    console.log('Host Ad Media URL:', mediaUrl);
+                  }
+
+                  console.log('Final Media Preview:', { mediaUrl, mediaType, title });
+
+                  if (!mediaUrl) {
+                    // Use a placeholder image for testing
+                    const placeholderUrl = 'https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=400&h=800&fit=crop';
+                    console.log('No media URL found, using placeholder:', placeholderUrl);
+                    return (
+                      <PhonePreview
+                        mediaUrl={placeholderUrl}
+                        mediaType="image"
+                        title="Preview not available - showing placeholder"
+                        className="w-64 h-96"
+                      />
+                    );
+                  }
+
+                  return (
+                    <PhonePreview
+                      mediaUrl={mediaUrl}
+                      mediaType={mediaType}
+                      title={title}
+                      className="w-64 h-96"
                     />
-                  ) : (
-                    <img 
-                      src={activeTab === 'client' ? (selectedAd ? getFilePreview(selectedAd.file_type, selectedAd.file_path) : '') : (selectedHostAd?.media_url || '')} 
-                      alt="Preview" 
-                      className="w-full h-full object-contain bg-black"
-                    />
-                  )
-                )}
+                  );
+                })()}
               </div>
 
               <div className="space-y-3 mb-6">

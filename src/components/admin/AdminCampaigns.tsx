@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Calendar, Play, PauseCircle, XCircle, RefreshCw, Search, Edit, Save, X, DollarSign, Filter } from 'lucide-react';
+import { Calendar, Play, PauseCircle, XCircle, RefreshCw, Search, Edit, Save, X, DollarSign, Filter, Image, Video, ArrowLeftRight, Eye, Download } from 'lucide-react';
 import { AdminService, AdminCampaignItem } from '../../services/adminService';
+import { MediaService } from '../../services/mediaService';
+import PhonePreview from './PhonePreview';
 import { useNotification } from '../../contexts/NotificationContext';
+import { supabase } from '../../lib/supabaseClient';
 
 type ExtendedAdminCampaignItem = AdminCampaignItem & { max_video_duration?: number };
 
@@ -30,10 +33,60 @@ export default function AdminCampaigns() {
     endDate: ''
   });
   const [pendingMaxById, setPendingMaxById] = useState<Record<string, number>>({});
+  const [showAssetManager, setShowAssetManager] = useState<string | null>(null);
+  const [availableAssets, setAvailableAssets] = useState<any[]>([]);
+  const [campaignAssets, setCampaignAssets] = useState<any[]>([]);
+  const [loadingAssets, setLoadingAssets] = useState(false);
+  const [selectedAssetForSwap, setSelectedAssetForSwap] = useState<string | null>(null);
+  const [swapping, setSwapping] = useState(false);
+  const [mediaPreviews, setMediaPreviews] = useState<Record<string, { url: string; type: 'image' | 'video' }>>({});
+  const [loadingPreviews, setLoadingPreviews] = useState(false);
 
   useEffect(() => {
     loadCampaigns();
   }, []);
+
+  // Load media previews for Draft, Pending, Active campaigns
+  useEffect(() => {
+    const loadPreviews = async () => {
+      try {
+        setLoadingPreviews(true);
+        const candidates = campaigns.filter(c => ['draft', 'pending', 'active'].includes(c.status));
+        const results: Record<string, { url: string; type: 'image' | 'video' }> = {};
+        
+        await Promise.all(
+          candidates.map(async (c) => {
+            try {
+              const media = await MediaService.getCampaignAssets(c.id);
+              console.log(`Campaign ${c.id} media:`, media);
+              if (media && media.length > 0) {
+                const asset = media[0];
+                console.log(`Campaign ${c.id} asset:`, asset);
+                const url = asset.metadata?.publicUrl || MediaService.getMediaPreviewUrl(asset.file_path);
+                console.log(`Campaign ${c.id} preview URL:`, url);
+                results[c.id] = { url, type: asset.file_type };
+              } else {
+                console.log(`Campaign ${c.id} has no media assets`);
+              }
+            } catch (e) {
+              // ignore per-campaign errors
+              console.warn(`Failed to load preview for campaign ${c.id}:`, e);
+            }
+          })
+        );
+        
+        setMediaPreviews(prev => ({ ...prev, ...results }));
+      } catch (error) {
+        console.error('Error loading media previews:', error);
+      } finally {
+        setLoadingPreviews(false);
+      }
+    };
+    
+    if (campaigns.length > 0) {
+      loadPreviews();
+    }
+  }, [campaigns]);
 
   const loadCampaigns = async () => {
     try {
@@ -121,6 +174,84 @@ export default function AdminCampaigns() {
     }
   };
 
+  const loadAvailableAssets = async (campaignId: string) => {
+    try {
+      setLoadingAssets(true);
+      const [campaignAssetsData, availableAssetsData] = await Promise.all([
+        AdminService.getCampaignAssets(campaignId),
+        AdminService.getAvailableAssetsForSwap(campaignId)
+      ]);
+      
+      setCampaignAssets(campaignAssetsData);
+      setAvailableAssets(availableAssetsData);
+    } catch (error) {
+      console.error('Error loading assets:', error);
+      addNotification('error', 'Error', 'Failed to load assets');
+    } finally {
+      setLoadingAssets(false);
+    }
+  };
+
+  const swapCampaignAsset = async (campaignId: string, oldAssetId: string, newAssetId: string) => {
+    try {
+      setSwapping(true);
+      await AdminService.swapCampaignAsset(campaignId, oldAssetId, newAssetId);
+      
+      // Reload assets and campaigns
+      await loadAvailableAssets(campaignId);
+      await loadCampaigns();
+      
+      addNotification('success', 'Asset Swapped', 'Campaign asset has been successfully swapped');
+      setSelectedAssetForSwap(null);
+    } catch (error) {
+      console.error('Error swapping asset:', error);
+      addNotification('error', 'Swap Failed', 'Failed to swap campaign asset');
+    } finally {
+      setSwapping(false);
+    }
+  };
+
+  const addAssetToCampaign = async (campaignId: string, assetId: string) => {
+    try {
+      setSwapping(true);
+      await AdminService.addAssetToCampaign(campaignId, assetId);
+      
+      // Reload assets and campaigns
+      await loadAvailableAssets(campaignId);
+      await loadCampaigns();
+      
+      addNotification('success', 'Asset Added', 'Asset has been added to campaign');
+    } catch (error) {
+      console.error('Error adding asset:', error);
+      addNotification('error', 'Add Failed', 'Failed to add asset to campaign');
+    } finally {
+      setSwapping(false);
+    }
+  };
+
+  const removeAssetFromCampaign = async (campaignId: string, assetId: string) => {
+    try {
+      setSwapping(true);
+      await AdminService.removeAssetFromCampaign(campaignId, assetId);
+      
+      // Reload assets and campaigns
+      await loadAvailableAssets(campaignId);
+      await loadCampaigns();
+      
+      addNotification('success', 'Asset Removed', 'Asset has been removed from campaign');
+    } catch (error) {
+      console.error('Error removing asset:', error);
+      addNotification('error', 'Remove Failed', 'Failed to remove asset from campaign');
+    } finally {
+      setSwapping(false);
+    }
+  };
+
+  const openAssetManager = (campaignId: string) => {
+    setShowAssetManager(campaignId);
+    loadAvailableAssets(campaignId);
+  };
+
   const now = new Date();
   const categorized = useMemo(() => {
     const matchesQuery = (c: AdminCampaignItem) => {
@@ -168,7 +299,7 @@ export default function AdminCampaigns() {
     }
   }, [campaigns, query, statusFilter, categorized]);
 
-  const Stat = ({ label, value, icon: Icon, color }: { label: string; value: number | string; icon: any; color: string }) => (
+  const Stat = ({ label, value, icon: Icon, color, iconColor }: { label: string; value: number | string; icon: any; color: string; iconColor?: string }) => (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 p-6">
       <div className="flex items-center justify-between">
         <div>
@@ -176,7 +307,7 @@ export default function AdminCampaigns() {
           <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">{value}</p>
         </div>
         <div className={`p-3 rounded-lg ${color}`}>
-          <Icon className="h-6 w-6" />
+          <Icon className={`h-6 w-6 ${iconColor || 'text-gray-800 dark:text-gray-200'}`} />
         </div>
       </div>
     </div>
@@ -303,6 +434,27 @@ export default function AdminCampaigns() {
                       <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 capitalize flex-shrink-0">{c.status}</span>
                     </div>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">{c.description || '—'}</p>
+                    
+                    {/* Media Preview for Draft, Pending, Active campaigns */}
+                    {['draft', 'pending', 'active'].includes(c.status) && mediaPreviews[c.id]?.url && (
+                      <div className="mt-4 mb-4">
+                        <PhonePreview
+                          mediaUrl={mediaPreviews[c.id].url}
+                          mediaType={mediaPreviews[c.id].type}
+                          title={`${c.name} - Ad Preview`}
+                          className="mx-auto"
+                        />
+                      </div>
+                    )}
+                    
+                    {/* Loading state for previews */}
+                    {['draft', 'pending', 'active'].includes(c.status) && loadingPreviews && !mediaPreviews[c.id] && (
+                      <div className="mt-4 mb-4 flex items-center justify-center">
+                        <div className="w-16 h-28 bg-gray-200 dark:bg-gray-700 rounded-[2.5rem] p-2 animate-pulse">
+                          <div className="w-full h-full bg-gray-300 dark:bg-gray-600 rounded-[2rem]"></div>
+                        </div>
+                      </div>
+                    )}
                     <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
                       <span className="inline-flex items-center gap-1"><Calendar className="h-4 w-4" />{new Date(c.start_date).toLocaleDateString()} - {new Date(c.end_date).toLocaleDateString()}</span>
                       <span className="inline-flex items-center gap-1"><DollarSign className="h-4 w-4" />Budget: ${c.budget.toLocaleString()}</span>
@@ -388,6 +540,57 @@ export default function AdminCampaigns() {
             >Reset</button>
           </div>
                     </div>
+
+                    {/* Campaign Assets Section */}
+                    <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      <div className="flex items-center justify-between mb-3">
+                        <h5 className="text-sm font-medium text-gray-900 dark:text-white">Campaign Assets</h5>
+                        <button
+                          onClick={() => openAssetManager(c.id)}
+                          className="flex items-center gap-1 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                        >
+                          <ArrowLeftRight className="h-3 w-3" />
+                          Manage Assets
+                        </button>
+                      </div>
+                      
+                      {c.assets && c.assets.length > 0 ? (
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {c.assets.slice(0, 6).map((asset: any, index: number) => (
+                            <div key={asset.id || index} className="relative group">
+                              <div className="w-full h-16 bg-gray-200 dark:bg-gray-600 rounded-lg overflow-hidden">
+                                {asset.file_type === 'video' ? (
+                                  <div className="w-full h-full flex items-center justify-center bg-gray-300 dark:bg-gray-500">
+                                    <Video className="h-6 w-6 text-gray-600 dark:text-gray-400" />
+                                  </div>
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center bg-gray-300 dark:bg-gray-500">
+                                    <Image className="h-6 w-6 text-gray-600 dark:text-gray-400" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-opacity rounded-lg flex items-center justify-center">
+                                <button className="opacity-0 group-hover:opacity-100 bg-white bg-opacity-90 rounded-full p-1">
+                                  <Eye className="h-3 w-3 text-gray-700" />
+                                </button>
+                              </div>
+                              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 truncate">
+                                {asset.file_name || `Asset ${index + 1}`}
+                              </p>
+                            </div>
+                          ))}
+                          {c.assets.length > 6 && (
+                            <div className="w-full h-16 bg-gray-200 dark:bg-gray-600 rounded-lg flex items-center justify-center">
+                              <span className="text-xs text-gray-600 dark:text-gray-400">
+                                +{c.assets.length - 6} more
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-gray-500 dark:text-gray-400">No assets uploaded yet</p>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -416,17 +619,17 @@ export default function AdminCampaigns() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
-        <Stat label="Total" value={campaigns.length} icon={Calendar} color="bg-gray-50" />
-        <Stat label="Active" value={categorized.active.length} icon={Play} color="bg-green-50" />
-        <Stat label="Upcoming" value={categorized.upcoming.length} icon={PauseCircle} color="bg-blue-50" />
-        <Stat label="Expired" value={categorized.expired.length} icon={XCircle} color="bg-red-50" />
+        <Stat label="Total" value={campaigns.length} icon={Calendar} color="bg-gray-100 dark:bg-gray-700" iconColor="text-gray-700 dark:text-gray-300" />
+        <Stat label="Active" value={categorized.active.length} icon={Play} color="bg-green-100 dark:bg-green-900" iconColor="text-green-700 dark:text-green-300" />
+        <Stat label="Upcoming" value={categorized.upcoming.length} icon={PauseCircle} color="bg-blue-100 dark:bg-blue-900" iconColor="text-blue-700 dark:text-blue-300" />
+        <Stat label="Expired" value={categorized.expired.length} icon={XCircle} color="bg-red-100 dark:bg-red-900" iconColor="text-red-700 dark:text-red-300" />
       </div>
 
       {/* Filter Controls */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4">
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex items-center gap-2 flex-1">
-            <Search className="h-4 w-4 text-gray-400" />
+            <Search className="h-4 w-4 text-gray-600 dark:text-gray-300" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -435,7 +638,7 @@ export default function AdminCampaigns() {
             />
           </div>
           <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-gray-400" />
+            <Filter className="h-4 w-4 text-gray-600 dark:text-gray-300" />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'upcoming' | 'expired')}
@@ -463,6 +666,172 @@ export default function AdminCampaigns() {
             title={`${statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)} Campaigns`} 
             items={filteredCampaigns} 
           />
+        </div>
+      )}
+
+      {/* Asset Manager Modal */}
+      {showAssetManager && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-6xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Asset Manager</h3>
+              <button
+                onClick={() => {
+                  setShowAssetManager(null);
+                  setSelectedAssetForSwap(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Manage campaign assets. Click on a current asset to swap it, or add new assets to the campaign.
+              </p>
+            </div>
+
+            {loadingAssets ? (
+              <div className="flex items-center justify-center py-8">
+                <RefreshCw className="h-6 w-6 animate-spin text-gray-400" />
+                <span className="ml-2 text-gray-600 dark:text-gray-400">Loading assets...</span>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Current Campaign Assets */}
+                <div>
+                  <h4 className="text-md font-semibold text-gray-900 dark:text-white mb-3">
+                    Current Campaign Assets ({campaignAssets.length})
+                  </h4>
+                  {campaignAssets.length > 0 ? (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {campaignAssets.map((asset) => (
+                        <div 
+                          key={asset.id} 
+                          className={`border rounded-lg p-3 cursor-pointer transition-all ${
+                            selectedAssetForSwap === asset.id 
+                              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
+                              : 'border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                          }`}
+                          onClick={() => setSelectedAssetForSwap(selectedAssetForSwap === asset.id ? null : asset.id)}
+                        >
+                          <div className="w-full h-20 bg-gray-200 dark:bg-gray-600 rounded-lg overflow-hidden mb-2">
+                            {asset.file_type === 'video' ? (
+                              <div className="w-full h-full flex items-center justify-center bg-gray-300 dark:bg-gray-500">
+                                <Video className="h-8 w-8 text-gray-600 dark:text-gray-400" />
+                              </div>
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center bg-gray-300 dark:bg-gray-500">
+                                <Image className="h-8 w-8 text-gray-600 dark:text-gray-400" />
+                              </div>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-600 dark:text-gray-400 truncate mb-1">
+                            {asset.file_name}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-500">
+                            by {asset.user?.full_name || 'Unknown'}
+                          </p>
+                          {selectedAssetForSwap === asset.id && (
+                            <div className="mt-2 p-2 bg-blue-100 dark:bg-blue-900 rounded text-xs text-blue-800 dark:text-blue-200">
+                              Selected for swap
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      <Image className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-600 dark:text-gray-400">No assets in this campaign</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Available Assets for Swap */}
+                <div>
+                  <h4 className="text-md font-semibold text-gray-900 dark:text-white mb-3">
+                    Available Assets for Swap ({availableAssets.length})
+                  </h4>
+                  {availableAssets.length > 0 ? (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {availableAssets.map((asset) => (
+                        <div key={asset.id} className="border border-gray-200 dark:border-gray-600 rounded-lg p-3 hover:bg-gray-50 dark:hover:bg-gray-700">
+                          <div className="w-full h-20 bg-gray-200 dark:bg-gray-600 rounded-lg overflow-hidden mb-2">
+                            {asset.file_type === 'video' ? (
+                              <div className="w-full h-full flex items-center justify-center bg-gray-300 dark:bg-gray-500">
+                                <Video className="h-8 w-8 text-gray-600 dark:text-gray-400" />
+                              </div>
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center bg-gray-300 dark:bg-gray-500">
+                                <Image className="h-8 w-8 text-gray-600 dark:text-gray-400" />
+                              </div>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-600 dark:text-gray-400 truncate mb-1">
+                            {asset.file_name}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-500">
+                            by {asset.user?.full_name || 'Unknown'}
+                          </p>
+                          <div className="flex gap-1 mt-2">
+                            {selectedAssetForSwap ? (
+                              <button
+                                onClick={() => swapCampaignAsset(showAssetManager, selectedAssetForSwap, asset.id)}
+                                disabled={swapping}
+                                className="flex-1 px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50"
+                              >
+                                {swapping ? (
+                                  <RefreshCw className="h-3 w-3 inline mr-1 animate-spin" />
+                                ) : (
+                                  <ArrowLeftRight className="h-3 w-3 inline mr-1" />
+                                )}
+                                Swap
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => addAssetToCampaign(showAssetManager, asset.id)}
+                                disabled={swapping}
+                                className="flex-1 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50"
+                              >
+                                {swapping ? (
+                                  <RefreshCw className="h-3 w-3 inline mr-1 animate-spin" />
+                                ) : (
+                                  <Image className="h-3 w-3 inline mr-1" />
+                                )}
+                                Add
+                              </button>
+                            )}
+                            <button className="px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700">
+                              <Eye className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      <Image className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-600 dark:text-gray-400">No available assets found</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
+                        Only approved assets can be used for swapping
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Instructions */}
+                {selectedAssetForSwap && (
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                    <p className="text-sm text-blue-800 dark:text-blue-200">
+                      <strong>Asset selected for swap:</strong> Click on any available asset above to swap it with the selected campaign asset.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

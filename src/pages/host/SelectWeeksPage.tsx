@@ -307,6 +307,14 @@ export default function HostSelectWeeksPage() {
                   >
                     <ChevronRight className="h-4 w-4 md:h-5 md:w-5" />
                   </button>
+                  {selectedMondays.length > 0 && (
+                    <button
+                      onClick={() => setSelectedMondays([])}
+                      className="hidden md:inline-flex items-center px-4 py-2 rounded-xl bg-red-600 text-white hover:bg-red-700 transition-colors shadow-soft ml-2"
+                    >
+                      Clear All
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-7 gap-1 md:gap-2 text-xs md:text-sm font-semibold text-center text-gray-600 dark:text-gray-400 mb-3 md:mb-4">
@@ -381,12 +389,6 @@ export default function HostSelectWeeksPage() {
                     <div className="font-semibold text-gray-900 dark:text-white">Selected Weeks</div>
                     <div className="flex items-center space-x-2">
                       <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800">{selectedMondays.length} week{selectedMondays.length > 1 ? 's' : ''} selected</span>
-                      <button
-                        onClick={() => setSelectedMondays([])}
-                        className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-800 hover:bg-red-200 transition-colors"
-                      >
-                        Clear All
-                      </button>
                     </div>
                   </div>
                   {sortedMondays.map((iso, idx) => {

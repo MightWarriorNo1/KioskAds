@@ -7,7 +7,13 @@ import { MediaService } from '../services/mediaService';
 import { useAuth } from '../contexts/AuthContext';
 import LeafletMap from '../components/MapContainer';
 
-export default function CampaignsPage() {
+interface CampaignsPageProps {
+  wrapInDashboard?: boolean;
+  basePath?: '/client' | '/host';
+  enableDetails?: boolean;
+}
+
+export default function CampaignsPage({ wrapInDashboard = true, basePath = '/client', enableDetails = true }: CampaignsPageProps) {
   const location = useLocation() as { state?: { message?: string; campaignData?: any } };
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -49,7 +55,7 @@ export default function CampaignsPage() {
         await Promise.all(
           candidates.map(async (c) => {
             try {
-              const media = await MediaService.getCampaignMedia(c.id);
+              const media = await MediaService.getCampaignAssets(c.id);
               if (media && media.length > 0) {
                 const asset = media[0];
                 const url = asset.metadata?.publicUrl || MediaService.getMediaPreviewUrl(asset.file_path);
@@ -127,11 +133,14 @@ export default function CampaignsPage() {
     }
   };
 
-  return (
-    <DashboardLayout
-      title="Campaigns"
-      subtitle="Manage your advertising campaigns"
-    >
+  const content = (
+    <>
+      {/* Page Header */}
+      {wrapInDashboard && (
+        <></>
+      )}
+      
+      <div className="sr-only"></div>
       {/* Success Message */}
       {showSuccessMessage && (
         <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
@@ -204,7 +213,7 @@ export default function CampaignsPage() {
       {/* Action Buttons */}
       <div className="flex justify-end space-x-4 mb-8">
         <button 
-          onClick={() => navigate('/client/new-campaign')}
+          onClick={() => navigate(`${basePath}/new-campaign`)}
           className="bg-black text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-800 transition-colors flex items-center space-x-2"
         >
           <Plus className="h-4 w-4" />
@@ -254,7 +263,7 @@ export default function CampaignsPage() {
           </p>
           {activeTab === 'All' && (
             <button 
-              onClick={() => navigate('/client/new-campaign')}
+              onClick={() => navigate(`${basePath}/new-campaign`)}
               className="bg-black dark:bg-white text-white dark:text-black px-6 py-3 rounded-lg font-semibold hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors"
             >
               Create Campaign
@@ -307,13 +316,15 @@ export default function CampaignsPage() {
                     </div>
                   </div>
                   
-                  <button 
-                    onClick={() => navigate(`/client/campaigns/${campaign.id}`)}
-                    className="w-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 py-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center justify-center space-x-2"
-                  >
-                    <span>View Details</span>
-                    <ArrowRight className="h-4 w-4" />
-                  </button>
+                  {enableDetails && (
+                    <button 
+                      onClick={() => navigate(`${basePath}/campaigns/${campaign.id}`)}
+                      className="w-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 py-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center justify-center space-x-2"
+                    >
+                      <span>View Details</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -403,13 +414,15 @@ export default function CampaignsPage() {
                             </div>
                           </div>
                           
-                          <button 
-                            onClick={() => navigate(`/client/campaigns/${campaign.id}`)}
-                            className="w-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 py-2 px-3 rounded text-sm hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center justify-center space-x-2"
-                          >
-                            <span>View Details</span>
-                            <ArrowRight className="h-3 w-3" />
-                          </button>
+                          {enableDetails && (
+                            <button 
+                              onClick={() => navigate(`${basePath}/campaigns/${campaign.id}`)}
+                              className="w-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 py-2 px-3 rounded text-sm hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center justify-center space-x-2"
+                            >
+                              <span>View Details</span>
+                              <ArrowRight className="h-3 w-3" />
+                            </button>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -424,6 +437,16 @@ export default function CampaignsPage() {
           )}
         </>
       )}
-    </DashboardLayout>
+    </>
   );
+
+  if (wrapInDashboard) {
+    return (
+      <DashboardLayout title="Campaigns" subtitle="Manage your advertising campaigns">
+        {content}
+      </DashboardLayout>
+    );
+  }
+
+  return content;
 }
