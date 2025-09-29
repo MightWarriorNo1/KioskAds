@@ -88,6 +88,19 @@ export default function PartnersSection({ className = '' }: PartnersSectionProps
           </p>
         </div>
 
+        {/* Logo strip slider */}
+        {partners.some(p => p.logo_url) && (
+          <div className="mb-12 bg-white rounded-lg border border-gray-200 p-4 overflow-hidden">
+            <div className="flex items-center gap-10 animate-[scroll-left_40s_linear_infinite] will-change-transform">
+              {[...partners.filter(p => p.logo_url), ...partners.filter(p => p.logo_url)].map((p, idx) => (
+                <div key={`${p.id}-${idx}`} className="h-16 flex items-center">
+                  <img src={p.logo_url as string} alt={`${p.title} logo`} className="h-12 w-auto object-contain" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           {partners
             .filter(partner => partner.title && partner.address && (partner.photo_url || partner.kiosk_map_url))

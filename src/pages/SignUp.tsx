@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useNotification } from '../contexts/NotificationContext';
 import AuthLayout from '../components/layouts/AuthLayout';
 import PasswordStrength from '../components/shared/PasswordStrength';
+import { MailchimpService } from '../services/mailchimpService';
 import GoogleIcon from '../components/icons/GoogleIcon';
 
 export default function SignUp() {
@@ -18,6 +19,7 @@ export default function SignUp() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showCapsWarning, setShowCapsWarning] = useState(false);
   const [errors, setErrors] = useState<{ name?: string; email?: string; password?: string; confirmPassword?: string }>({});
+  const [newsletterOptIn, setNewsletterOptIn] = useState(true);
   const navigate = useNavigate();
   const { addNotification } = useNotification();
 
@@ -70,6 +72,15 @@ export default function SignUp() {
 
       if (data.user) {
         addNotification('success', 'Account Created!', 'Please check your email to confirm your account before signing in.');
+        // Fire-and-forget Mailchimp opt-in (non-blocking)
+        if ((import.meta as any)?.env?.VITE_ENABLE_MAILCHIMP && newsletterOptIn) {
+          MailchimpService.subscribe({
+            email: email.trim(),
+            first_name: name.trim().split(' ')[0] || undefined,
+            last_name: name.trim().split(' ').slice(1).join(' ') || undefined,
+            tags: ['signup']
+          }).catch(() => {});
+        }
         navigate('/signin');
       } else {
         throw new Error('No user data returned from signup');
@@ -128,6 +139,19 @@ export default function SignUp() {
                 </div>
               )}
             </div>
+          </div>
+          <div>
+            <label className="flex items-start gap-3 text-sm text-gray-700 dark:text-gray-300">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                checked={newsletterOptIn}
+                onChange={(e) => setNewsletterOptIn(e.target.checked)}
+              />
+              <span>
+                Send me product updates, tips, and occasional marketing emails. You can unsubscribe at any time.
+              </span>
+            </label>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email address</label>

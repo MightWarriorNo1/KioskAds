@@ -1,11 +1,23 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import SiteHeader from '../components/layouts/SiteHeader';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
+import { MailchimpService } from '../services/mailchimpService';
 
 export default function ContactPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { addNotification } = useNotification();
+
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [company, setCompany] = useState('');
+  const [budget, setBudget] = useState('');
+  const [interest, setInterest] = useState('General Inquiry');
+  const [message, setMessage] = useState('');
+  const [subscribe, setSubscribe] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   const handleViewKiosksClick = () => {
     if (user) {
@@ -77,37 +89,61 @@ export default function ContactPage() {
           <aside>
             <div className="card p-5">
               <h3 className="text-base font-semibold">Get in Touch</h3>
-              <form className="mt-4 space-y-3">
+              <form className="mt-4 space-y-3" onSubmit={async (e) => {
+                e.preventDefault();
+                if (!email.trim() || !name.trim()) {
+                  addNotification('error', 'Missing info', 'Please provide your name and email.');
+                  return;
+                }
+                setSubmitting(true);
+                try {
+                  if ((import.meta as any)?.env?.VITE_ENABLE_MAILCHIMP && subscribe) {
+                    await MailchimpService.subscribe({
+                      email: email.trim(),
+                      first_name: name.trim().split(' ')[0] || undefined,
+                      last_name: name.trim().split(' ').slice(1).join(' ') || undefined,
+                      tags: ['contact']
+                    });
+                  }
+                  addNotification('success', 'Thanks!','We received your inquiry. We will reach out shortly.');
+                  setName(''); setEmail(''); setCompany(''); setBudget(''); setInterest('General Inquiry'); setMessage('');
+                } catch (err) {
+                  addNotification('error', 'Submission failed', 'Please try again later.');
+                } finally {
+                  setSubmitting(false);
+                }
+              }}>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Name</label>
-                    <input className="input text-sm" placeholder="Your name" />
+                    <input className="input text-sm" placeholder="Your name" value={name} onChange={(e)=>setName(e.target.value)} />
                   </div>
                   <div>
                     <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Email</label>
-                    <input type="email" className="input text-sm" placeholder="your.email@company.com" />
+                    <input type="email" className="input text-sm" placeholder="your.email@company.com" value={email} onChange={(e)=>setEmail(e.target.value)} />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Company (optional)</label>
-                    <input className="input text-sm" placeholder="Your company name" />
+                    <input className="input text-sm" placeholder="Your company name" value={company} onChange={(e)=>setCompany(e.target.value)} />
                   </div>
                   <div>
                     <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Monthly Advertising Budget</label>
-                    <select className="input text-sm">
-                      <option>Under $500/month</option>
-                      <option>$500 - $2,500/month</option>
-                      <option>$2,500 - $10,000/month</option>
-                      <option>$10,000+/month</option>
+                    <select className="input text-sm" value={budget} onChange={(e)=>setBudget(e.target.value)}>
+                      <option value="">Select…</option>
+                      <option value="under-500">Under $500/month</option>
+                      <option value="500-2500">$500 - $2,500/month</option>
+                      <option value="2500-10000">$2,500 - $10,000/month</option>
+                      <option value="10000+">$10,000+/month</option>
                     </select>
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">What are you interested in?</label>
-                  <select className="input text-sm">
+                  <select className="input text-sm" value={interest} onChange={(e)=>setInterest(e.target.value)}>
                     <option>General Inquiry</option>
                     <option>Campaign Planning</option>
                     <option>Partnership</option>
@@ -117,10 +153,13 @@ export default function ContactPage() {
 
                 <div>
                   <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Message</label>
-                  <textarea rows={4} className="input text-sm" placeholder="Tell us about your advertising needs and goals."></textarea>
+                  <textarea rows={4} className="input text-sm" placeholder="Tell us about your advertising needs and goals." value={message} onChange={(e)=>setMessage(e.target.value)}></textarea>
                 </div>
-
-                <button type="button" className="btn-primary w-full py-2 text-sm">Submit Inquiry</button>
+                <div className="flex items-start gap-3">
+                  <input type="checkbox" className="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" checked={subscribe} onChange={(e)=>setSubscribe(e.target.checked)} />
+                  <span className="text-xs text-gray-600 dark:text-gray-400">Subscribe to updates and newsletters</span>
+                </div>
+                <button type="submit" className="btn-primary w-full py-2 text-sm" disabled={submitting}>{submitting ? 'Submitting…' : 'Submit Inquiry'}</button>
               </form>
             </div>
           </aside>

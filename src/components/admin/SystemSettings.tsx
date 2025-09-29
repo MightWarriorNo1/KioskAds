@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Settings, Mail, CreditCard, Cloud, Key, Globe, Save, DollarSign, Database, Tag, TrendingUp, Upload, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Settings, Mail, CreditCard, Cloud, Key, Globe, Save, DollarSign, Database, Tag, TrendingUp, Upload, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Users } from 'lucide-react';
 import { AdminService } from '../../services/adminService';
 import S3Configuration from './S3Configuration';
 import TrackingTagsManagement from './TrackingTagsManagement';
@@ -9,6 +9,7 @@ import { GoogleDriveSettings } from './GoogleDriveSettings';
 import { UploadManagement } from './UploadManagement';
 import StorageConfigurationManagement from './StorageConfigurationManagement';
 import NotificationSettings from './NotificationSettings';
+import Invitations from './invitations/Invitations';
 import AdUploadLimits from './AdUploadLimits';
 
 export default function SystemSettings() {
@@ -95,6 +96,7 @@ export default function SystemSettings() {
 
   const tabs = [
     { id: 'integrations', name: 'Integrations', icon: Globe },
+    { id: 'invitations', name: 'Invitations', icon: Users },
     { id: 'storage-config', name: 'Storage Configuration', icon: Database },
     { id: 's3-config', name: 'S3 Configuration', icon: Database },
     { id: 'gdrive-config', name: 'Google Drive Config', icon: Cloud },
@@ -334,6 +336,11 @@ export default function SystemSettings() {
               onSave={handleNotificationSave}
               onHasChanges={handleNotificationChanges}
             />
+          )}
+
+          {/* Invitations Tab */}
+          {activeTab === 'invitations' && (
+            <Invitations />
           )}
 
           {/* Other tabs content would go here */}

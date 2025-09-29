@@ -17,7 +17,13 @@ export default function MarketingTools() {
     type: 'announcement_bar' as 'announcement_bar' | 'popup' | 'testimonial' | 'sales_notification',
     title: '',
     content: '',
-    settings: {},
+    settings: {
+      position: 'top',
+      backgroundColor: '',
+      textColor: '',
+      cta: { label: '', href: '' },
+      collectEmail: false
+    } as any,
     is_active: true,
     priority: 0,
     target_audience: {},
@@ -143,7 +149,13 @@ export default function MarketingTools() {
       type: 'type' in item ? item.type : 'announcement_bar',
       title: item.title || '',
       content: item.content || '',
-      settings: 'settings' in item ? item.settings : {},
+      settings: 'settings' in item ? (item as any).settings || {
+        position: 'top',
+        backgroundColor: '',
+        textColor: '',
+        cta: { label: '', href: '' },
+        collectEmail: false
+      } : {},
       is_active: item.is_active,
       priority: 'priority' in item ? item.priority : 0,
       target_audience: 'target_audience' in item ? item.target_audience : {},
@@ -202,7 +214,13 @@ export default function MarketingTools() {
       type: 'announcement_bar',
       title: '',
       content: '',
-      settings: {},
+      settings: {
+        position: 'top',
+        backgroundColor: '',
+        textColor: '',
+        cta: { label: '', href: '' },
+        collectEmail: false
+      } as any,
       is_active: true,
       priority: 0,
       target_audience: {},
@@ -678,6 +696,82 @@ export default function MarketingTools() {
                   {editingItem ? 'Update' : 'Create'} {activeTab === 'testimonials' ? 'Testimonial' : 'Tool'}
                 </button>
               </div>
+              {formData.type === 'announcement_bar' && (
+                <div className="space-y-4">
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Position</label>
+                      <select
+                        value={(formData.settings as any).position || 'top'}
+                        onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), position: e.target.value } }))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      >
+                        <option value="top">Top</option>
+                        <option value="bottom">Bottom</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Background Color</label>
+                      <input
+                        type="text"
+                        value={(formData.settings as any).backgroundColor || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), backgroundColor: e.target.value } }))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        placeholder="#4f46e5 or rgb(79 70 229)"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Text Color</label>
+                      <input
+                        type="text"
+                        value={(formData.settings as any).textColor || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), textColor: e.target.value } }))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        placeholder="#ffffff or white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="collectEmail"
+                        checked={Boolean((formData.settings as any).collectEmail)}
+                        onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), collectEmail: e.target.checked } }))}
+                        className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="collectEmail" className="ml-2 block text-sm text-gray-900 dark:text-white">
+                        Collect Email Instead of Button
+                      </label>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Button Label</label>
+                        <input
+                          type="text"
+                          value={(formData.settings as any).cta?.label || ''}
+                          onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), cta: { ...((prev.settings as any).cta || {}), label: e.target.value } } }))}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          placeholder="Get Started"
+                          disabled={Boolean((formData.settings as any).collectEmail)}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Button Link</label>
+                        <input
+                          type="url"
+                          value={(formData.settings as any).cta?.href || ''}
+                          onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), cta: { ...((prev.settings as any).cta || {}), href: e.target.value } } }))}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          placeholder="https://example.com/signup"
+                          disabled={Boolean((formData.settings as any).collectEmail)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

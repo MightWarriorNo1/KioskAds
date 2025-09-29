@@ -20,6 +20,7 @@ import AdminPortal from './pages/AdminPortal';
 import DesignerPortal from './pages/DesignerPortal';
 import NotFound from './pages/NotFound';
 import ProtectedRoute from './components/ProtectedRoute';
+import AnnouncementBar from './components/shared/AnnouncementBar';
 
 function App() {
   return (
@@ -29,6 +30,7 @@ function App() {
           <Router>
             <ErrorBoundary>
               <div className="min-h-screen bg-[rgb(var(--surface))] dark:bg-gray-900">
+                <AnnouncementBar />
                 <Routes>
                   <Route path="/" element={<LandingPage />} />
                   <Route path="/signin" element={<SignIn />} />

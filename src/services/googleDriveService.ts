@@ -369,20 +369,36 @@ export class GoogleDriveService {
       };
 
       const mimeType = getMimeType(mediaAsset.file_name);
-      
-      // For browser environment, we need to fetch the file from the server
-      // This assumes the file is accessible via a URL or stored in the database
+
+      // Resolve a URL or data source for the asset, with multiple fallbacks
+      let resolvedUrl: string | null = null;
+      const metadataPublicUrl: string | undefined = mediaAsset?.metadata?.publicUrl;
+
+      if (typeof mediaAsset.file_url === 'string' && mediaAsset.file_url) {
+        resolvedUrl = mediaAsset.file_url;
+      } else if (typeof metadataPublicUrl === 'string' && metadataPublicUrl) {
+        resolvedUrl = metadataPublicUrl;
+      } else if (typeof mediaAsset.file_path === 'string' && mediaAsset.file_path) {
+        // If file_path is already a full URL, use it directly; otherwise, derive Supabase public URL
+        if (/^https?:\/\//i.test(mediaAsset.file_path)) {
+          resolvedUrl = mediaAsset.file_path;
+        } else {
+          const { data: urlData } = supabase.storage
+            .from('media-assets')
+            .getPublicUrl(mediaAsset.file_path);
+          resolvedUrl = urlData?.publicUrl || null;
+        }
+      }
+
       let fileBuffer: ArrayBuffer;
-      
-      if (mediaAsset.file_url) {
-        // If we have a URL, fetch the file
-        const response = await fetch(mediaAsset.file_url);
+      if (resolvedUrl) {
+        const response = await fetch(resolvedUrl);
         if (!response.ok) {
           throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`);
         }
         fileBuffer = await response.arrayBuffer();
       } else if (mediaAsset.file_data) {
-        // If we have base64 data, convert it
+        // Fallback: base64
         const binaryString = atob(mediaAsset.file_data);
         const bytes = new Uint8Array(binaryString.length);
         for (let i = 0; i < binaryString.length; i++) {
@@ -390,7 +406,7 @@ export class GoogleDriveService {
         }
         fileBuffer = bytes.buffer;
       } else {
-        throw new Error('No file data available for upload');
+        throw new Error('No accessible URL or data for upload');
       }
       
       // Upload file using real Google Drive API

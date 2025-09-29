@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Eye, EyeOff, MapPin, Image as ImageIcon, ExternalLink, Save, X, Upload } from 'lucide-react';
 import { PartnersService, Partner, CreatePartnerData, UpdatePartnerData } from '../../services/partnersService';
 import { useNotification } from '../../contexts/NotificationContext';
+import { supabase } from '../../lib/supabaseClient';
 
 export default function PartnersManagement() {
   const { addNotification } = useNotification();
@@ -19,6 +20,7 @@ export default function PartnersManagement() {
     title: '',
     address: '',
     photo_url: '',
+    logo_url: '',
     kiosk_map_url: '',
     coordinates: undefined,
     description: '',
@@ -147,6 +149,7 @@ export default function PartnersManagement() {
       title: '',
       address: '',
       photo_url: '',
+      logo_url: '',
       kiosk_map_url: '',
       coordinates: undefined,
       description: '',
@@ -164,6 +167,7 @@ export default function PartnersManagement() {
       title: partner.title,
       address: partner.address,
       photo_url: partner.photo_url || '',
+      logo_url: (partner as any).logo_url || '',
       kiosk_map_url: partner.kiosk_map_url || '',
       coordinates: partner.coordinates,
       description: partner.description || '',
@@ -449,6 +453,51 @@ function PartnerModal({ title, formData, setFormData, errors, saving, onSave, on
         </div>
 
         <div className="space-y-4">
+          {/* Logo (transparent on white) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Partner Logo (transparent, shown on white background)
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                type="url"
+                value={formData.logo_url || ''}
+                onChange={(e) => handleInputChange('logo_url', e.target.value)}
+                className="input-field flex-1"
+                placeholder="https://example.com/logo.png"
+              />
+              <label className="btn-secondary cursor-pointer">
+                <Upload className="w-4 h-4 inline mr-2" /> Upload
+                <input
+                  type="file"
+                  accept="image/png,image/webp,image/svg+xml"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    try {
+                      const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+                      const path = `partners/logos/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+                      const { error: uploadError } = await supabase.storage
+                        .from('media-assets')
+                        .upload(path, file, { cacheControl: '3600', upsert: false, contentType: file.type });
+                      if (uploadError) throw uploadError;
+                      const { data: pub } = supabase.storage.from('media-assets').getPublicUrl(path);
+                      setFormData({ ...formData, logo_url: pub.publicUrl });
+                    } catch (err) {
+                      console.error('Logo upload failed', err);
+                    }
+                  }}
+                />
+              </label>
+            </div>
+            {formData.logo_url && (
+              <div className="mt-2 p-4 bg-white border rounded flex items-center justify-center">
+                <img src={formData.logo_url} alt="Logo preview" className="max-h-16 object-contain" />
+              </div>
+            )}
+            <p className="text-xs text-gray-500 mt-1">Use transparent PNG/WEBP/SVG. Rendered against white.</p>
+          </div>
           {/* Title */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

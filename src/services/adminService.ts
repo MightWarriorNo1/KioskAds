@@ -205,7 +205,96 @@ export interface SystemSetting {
   updated_at: string;
 }
 
+export interface InvitationItem {
+  id: string;
+  email: string;
+  role: 'client' | 'host' | 'designer' | 'admin';
+  status: 'pending' | 'sent' | 'accepted' | 'expired' | 'revoked';
+  sent_at?: string;
+  expires_at?: string;
+  invited_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export class AdminService {
+  // Invitations
+  static async getInvitations(filters?: {
+    status?: 'all' | 'pending' | 'sent' | 'accepted' | 'expired' | 'revoked';
+    role?: 'all' | 'client' | 'host' | 'designer' | 'admin';
+  }): Promise<InvitationItem[]> {
+    try {
+      let query = supabase.from('invitations').select('*').order('sent_at', { ascending: false });
+      if (filters?.status && filters.status !== 'all') query = query.eq('status', filters.status);
+      if (filters?.role && filters.role !== 'all') query = query.eq('role', filters.role);
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching invitations:', error);
+      throw error;
+    }
+  }
+
+  static async sendInvitation(email: string, role: 'client' | 'host' | 'designer' | 'admin', expiresInDays: number, invitedBy?: string): Promise<string> {
+    try {
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + expiresInDays);
+      const token = crypto.randomUUID?.() || Math.random().toString(36).slice(2);
+      const { data, error } = await supabase
+        .from('invitations')
+        .insert({ email, role, status: 'sent', sent_at: new Date().toISOString(), expires_at: expiresAt.toISOString(), invited_by: invitedBy, token })
+        .select('id')
+        .single();
+      if (error) throw error;
+      return data.id;
+    } catch (error) {
+      console.error('Error sending invitation:', error);
+      throw error;
+    }
+  }
+
+  static async markInvitationSent(inviteId: string): Promise<void> {
+    const { error } = await supabase.from('invitations').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', inviteId);
+    if (error) throw error;
+  }
+
+  static async revokeInvitation(inviteId: string): Promise<void> {
+    const { error } = await supabase.from('invitations').update({ status: 'revoked' }).eq('id', inviteId);
+    if (error) throw error;
+  }
+
+  static async resendInvitation(inviteId: string): Promise<void> {
+    const { error } = await supabase.from('invitations').update({ sent_at: new Date().toISOString(), status: 'sent' }).eq('id', inviteId);
+    if (error) throw error;
+  }
+
+  static async cancelAllPendingInvitations(): Promise<void> {
+    const { error } = await supabase.from('invitations').update({ status: 'revoked' }).eq('status', 'pending');
+    if (error) throw error;
+  }
+
+  static async bulkCreateInvitations(rows: Array<{ email: string; role: 'client'|'host'|'designer'|'admin'; expires_days?: number; invited_by?: string }>): Promise<void> {
+    if (!rows.length) return;
+    const now = new Date();
+    const records = rows.map(r => {
+      const expires = new Date(now);
+      const days = Number(r.expires_days ?? 7) || 7;
+      expires.setDate(expires.getDate() + days);
+      const token = crypto.randomUUID?.() || Math.random().toString(36).slice(2);
+      return {
+        email: r.email.trim(),
+        role: r.role,
+        status: 'sent',
+        sent_at: now.toISOString(),
+        expires_at: expires.toISOString(),
+        invited_by: r.invited_by,
+        token,
+      } as any;
+    });
+    const { error } = await supabase.from('invitations').insert(records);
+    if (error) throw error;
+  }
   // Admin Analytics Methods
   // Returns metrics for admin analytics dashboard used by src/components/admin/Analytics.tsx
   static async getAnalyticsData(
@@ -1964,15 +2053,36 @@ export class AdminService {
 
       if (!template) return;
 
-      // Send email
-      await supabase.functions.invoke('send-email', {
-        body: {
-          to: hostAd.host.email,
-          subject: template.subject.replace('{{ad_name}}', hostAd.name),
-          body_html: template.body_html.replace('{{ad_name}}', hostAd.name),
-          body_text: template.body_text?.replace('{{ad_name}}', hostAd.name)
+      // Queue email (align with campaign approval path)
+      const subject = template.subject.replace('{{ad_name}}', hostAd.name);
+      const bodyHtml = template.body_html.replace('{{ad_name}}', hostAd.name);
+      const bodyText = template.body_text?.replace('{{ad_name}}', hostAd.name);
+
+      await supabase
+        .from('email_queue')
+        .insert({
+          template_id: template.id,
+          recipient_email: hostAd.host.email,
+          recipient_name: hostAd.host.full_name,
+          subject,
+          body_html: bodyHtml,
+          body_text: bodyText,
+          status: 'pending',
+          retry_count: 0,
+          max_retries: 3
+        });
+
+      // Try local Gmail processor; if unavailable, invoke edge function
+      try {
+        const { GmailService } = await import('./gmailService');
+        if (GmailService?.isConfigured?.()) {
+          await GmailService.processEmailQueue();
+        } else {
+          try { await supabase.functions.invoke('email-queue-processor'); } catch (_) {}
         }
-      });
+      } catch {
+        try { await supabase.functions.invoke('email-queue-processor'); } catch (_) {}
+      }
     } catch (error) {
       console.error('Error sending host ad approval email:', error);
     }

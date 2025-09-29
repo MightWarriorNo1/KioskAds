@@ -587,7 +587,11 @@ export default function AddMediaDurationPage() {
                           {filePreview && (
                             <div className="w-full h-full">
                               <div style={{ aspectRatio: '9 / 16' }} className="w-full bg-black rounded-md overflow-hidden">
-                                <img src={filePreview} alt="Preview" className="w-full h-full object-cover" />
+                                {uploadedFile?.type.startsWith('image/') ? (
+                                  <img src={filePreview} alt="Preview" className="w-full h-full object-cover" />
+                                ) : (
+                                  <video src={filePreview} controls className="w-full h-full object-cover" />
+                                )}
                               </div>
                             </div>
                           )}

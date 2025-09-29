@@ -98,7 +98,7 @@ export class GmailService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          raw: btoa(message).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+          raw: GmailService.base64UrlEncodeUtf8(message)
         })
       });
 
@@ -112,6 +112,17 @@ export class GmailService {
       console.error('Error sending email:', error);
       throw error;
     }
+  }
+
+  // Proper UTF-8 safe Base64URL encoder for Gmail API
+  private static base64UrlEncodeUtf8(input: string): string {
+    const utf8Bytes = new TextEncoder().encode(input);
+    let binary = '';
+    for (let i = 0; i < utf8Bytes.length; i++) {
+      binary += String.fromCharCode(utf8Bytes[i]);
+    }
+    const base64 = btoa(binary);
+    return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   }
 
   // Process email queue

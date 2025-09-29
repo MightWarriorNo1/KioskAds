@@ -5,6 +5,7 @@ export interface Partner {
   title: string;
   address: string;
   photo_url?: string;
+  logo_url?: string;
   kiosk_map_url?: string;
   coordinates?: {
     lat: number;
@@ -24,6 +25,7 @@ export interface CreatePartnerData {
   title: string;
   address: string;
   photo_url?: string;
+  logo_url?: string;
   kiosk_map_url?: string;
   coordinates?: {
     lat: number;

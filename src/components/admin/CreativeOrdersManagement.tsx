@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Package, Clock, CheckCircle, XCircle, RefreshCw, Eye, Download, Upload } from 'lucide-react';
+import { Package, Clock, CheckCircle, XCircle, RefreshCw, Eye } from 'lucide-react';
 import { useNotification } from '../../contexts/NotificationContext';
 import { AdminService, CreativeOrder } from '../../services/adminService';
 
@@ -9,6 +9,7 @@ export default function CreativeOrdersManagement() {
   const [selectedOrder, setSelectedOrder] = useState<CreativeOrder | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [durationFilter, setDurationFilter] = useState<string>('all'); // 30 | 90 | 180 | all
   const { addNotification } = useNotification();
 
   useEffect(() => {
@@ -28,21 +29,7 @@ export default function CreativeOrdersManagement() {
     }
   };
 
-  const handleStatusUpdate = async (orderId: string, newStatus: string, finalDelivery?: string) => {
-    try {
-      await AdminService.updateCreativeOrderStatus(orderId, newStatus, finalDelivery);
-      setOrders(prev => prev.map(order => 
-        order.id === orderId 
-          ? { ...order, status: newStatus as any, final_delivery: finalDelivery }
-          : order
-      ));
-      addNotification('success', 'Status Updated', `Order status updated to ${newStatus}`);
-      setSelectedOrder(null);
-    } catch (error) {
-      console.error('Error updating order status:', error);
-      addNotification('error', 'Error', 'Failed to update order status');
-    }
-  };
+  // Read-only page: no status updates or editing actions
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -67,16 +54,16 @@ export default function CreativeOrdersManagement() {
   const filteredOrders = orders.filter(order => {
     const statusMatch = statusFilter === 'all' || order.status === statusFilter;
     const categoryMatch = categoryFilter === 'all' || order.service.category === categoryFilter;
-    return statusMatch && categoryMatch;
+    const durationMatch = durationFilter === 'all' || order.service.delivery_time === Number(durationFilter);
+    return statusMatch && categoryMatch && durationMatch;
   });
 
   const statusCounts = {
     all: orders.length,
     pending: orders.filter(o => o.status === 'pending').length,
-    in_progress: orders.filter(o => o.status === 'in_progress').length,
     completed: orders.filter(o => o.status === 'completed').length,
     cancelled: orders.filter(o => o.status === 'cancelled').length,
-  };
+  } as const;
 
   return (
     <div className="space-y-6">
@@ -97,7 +84,7 @@ export default function CreativeOrdersManagement() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid md:grid-cols-5 gap-6">
+      <div className="grid md:grid-cols-4 gap-6">
         {Object.entries(statusCounts).map(([status, count]) => {
           const StatusIcon = status === 'all' ? Package : getStatusIcon(status);
           return (
@@ -112,14 +99,12 @@ export default function CreativeOrdersManagement() {
                 <div className={`p-3 rounded-lg ${
                   status === 'all' ? 'bg-purple-50' :
                   status === 'pending' ? 'bg-yellow-50' :
-                  status === 'in_progress' ? 'bg-blue-50' :
                   status === 'completed' ? 'bg-green-50' :
                   'bg-red-50'
                 }`}>
                   <StatusIcon className={`h-6 w-6 ${
                     status === 'all' ? 'text-purple-600' :
                     status === 'pending' ? 'text-yellow-600' :
-                    status === 'in_progress' ? 'text-blue-600' :
                     status === 'completed' ? 'text-green-600' :
                     'text-red-600'
                   }`} />
@@ -142,7 +127,6 @@ export default function CreativeOrdersManagement() {
             >
               <option value="all">All Statuses</option>
               <option value="pending">Pending</option>
-              <option value="in_progress">In Progress</option>
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
             </select>
@@ -159,6 +143,19 @@ export default function CreativeOrdersManagement() {
               <option value="video">Video Production</option>
               <option value="design">Brand Design</option>
               <option value="copywriting">Copywriting</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium dark:text-white text-gray-700 mb-2">Duration</label>
+            <select
+              value={durationFilter}
+              onChange={(e) => setDurationFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            >
+              <option value="all">All Durations</option>
+              <option value="30">30 days</option>
+              <option value="90">90 days</option>
+              <option value="180">180 days</option>
             </select>
           </div>
         </div>
@@ -273,7 +270,7 @@ export default function CreativeOrdersManagement() {
         )}
       </div>
 
-      {/* Order Details Modal */}
+      {/* Order Details Modal (read-only) */}
       {selectedOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
@@ -372,41 +369,7 @@ export default function CreativeOrdersManagement() {
                 </div>
               )}
 
-              {/* Status Actions */}
-              {selectedOrder.status !== 'completed' && selectedOrder.status !== 'cancelled' && (
-                <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Update Status</h4>
-                  <div className="flex space-x-3">
-                    {selectedOrder.status === 'pending' && (
-                      <button
-                        onClick={() => handleStatusUpdate(selectedOrder.id, 'in_progress')}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                      >
-                        Start Work
-                      </button>
-                    )}
-                    {selectedOrder.status === 'in_progress' && (
-                      <button
-                        onClick={() => {
-                          const delivery = prompt('Enter final delivery details:');
-                          if (delivery) {
-                            handleStatusUpdate(selectedOrder.id, 'completed', delivery);
-                          }
-                        }}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                      >
-                        Mark Complete
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleStatusUpdate(selectedOrder.id, 'cancelled')}
-                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                    >
-                      Cancel Order
-                    </button>
-                  </div>
-                </div>
-              )}
+              {/* No editing/actions in read-only view */}
             </div>
           </div>
         </div>
