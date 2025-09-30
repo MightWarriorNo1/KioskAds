@@ -7,10 +7,7 @@ export default defineConfig({
   optimizeDeps: {
     exclude: [
       'lucide-react', 
-      'googleapis',
-      '@aws-sdk/client-s3',
-      '@aws-sdk/s3-request-presigner',
-      '@aws-sdk/client-iam'
+      'googleapis'
     ],
   },
   define: {
@@ -25,10 +22,7 @@ export default defineConfig({
   build: {
     rollupOptions: {
       external: [
-        'googleapis',
-        '@aws-sdk/client-s3',
-        '@aws-sdk/s3-request-presigner',
-        '@aws-sdk/client-iam'
+        'googleapis'
       ],
     },
   },
