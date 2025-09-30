@@ -9,7 +9,7 @@ import { GoogleDriveSettings } from './GoogleDriveSettings';
 import { UploadManagement } from './UploadManagement';
 import StorageConfigurationManagement from './StorageConfigurationManagement';
 import NotificationSettings from './NotificationSettings';
-import Invitations from './invitations/Invitations';
+import Invitations from './Invitations/Invitations';
 import AdUploadLimits from './AdUploadLimits';
 
 export default function SystemSettings() {
