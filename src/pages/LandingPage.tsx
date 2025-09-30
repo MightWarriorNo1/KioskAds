@@ -2,11 +2,20 @@ import { Link } from 'react-router-dom';
 import { MapPin, Clock, Upload, Check, Star ,Aperture, Camera, Videotape} from 'lucide-react';
 import SiteHeader from '../components/layouts/SiteHeader';
 import PartnersSection from '../components/shared/PartnersSection';
+import MarketingToolsManager from '../components/marketing/MarketingToolsManager';
+import MarketingOverlays from '../components/marketing/MarketingOverlays';
+import TestNotification from '../components/marketing/TestNotification';
 
 export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-[rgb(var(--bg))] dark:bg-gradient-to-br dark:from-slate-900 dark:via-blue-900 dark:to-slate-800">
+      {/* Marketing Overlays (Banner, Popup, Sales Notification) */}
+      <MarketingOverlays />
+      
+      {/* Test notification to verify positioning */}
+      <TestNotification />
+      
       {/* Header */}
       <SiteHeader />
 
@@ -83,6 +92,13 @@ export default function LandingPage() {
               <p>Upload your ad content and pay securely online.</p>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Testimonials Section */}
+      <section className="px-6 py-20">
+        <div className="max-w-7xl mx-auto">
+          <MarketingToolsManager className="max-w-4xl mx-auto" />
         </div>
       </section>
 

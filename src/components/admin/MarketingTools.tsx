@@ -772,6 +772,178 @@ export default function MarketingTools() {
                   </div>
                 </div>
               )}
+
+              {formData.type === 'popup' && (
+                <div className="space-y-4">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Display Delay (1-60 seconds)</label>
+                      <input
+                        type="number"
+                        value={(formData.settings as any).displayDelay || 3}
+                        onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), displayDelay: Number(e.target.value) } }))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        min="1"
+                        max="60"
+                        placeholder="3"
+                      />
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Time before popup appears</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Auto Close (seconds)</label>
+                      <input
+                        type="number"
+                        value={(formData.settings as any).autoClose || 10}
+                        onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), autoClose: Number(e.target.value) } }))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        min="0"
+                        max="300"
+                        placeholder="10"
+                      />
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">0 = no auto close</p>
+                    </div>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Background Color</label>
+                      <input
+                        type="text"
+                        value={(formData.settings as any).backgroundColor || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), backgroundColor: e.target.value } }))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        placeholder="#ffffff or white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Text Color</label>
+                      <input
+                        type="text"
+                        value={(formData.settings as any).textColor || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), textColor: e.target.value } }))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        placeholder="#000000 or black"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Button Label</label>
+                      <input
+                        type="text"
+                        value={(formData.settings as any).cta?.label || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), cta: { ...((prev.settings as any).cta || {}), label: e.target.value } } }))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        placeholder="Learn More"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Button Link</label>
+                      <input
+                        type="url"
+                        value={(formData.settings as any).cta?.href || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), cta: { ...((prev.settings as any).cta || {}), href: e.target.value } } }))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        placeholder="https://example.com/signup"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {formData.type === 'sales_notification' && (
+                <div className="space-y-4">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Display Delay (1-60 seconds)</label>
+                      <input
+                        type="number"
+                        value={(formData.settings as any).displayDelay || 5}
+                        onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), displayDelay: Number(e.target.value) } }))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        min="1"
+                        max="60"
+                        placeholder="5"
+                      />
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Time before notification appears</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Duration (seconds)</label>
+                      <input
+                        type="number"
+                        value={(formData.settings as any).duration || 5}
+                        onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), duration: Number(e.target.value) } }))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        min="1"
+                        max="30"
+                        placeholder="5"
+                      />
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">How long each notification shows</p>
+                    </div>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Background Color</label>
+                      <input
+                        type="text"
+                        value={(formData.settings as any).backgroundColor || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), backgroundColor: e.target.value } }))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        placeholder="#ffffff or white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Text Color</label>
+                      <input
+                        type="text"
+                        value={(formData.settings as any).textColor || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), textColor: e.target.value } }))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        placeholder="#000000 or black"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="showProfilePicture"
+                        checked={Boolean((formData.settings as any).showProfilePicture)}
+                        onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), showProfilePicture: e.target.checked } }))}
+                        className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="showProfilePicture" className="ml-2 block text-sm text-gray-900 dark:text-white">
+                        Show Profile Pictures
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="showLocation"
+                        checked={Boolean((formData.settings as any).showLocation)}
+                        onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), showLocation: e.target.checked } }))}
+                        className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="showLocation" className="ml-2 block text-sm text-gray-900 dark:text-white">
+                        Show Location
+                      </label>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Time Frame Filter</label>
+                    <select
+                      value={(formData.settings as any).timeFrame || 'all'}
+                      onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), timeFrame: e.target.value } }))}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    >
+                      <option value="all">All Time</option>
+                      <option value="2days">Last 2 Days</option>
+                      <option value="2weeks">Last 2 Weeks</option>
+                      <option value="2months">Last 2 Months</option>
+                    </select>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Filter sales notifications by time period</p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
