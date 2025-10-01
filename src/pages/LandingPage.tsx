@@ -4,7 +4,7 @@ import SiteHeader from '../components/layouts/SiteHeader';
 import PartnersSection from '../components/shared/PartnersSection';
 import MarketingToolsManager from '../components/marketing/MarketingToolsManager';
 import MarketingOverlays from '../components/marketing/MarketingOverlays';
-import TestNotification from '../components/marketing/TestNotification';
+// import TestNotification from '../components/marketing/TestNotification';
 
 export default function LandingPage() {
 
@@ -14,7 +14,7 @@ export default function LandingPage() {
       <MarketingOverlays />
       
       {/* Test notification to verify positioning */}
-      <TestNotification />
+      {/* <TestNotification /> */}
       
       {/* Header */}
       <SiteHeader />
@@ -151,14 +151,14 @@ export default function LandingPage() {
               <div className="text-2xl font-bold text-black dark:text-white">$399</div>
             </div>
           </div>
-          <Link to="/custom-ads" className="btn-primary px-8 py-3">
-            Get Custom Ads
-          </Link>
         </div>
       </section>
 
       {/* Our Partners Section */}
-      <PartnersSection />
+      <section id="partners">
+        <PartnersSection />
+      </section>
+      
 
       {/* Pricing Section */}
       <section 

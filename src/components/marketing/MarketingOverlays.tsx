@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { AdminService, MarketingTool } from '../../services/adminService';
 import RecentSalesNotification from './RecentSalesNotification';
 import PopupMarketingTool from './PopupMarketingTool';
-import BannerMarketing from './BannerMarketing';
 
 export default function MarketingOverlays() {
   const [marketingTools, setMarketingTools] = useState<MarketingTool[]>([]);
@@ -37,15 +36,10 @@ export default function MarketingOverlays() {
     return null;
   }
 
-  const hasBanner = marketingTools.some(tool => tool.type === 'announcement_bar');
   const hasPopup = marketingTools.some(tool => tool.type === 'popup');
-  const hasSalesNotification = marketingTools.some(tool => tool.type === 'sales_notification');
 
   return (
     <>
-      {/* Banner Marketing - Always at the top */}
-      {hasBanner && <BannerMarketing />}
-      
       {/* Popup Marketing Tool - Overlay */}
       {hasPopup && <PopupMarketingTool />}
       

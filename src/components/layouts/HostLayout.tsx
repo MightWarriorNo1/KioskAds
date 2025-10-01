@@ -11,7 +11,8 @@ import {
   Megaphone,
   Menu, 
   LogOut,
-  Receipt
+  Receipt,
+  MessageSquare
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import Logo from '../shared/Logo';
@@ -27,7 +28,8 @@ const navigation = [
   { name: 'Revenue Tracker', href: '/host/revenue', icon: DollarSign },
   { name: 'Payout History', href: '/host/payouts', icon: CreditCard },
   { name: 'Analytics', href: '/host/analytics', icon: FileText },
-  { name: 'My Custom Ads', href: '/host/custom-ads', icon: Megaphone },
+  { name: 'Create Custom Ads', href: '/host/custom-ads', icon: Megaphone },
+  { name: 'Manage My Custom Ad', href: '/host/manage-custom-ads', icon: MessageSquare },
 ];
 
 interface HostLayoutProps {

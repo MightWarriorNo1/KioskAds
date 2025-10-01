@@ -5,6 +5,7 @@ import { useNotification } from '../../contexts/NotificationContext';
 import RecentActivity from '../shared/RecentActivity';
 import NotificationManager from './NotificationManager';
 import QuickActionsSetup from './QuickActionsSetup';
+import RecentSales from '../RecentSales';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import { useNavigate } from 'react-router-dom';
@@ -580,29 +581,34 @@ export default function AdminDashboard() {
         </Card>
       </div>
 
-      {/* Platform Overview Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        {/* User Growth */}
-        <Card className="animate-fade-in-up" title="User Growth">
-          <div className="h-48 sm:h-64 bg-gradient-to-br from-primary-50 to-accent-50 dark:from-gray-800 dark:to-gray-800 rounded-lg flex items-center justify-center">
-            <div className="text-center px-4">
-              <Users className="h-10 w-10 sm:h-12 sm:w-12 text-primary-600 mx-auto mb-3 sm:mb-4" />
-              <p className="text-sm sm:text-base">User registration trends</p>
-              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-2">Clients, hosts, and total platform growth</p>
+      {/* Recent Sales */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+        <RecentSales limit={3} className="lg:col-span-1" />
+        
+        {/* Platform Overview Charts */}
+        <div className="lg:col-span-2 grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+          {/* User Growth */}
+          <Card className="animate-fade-in-up" title="User Growth">
+            <div className="h-48 sm:h-64 bg-gradient-to-br from-primary-50 to-accent-50 dark:from-gray-800 dark:to-gray-800 rounded-lg flex items-center justify-center">
+              <div className="text-center px-4">
+                <Users className="h-10 w-10 sm:h-12 sm:w-12 text-primary-600 mx-auto mb-3 sm:mb-4" />
+                <p className="text-sm sm:text-base">User registration trends</p>
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-2">Clients, hosts, and total platform growth</p>
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
 
-        {/* Revenue Analytics */}
-        <Card className="animate-fade-in-up" title="Platform Revenue">
-          <div className="h-48 sm:h-64 bg-gradient-to-br from-success-50 to-primary-50 dark:from-gray-800 dark:to-gray-800 rounded-lg flex items-center justify-center">
-            <div className="text-center px-4">
-              <TrendingUp className="h-10 w-10 sm:h-12 sm:w-12 text-success-600 mx-auto mb-3 sm:mb-4" />
-              <p className="text-sm sm:text-base">Revenue breakdown and trends</p>
-              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-2">Commission, fees, and marketplace sales</p>
+          {/* Revenue Analytics */}
+          <Card className="animate-fade-in-up" title="Platform Revenue">
+            <div className="h-48 sm:h-64 bg-gradient-to-br from-success-50 to-primary-50 dark:from-gray-800 dark:to-gray-800 rounded-lg flex items-center justify-center">
+              <div className="text-center px-4">
+                <TrendingUp className="h-10 w-10 sm:h-12 sm:w-12 text-success-600 mx-auto mb-3 sm:mb-4" />
+                <p className="text-sm sm:text-base">Revenue breakdown and trends</p>
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-2">Commission, fees, and marketplace sales</p>
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        </div>
       </div>
 
       {/* Notification Manager Modal */}

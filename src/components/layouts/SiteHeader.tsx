@@ -81,6 +81,19 @@ export default function SiteHeader() {
     }
   };
 
+  const handlePartnersClick=(e:React.MouseEvent<HTMLAnchorElement>)=>{
+    e.preventDefault();
+    if(location.pathname==='/'){
+      const partnerSection=document.getElementById('partners');
+      if(partnerSection){
+        window.history.pushState(null, '', '/#partners');
+        partnerSection.scrollIntoView({ behavior: 'smooth' });
+      }
+    }else{
+      navigate('/#partners');
+    }
+  }
+
   return (
     <header className="sticky top-0 z-40 bg-white/70 dark:bg-gray-900/60 backdrop-blur border-b border-gray-200 dark:border-gray-800">
       <nav className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -125,6 +138,17 @@ export default function SiteHeader() {
             }`}
           >
             Pricing
+          </a>
+          <a 
+            href="/#partners" 
+            onClick={handlePartnersClick}
+            className={`transition-colors ${
+              location.pathname === '/' && location.hash === '#partners'
+                ? 'text-primary-600 dark:text-primary-400 font-semibold' 
+                : 'text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
+            }`}
+          >
+            Our Partners
           </a>
           <Link 
             to="/contact" 

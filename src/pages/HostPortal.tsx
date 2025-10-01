@@ -21,6 +21,7 @@ import HostReviewSubmitPage from './host/ReviewSubmitPage';
 import HostManageCampaignsPage from './host/ManageCampaignsPage';
 import HostBillingPage from './host/BillingPage';
 import CustomAdsPage from './CustomAdsPage';
+import HostManageMyCustomAdPage from './host/ManageMyCustomAdPage';
 
 export default function HostPortal() {
   return (
@@ -45,6 +46,7 @@ export default function HostPortal() {
         <Route path="/campaigns" element={<HostManageCampaignsPage />} />
         <Route path="/billing" element={<HostBillingPage />} />
         <Route path="/custom-ads" element={<CustomAdsPage />} />
+        <Route path="/manage-custom-ads" element={<HostManageMyCustomAdPage />} />
       </Routes>
     </HostLayout>
   );

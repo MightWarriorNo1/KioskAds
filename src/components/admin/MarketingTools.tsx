@@ -825,26 +825,48 @@ export default function MarketingTools() {
                       />
                     </div>
                   </div>
-                  <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Button Label</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Popup Title</label>
                       <input
                         type="text"
-                        value={(formData.settings as any).cta?.label || ''}
-                        onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), cta: { ...((prev.settings as any).cta || {}), label: e.target.value } } }))}
+                        value={(formData.settings as any).title || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), title: e.target.value } }))}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                        placeholder="Learn More"
+                        placeholder="TAKE 15% OFF"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Button Link</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Popup Message</label>
                       <input
-                        type="url"
-                        value={(formData.settings as any).cta?.href || ''}
-                        onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), cta: { ...((prev.settings as any).cta || {}), href: e.target.value } } }))}
+                        type="text"
+                        value={(formData.settings as any).message || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), message: e.target.value } }))}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                        placeholder="https://example.com/signup"
+                        placeholder="Your first purchase"
                       />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Button Text</label>
+                      <input
+                        type="text"
+                        value={(formData.settings as any).buttonText || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), buttonText: e.target.value } }))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        placeholder="Get Started Now"
+                      />
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="collectEmail"
+                        checked={(formData.settings as any).collectEmail || false}
+                        onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), collectEmail: e.target.checked } }))}
+                        className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="collectEmail" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Collect email for discount code
+                      </label>
                     </div>
                   </div>
                 </div>

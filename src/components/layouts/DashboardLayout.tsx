@@ -10,7 +10,8 @@ import {
   LogOut,
   Target,
   Menu,
-  Megaphone
+  Megaphone,
+  MessageSquare
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import Logo from '../shared/Logo';
@@ -45,7 +46,8 @@ export default function DashboardLayout({
     { name: 'Billing', href: '/client/billing', icon: FileText },
     { name: 'Profile', href: '/client/profile', icon: User },
     { name: 'Help Center', href: '/client/help', icon: HelpCircle },
-    { name: 'My Custom Ads', href: '/client/custom-ads', icon: Megaphone },
+    { name: 'Create Custom Ads', href: '/client/custom-ads', icon: Megaphone },
+    { name: 'Manage My Custom Ad', href: '/client/manage-custom-ads', icon: MessageSquare },
   ];
 
   const isActive = (href: string) => {

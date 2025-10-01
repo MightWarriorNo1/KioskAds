@@ -33,6 +33,27 @@ export interface PaymentHistory {
   created_at: string;
 }
 
+export interface RecentSale {
+  id: string;
+  user_id: string;
+  campaign_id: string;
+  amount: number;
+  status: 'succeeded' | 'pending' | 'failed' | 'refunded';
+  description: string;
+  payment_date: string;
+  created_at: string;
+  user: {
+    id: string;
+    full_name: string;
+    company_name?: string;
+  };
+  campaign: {
+    id: string;
+    name: string;
+    description?: string;
+  };
+}
+
 export class BillingService {
   static async createPaymentIntent(params: { amount: number; currency?: string; metadata?: Record<string, string>; setupForFutureUse?: boolean }): Promise<{ clientSecret: string } | null> {
     try {
@@ -288,6 +309,99 @@ export class BillingService {
         activeSubscriptions: 0,
         monthlySpend: 0
       };
+    }
+  }
+
+  static async getRecentSales(limit: number = 3): Promise<RecentSale[]> {
+    try {
+      const { data, error } = await supabase
+        .from('payment_history')
+        .select(`
+          *,
+          profiles!payment_history_user_id_fkey(
+            id,
+            full_name,
+            company_name
+          ),
+          campaigns!payment_history_campaign_id_fkey(
+            id,
+            name,
+            description
+          )
+        `)
+        .eq('status', 'succeeded')
+        .order('payment_date', { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        console.error('Error fetching recent sales:', error);
+        throw error;
+      }
+
+      return data?.map(payment => ({
+        id: payment.id,
+        user_id: payment.user_id,
+        campaign_id: payment.campaign_id,
+        amount: payment.amount,
+        status: payment.status,
+        description: payment.description,
+        payment_date: payment.payment_date,
+        created_at: payment.created_at,
+        user: {
+          id: payment.profiles.id,
+          full_name: payment.profiles.full_name,
+          company_name: payment.profiles.company_name
+        },
+        campaign: {
+          id: payment.campaigns.id,
+          name: payment.campaigns.name,
+          description: payment.campaigns.description
+        }
+      })) || [];
+    } catch (error) {
+      console.error('Error fetching recent sales:', error);
+      return [];
+    }
+  }
+
+  // Public method for recent sales that works without authentication
+  static async getPublicRecentSales(limit: number = 3): Promise<RecentSale[]> {
+    try {
+      // Use a direct query that bypasses RLS for public access
+      const { data, error } = await supabase
+        .rpc('get_recent_sales_public', { limit_count: limit });
+
+      if (error) {
+        console.error('Error fetching public recent sales:', error);
+        // Fallback to regular method if RPC fails
+        return this.getRecentSales(limit);
+      }
+
+      // Transform the RPC response to match our interface
+      return data?.map((item: any) => ({
+        id: item.id,
+        user_id: item.user_id,
+        campaign_id: item.campaign_id,
+        amount: item.amount,
+        status: item.status,
+        description: item.description,
+        payment_date: item.payment_date,
+        created_at: item.created_at,
+        user: {
+          id: item.user_data.id,
+          full_name: item.user_data.full_name,
+          company_name: item.user_data.company_name
+        },
+        campaign: {
+          id: item.campaign_data.id,
+          name: item.campaign_data.name,
+          description: item.campaign_data.description
+        }
+      })) || [];
+    } catch (error) {
+      console.error('Error fetching public recent sales:', error);
+      // Fallback to regular method if RPC fails
+      return this.getRecentSales(limit);
     }
   }
 

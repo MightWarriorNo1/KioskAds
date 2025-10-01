@@ -116,13 +116,41 @@ export class GmailService {
 
   // Proper UTF-8 safe Base64URL encoder for Gmail API
   private static base64UrlEncodeUtf8(input: string): string {
+    // Use the most reliable approach for UTF-8 to Base64 conversion
     const utf8Bytes = new TextEncoder().encode(input);
+    
+    // Convert Uint8Array to base64 using a chunked approach to avoid call stack issues
     let binary = '';
-    for (let i = 0; i < utf8Bytes.length; i++) {
-      binary += String.fromCharCode(utf8Bytes[i]);
+    const chunkSize = 0x8000; // 32KB chunks
+    
+    for (let i = 0; i < utf8Bytes.length; i += chunkSize) {
+      const chunk = utf8Bytes.slice(i, i + chunkSize);
+      // Use Array.from to convert Uint8Array to regular array, then apply
+      const chunkArray = Array.from(chunk);
+      binary += String.fromCharCode.apply(null, chunkArray);
     }
+    
     const base64 = btoa(binary);
     return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  // Test method to verify UTF-8 encoding works with emojis
+  static testUtf8Encoding(): boolean {
+    try {
+      const testString = 'Your 15% Discount Code is Here! 🎉';
+      const encoded = this.base64UrlEncodeUtf8(testString);
+      const decoded = atob(encoded.replace(/-/g, '+').replace(/_/g, '/'));
+      
+      // Verify the encoding/decoding works
+      const utf8Bytes = new TextEncoder().encode(testString);
+      const decodedBytes = new TextEncoder().encode(decoded);
+      
+      return utf8Bytes.length === decodedBytes.length && 
+             utf8Bytes.every((byte, index) => byte === decodedBytes[index]);
+    } catch (error) {
+      console.error('UTF-8 encoding test failed:', error);
+      return false;
+    }
   }
 
   // Process email queue

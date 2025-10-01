@@ -7,6 +7,7 @@ import { ProofOfPlayService } from '../../services/proofOfPlayService';
 import MetricsCard from '../shared/MetricsCard';
 import RecentActivity from '../shared/RecentActivity';
 import ProofOfPlayWidget from '../shared/ProofOfPlayWidget';
+import RecentSales from '../RecentSales';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 
@@ -263,6 +264,11 @@ export default function HostDashboard() {
         <Card className="lg:col-span-2 animate-fade-in-up" title="Recent Activity" subtitle="Latest updates across your kiosks">
           <RecentActivity activities={recentActivities} />
         </Card>
+      </div>
+
+      {/* Recent Sales */}
+      <div className="animate-fade-in-up">
+        <RecentSales limit={3} />
       </div>
 
       {/* Revenue Chart & PoP Widget */}

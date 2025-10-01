@@ -4492,4 +4492,34 @@ export class AdminService {
     }
   }
 
+  // Queue email for sending
+  static async queueEmail(emailData: {
+    recipient_email: string;
+    recipient_name: string;
+    subject: string;
+    body_html: string;
+    body_text: string;
+  }): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('email_queue')
+        .insert({
+          recipient_email: emailData.recipient_email,
+          recipient_name: emailData.recipient_name,
+          subject: emailData.subject,
+          body_html: emailData.body_html,
+          body_text: emailData.body_text,
+          status: 'pending',
+          retry_count: 0,
+          max_retries: 3
+        });
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error queueing email:', error);
+      return false;
+    }
+  }
+
 }

@@ -20,6 +20,7 @@ import CustomAdsPage from './CustomAdsPage';
 import CustomAdCreationPage from './CustomAdCreationPage';
 import CustomAdManagementPage from './CustomAdManagementPage';
 import CustomAdDetailsPage from './CustomAdDetailsPage';
+import ManageMyCustomAdPage from './ManageMyCustomAdPage';
 
 export default function ClientPortal() {
   return (
@@ -44,6 +45,7 @@ export default function ClientPortal() {
       <Route path="/custom-ads/create" element={<CustomAdCreationPage />} />
       <Route path="/custom-ads/manage" element={<CustomAdManagementPage />} />
       <Route path="/custom-ads/:id" element={<CustomAdDetailsPage />} />
+      <Route path="/manage-custom-ads" element={<ManageMyCustomAdPage />} />
     </Routes>
   );
 }
