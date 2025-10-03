@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom';
 import { MapPin, Clock, Upload, Check, Star ,Aperture, Camera, Videotape} from 'lucide-react';
 import SiteHeader from '../components/layouts/SiteHeader';
-import PartnersSection from '../components/shared/PartnersSection';
 import MarketingToolsManager from '../components/marketing/MarketingToolsManager';
 import MarketingOverlays from '../components/marketing/MarketingOverlays';
+import ProudlyPartneredWith from '../components/shared/ProudlyPartneredWith';
 // import TestNotification from '../components/marketing/TestNotification';
 
 export default function LandingPage() {
@@ -95,6 +95,9 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Proudly Partnered With Section */}
+      <ProudlyPartneredWith className="bg-gray-50 dark:bg-gray-800/30" />
+
       {/* Testimonials Section */}
       <section className="px-6 py-20">
         <div className="max-w-7xl mx-auto">
@@ -153,12 +156,6 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
-
-      {/* Our Partners Section */}
-      <section id="partners">
-        <PartnersSection />
-      </section>
-      
 
       {/* Pricing Section */}
       <section 

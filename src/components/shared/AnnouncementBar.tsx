@@ -72,14 +72,26 @@ export default function AnnouncementBar() {
       }}
       className="w-full"
     >
-      <div className="mx-auto max-w-7xl px-4 py-2 flex items-center gap-3 justify-between">
-        <div className="text-sm font-medium">
-          {activeBar.title ? (
-            <span className="mr-2">{activeBar.title}</span>
-          ) : null}
-          <span>{activeBar.content}</span>
-        </div>
-        <div className="flex items-center gap-2">
+      <div className="mx-auto max-w-7xl px-4 py-2 flex items-center justify-center relative">
+        {/* Dismiss button positioned absolutely on the right */}
+        <button
+          onClick={() => setDismissedId(activeBar.id)}
+          className="absolute right-0 text-sm opacity-80 hover:opacity-100"
+          style={{ color: textColor }}
+          aria-label="Dismiss announcement"
+        >
+          ✕
+        </button>
+        
+        {/* Centered content */}
+        <div className="flex items-center gap-3">
+          <div className="text-sm font-medium text-center">
+            {activeBar.title ? (
+              <span className="mr-2">{activeBar.title}</span>
+            ) : null}
+            <span>{activeBar.content}</span>
+          </div>
+          
           {cta && cta.label && cta.href && !collectEmail && (
             <a
               href={cta.href}
@@ -89,6 +101,7 @@ export default function AnnouncementBar() {
               {cta.label}
             </a>
           )}
+          
           {collectEmail && (
             <form onSubmit={handleSubmitEmail} className="flex items-center gap-2">
               <input
@@ -110,14 +123,6 @@ export default function AnnouncementBar() {
               </button>
             </form>
           )}
-          <button
-            onClick={() => setDismissedId(activeBar.id)}
-            className="text-sm opacity-80 hover:opacity-100"
-            style={{ color: textColor }}
-            aria-label="Dismiss announcement"
-          >
-            ✕
-          </button>
         </div>
       </div>
     </div>

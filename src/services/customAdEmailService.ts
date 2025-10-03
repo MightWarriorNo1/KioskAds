@@ -37,20 +37,21 @@ export class CustomAdEmailService {
         ? new Date(order.estimated_completion_date).toLocaleDateString()
         : 'TBD';
 
+      const clientName = order.user?.full_name || order.user?.full_name || `${order.first_name} ${order.last_name}`;
       const variables = {
         order_id: order.id,
-        client_name: `${order.first_name} ${order.last_name}`,
+        client_name: clientName,
         service_name: service.name,
         total_amount: order.total_amount.toFixed(2),
         estimated_completion: estimatedCompletion
       };
 
       // Send to client
-      await this.sendEmail(template, client.email, `${client.first_name} ${client.last_name}`, variables);
+      await this.sendEmail(template, client.email, clientName, variables);
 
       // Send to admins
       await this.sendNotificationToAdmins(order, 'order_submitted', 'Custom Ad Order Submitted', 
-        `New custom ad order #${order.id} has been submitted by ${order.first_name} ${order.last_name}`);
+        `New custom ad order #${order.id} has been submitted by ${clientName}`);
 
     } catch (error) {
       console.error('Error sending order submitted notification:', error);
@@ -71,14 +72,14 @@ export class CustomAdEmailService {
 
       const variables = {
         order_id: order.id,
-        client_name: `${order.first_name} ${order.last_name}`,
+        client_name: order.user?.full_name || order.user?.full_name || `${order.first_name} ${order.last_name}`,
         service_name: service.name,
         total_amount: order.total_amount.toFixed(2),
         rejection_reason: order.rejection_reason || 'No reason provided'
       };
 
       // Send to client
-      await this.sendEmail(template, client.email, `${client.first_name} ${client.last_name}`, variables);
+      await this.sendEmail(template, client.email, client.user?.full_name || `${client.first_name} ${client.last_name}`, variables);
 
       // Send to admins
       await this.sendNotificationToAdmins(order, 'order_rejected', 'Custom Ad Order Rejected', 
@@ -107,14 +108,14 @@ export class CustomAdEmailService {
 
       const variables = {
         order_id: order.id,
-        client_name: `${order.first_name} ${order.last_name}`,
+        client_name: order.user?.full_name || order.user?.full_name || `${order.first_name} ${order.last_name}`,
         service_name: service.name,
         total_amount: order.total_amount.toFixed(2),
         estimated_completion: estimatedCompletion
       };
 
       // Send to client
-      await this.sendEmail(template, client.email, `${client.first_name} ${client.last_name}`, variables);
+      await this.sendEmail(template, client.email, client.user?.full_name || `${client.first_name} ${client.last_name}`, variables);
 
       // Send to admins
       await this.sendNotificationToAdmins(order, 'order_approved', 'Custom Ad Order Approved', 
@@ -146,7 +147,7 @@ export class CustomAdEmailService {
 
       const variables = {
         order_id: order.id,
-        client_name: `${order.first_name} ${order.last_name}`,
+        client_name: order.user?.full_name || order.user?.full_name || `${order.first_name} ${order.last_name}`,
         designer_name: designer.full_name || `${designer.first_name} ${designer.last_name}`,
         designer_email: designer.email,
         service_name: service.name,
@@ -154,7 +155,7 @@ export class CustomAdEmailService {
       };
 
       // Send to client
-      await this.sendEmail(template, client.email, `${client.first_name} ${client.last_name}`, variables);
+      await this.sendEmail(template, client.email, client.user?.full_name || `${client.first_name} ${client.last_name}`, variables);
 
       // Send to designer
       await this.sendDesignerAssignmentNotification(order, designer);
@@ -181,14 +182,14 @@ export class CustomAdEmailService {
 
       const variables = {
         order_id: order.id,
-        client_name: `${order.first_name} ${order.last_name}`,
+        client_name: order.user?.full_name || order.user?.full_name || `${order.first_name} ${order.last_name}`,
         service_name: service.name,
         designer_name: designer.full_name || `${designer.first_name} ${designer.last_name}`,
         proof_version: proof.version_number.toString()
       };
 
       // Send to client
-      await this.sendEmail(template, client.email, `${client.first_name} ${client.last_name}`, variables);
+      await this.sendEmail(template, client.email, client.user?.full_name || `${client.first_name} ${client.last_name}`, variables);
 
       // Send to admins
       await this.sendNotificationToAdmins(order, 'proofs_ready', 'Design Proofs Ready', 
@@ -216,14 +217,14 @@ export class CustomAdEmailService {
 
       const variables = {
         order_id: order.id,
-        client_name: `${order.first_name} ${order.last_name}`,
+        client_name: order.user?.full_name || order.user?.full_name || `${order.first_name} ${order.last_name}`,
         service_name: service.name,
         designer_name: designer.full_name || `${designer.first_name} ${designer.last_name}`,
         proof_version: proof.version_number.toString()
       };
 
       // Send to client
-      await this.sendEmail(template, client.email, `${client.first_name} ${client.last_name}`, variables);
+      await this.sendEmail(template, client.email, client.user?.full_name || `${client.first_name} ${client.last_name}`, variables);
 
       // Send to designer
       await this.sendDesignerNotification(designer.email, designer.full_name || `${designer.first_name} ${designer.last_name}`, 
@@ -251,7 +252,7 @@ export class CustomAdEmailService {
 
       const variables = {
         order_id: order.id,
-        client_name: `${order.first_name} ${order.last_name}`,
+        client_name: order.user?.full_name || order.user?.full_name || `${order.first_name} ${order.last_name}`,
         service_name: service.name,
         designer_name: designer.full_name || `${designer.first_name} ${designer.last_name}`,
         proof_version: proof.version_number.toString(),
@@ -259,7 +260,7 @@ export class CustomAdEmailService {
       };
 
       // Send to client
-      await this.sendEmail(template, client.email, `${client.first_name} ${client.last_name}`, variables);
+      await this.sendEmail(template, client.email, client.user?.full_name || `${client.first_name} ${client.last_name}`, variables);
 
       // Send to designer
       await this.sendDesignerRejectionNotification(order, proof, designer);
@@ -290,14 +291,14 @@ export class CustomAdEmailService {
 
       const variables = {
         order_id: order.id,
-        client_name: `${order.first_name} ${order.last_name}`,
+        client_name: order.user?.full_name || order.user?.full_name || `${order.first_name} ${order.last_name}`,
         service_name: service.name,
         designer_name: designer.full_name,
         completion_date: completionDate
       };
 
       // Send to client
-      await this.sendEmail(template, client.email, `${client.first_name} ${client.last_name}`, variables);
+      await this.sendEmail(template, client.email, client.user?.full_name || `${client.first_name} ${client.last_name}`, variables);
 
       // Send to designer
       await this.sendDesignerNotification(designer.email, designer.full_name, 
@@ -330,7 +331,7 @@ export class CustomAdEmailService {
       const variables = {
         order_id: order.id,
         designer_name: designer.full_name || `${designer.first_name} ${designer.last_name}`,
-        client_name: `${order.first_name} ${order.last_name}`,
+        client_name: order.user?.full_name || order.user?.full_name || `${order.first_name} ${order.last_name}`,
         service_name: service.name,
         estimated_completion: estimatedCompletion,
         client_details: clientDetails,
@@ -356,7 +357,7 @@ export class CustomAdEmailService {
       const variables = {
         order_id: order.id,
         designer_name: designer.full_name || `${designer.first_name} ${designer.last_name}`,
-        client_name: `${order.first_name} ${order.last_name}`,
+        client_name: order.user?.full_name || order.user?.full_name || `${order.first_name} ${order.last_name}`,
         service_name: service.name,
         proof_version: proof.version_number.toString(),
         client_feedback: proof.client_feedback || 'No specific feedback provided'
@@ -554,6 +555,119 @@ export class CustomAdEmailService {
         });
     } catch (error) {
       console.error('Error creating notification:', error);
+    }
+  }
+
+  // Send email notification for custom ad order purchased/submitted (Client/Host)
+  static async sendOrderPurchasedNotification(order: CustomAdOrder): Promise<void> {
+    try {
+      const template = await this.getEmailTemplate('custom_ad_purchased');
+      if (!template) return;
+
+      const client = await this.getUserProfile(order.user_id);
+      if (!client) return;
+
+      const service = await this.getCustomAdService(order.service_key);
+      if (!service) return;
+
+      const estimatedCompletion = order.estimated_completion_date 
+        ? new Date(order.estimated_completion_date).toLocaleDateString()
+        : 'TBD';
+
+      const variables = {
+        client_name: order.user?.full_name || order.user?.full_name || `${order.first_name} ${order.last_name}`,
+        order_id: order.id,
+        service_name: service.name,
+        total_amount: order.total_amount.toFixed(2),
+        estimated_completion: estimatedCompletion
+      };
+
+      // Send to client
+      await this.sendEmail(template, client.email, client.user?.full_name || `${client.first_name} ${client.last_name}`, variables);
+
+      // Send to admins
+      await this.sendNotificationToAdmins(order, 'order_purchased', 'Custom Ad Order Purchased', 
+        `New custom ad order #${order.id} has been purchased by ${order.first_name} ${order.last_name}`);
+
+    } catch (error) {
+      console.error('Error sending order purchased notification:', error);
+    }
+  }
+
+  // Send email notification for custom ad order approved to Designer (Admin Courtesy Copy)
+  static async sendOrderApprovedToDesignerNotification(order: CustomAdOrder): Promise<void> {
+    try {
+      const template = await this.getEmailTemplate('custom_ad_approved');
+      if (!template) return;
+
+      const client = await this.getUserProfile(order.user_id);
+      if (!client) return;
+
+      const designer = order.designer;
+      if (!designer) return;
+
+      const service = await this.getCustomAdService(order.service_key);
+      if (!service) return;
+
+      const estimatedCompletion = order.estimated_completion_date 
+        ? new Date(order.estimated_completion_date).toLocaleDateString()
+        : 'TBD';
+
+      const variables = {
+        client_name: order.user?.full_name || order.user?.full_name || `${order.first_name} ${order.last_name}`,
+        order_id: order.id,
+        service_name: service.name,
+        designer_name: designer.full_name,
+        estimated_completion: estimatedCompletion
+      };
+
+      // Send to client
+      await this.sendEmail(template, client.email, client.user?.full_name || `${client.first_name} ${client.last_name}`, variables);
+
+      // Send to designer
+      await this.sendDesignerNotification(designer.email, designer.full_name, 
+        'Custom Ad Order Approved', `Order #${order.id} has been approved and assigned to you.`);
+
+      // Send to admins
+      await this.sendNotificationToAdmins(order, 'order_approved', 'Custom Ad Order Approved', 
+        `Custom ad order #${order.id} has been approved and assigned to designer ${designer.full_name}`);
+
+    } catch (error) {
+      console.error('Error sending order approved to designer notification:', error);
+    }
+  }
+
+  // Send email notification for designer proof submitted (Admin Courtesy Copy)
+  static async sendProofSubmittedNotification(order: CustomAdOrder, proof: CustomAdProof): Promise<void> {
+    try {
+      const template = await this.getEmailTemplate('custom_ad_proof_submitted');
+      if (!template) return;
+
+      const client = await this.getUserProfile(order.user_id);
+      if (!client) return;
+
+      const designer = order.designer;
+      if (!designer) return;
+
+      const service = await this.getCustomAdService(order.service_key);
+      if (!service) return;
+
+      const variables = {
+        client_name: order.user?.full_name || order.user?.full_name || `${order.first_name} ${order.last_name}`,
+        order_id: order.id,
+        service_name: service.name,
+        designer_name: designer.full_name
+      };
+
+      // Send to client
+      await this.sendEmail(template, client.email, client.user?.full_name || `${client.first_name} ${client.last_name}`, variables);
+
+      // Send to admins
+      await this.sendNotificationToAdmins(order, 'proof_submitted', 'Designer Proof Submitted', 
+        `Designer ${designer.full_name} has submitted a proof for order #${order.id}`);
+
+    } catch (error) {
+      console.error('Error sending proof submitted notification:', error);
     }
   }
 

@@ -61,10 +61,19 @@ export default function BannerMarketing({ className = '' }: BannerMarketingProps
       }}
     >
       <div className="max-w-7xl mx-auto px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4 flex-1">
-            <div className="flex-1">
-              <p className="text-sm font-medium">
+        <div className="flex items-center justify-center relative">
+          {/* Close button positioned absolutely on the right */}
+          <button
+            onClick={handleClose}
+            className="absolute right-0 text-white hover:text-white hover:bg-white hover:bg-opacity-20 rounded-md p-1 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+          
+          {/* Centered content */}
+          <div className="flex items-center space-x-4">
+            <div>
+              <p className="text-sm font-medium text-center">
                 {marketingTool.content}
               </p>
             </div>
@@ -92,13 +101,6 @@ export default function BannerMarketing({ className = '' }: BannerMarketingProps
               </div>
             )}
           </div>
-
-          <button
-            onClick={handleClose}
-            className="ml-4 text-white hover:text-white hover:bg-white hover:bg-opacity-20 rounded-md p-1 transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
         </div>
       </div>
     </div>

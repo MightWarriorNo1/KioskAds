@@ -251,8 +251,11 @@ Thank you for subscribing to our newsletter!
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Enter your email here..."
                     required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-black"
-                    style={{ backgroundColor: '#ffffff' }}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-black placeholder-gray-500"
+                    style={{ 
+                      backgroundColor: '#ffffff',
+                      color: '#000000'
+                    }}
                   />
                 </div>
                 

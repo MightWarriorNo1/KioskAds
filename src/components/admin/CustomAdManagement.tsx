@@ -346,7 +346,7 @@ export default function CustomAdManagement() {
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium">{order.first_name} {order.last_name}</span>
+                      <span className="font-medium">{order.user?.full_name || `${order.first_name} ${order.last_name}`}</span>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(order.workflow_status)}`}>
                         {(order.workflow_status || 'submitted').replace('_',' ')}
                       </span>
@@ -429,7 +429,7 @@ export default function CustomAdManagement() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                     <div className="flex items-center gap-2">
                       <User className="w-4 h-4 text-gray-400" />
-                      <span>{selectedOrder.first_name} {selectedOrder.last_name}</span>
+                      <span>{selectedOrder.user?.full_name || `${selectedOrder.first_name} ${selectedOrder.last_name}`}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Mail className="w-4 h-4 text-gray-400" />

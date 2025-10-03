@@ -21,6 +21,7 @@ export interface Campaign {
   impressions?: number;
   clicks?: number;
   max_video_duration?: number;
+  kiosks?: Kiosk[];
 }
 
 export interface Kiosk {
@@ -51,15 +52,80 @@ export class CampaignService {
         .from('campaigns')
         .select(`
           *,
-          kiosks:kiosk_campaigns(kiosk_id)
+          kiosks:kiosk_campaigns(
+            kiosk_id,
+            kiosks:kiosks(
+              id,
+              name,
+              location,
+              address,
+              city,
+              state,
+              traffic_level,
+              base_rate,
+              price,
+              status,
+              coordinates,
+              description
+            )
+          )
         `)
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
+      // Check and update campaign statuses based on current date
+      const campaignsToUpdate: string[] = [];
+
+      for (const campaign of data || []) {
+        // Check if campaign should be activated (start date reached)
+        if (campaign.status === 'pending' && new Date(campaign.start_date) <= new Date()) {
+          campaignsToUpdate.push(campaign.id);
+          await this.updateCampaignStatus(campaign.id, 'active');
+        }
+        // Check if campaign should be completed (end date passed)
+        else if (campaign.status === 'active' && new Date(campaign.end_date) < new Date()) {
+          campaignsToUpdate.push(campaign.id);
+          await this.updateCampaignStatus(campaign.id, 'completed');
+        }
+      }
+
+      // If we updated any campaigns, refetch the data to get the latest statuses
+      let finalData = data;
+      if (campaignsToUpdate.length > 0) {
+        const { data: updatedData, error: updateError } = await supabase
+          .from('campaigns')
+          .select(`
+            *,
+            kiosks:kiosk_campaigns(
+              kiosk_id,
+              kiosks:kiosks(
+                id,
+                name,
+                location,
+                address,
+                city,
+                state,
+                traffic_level,
+                base_rate,
+                price,
+                status,
+                coordinates,
+                description
+              )
+            )
+          `)
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
+
+        if (!updateError) {
+          finalData = updatedData;
+        }
+      }
+
       // Transform the data to match our interface
-      return data?.map(campaign => ({
+      return finalData?.map(campaign => ({
         id: campaign.id,
         name: campaign.name || `Campaign ${new Date(campaign.start_date).toLocaleDateString()} - ${new Date(campaign.end_date).toLocaleDateString()}`,
         description: campaign.description,
@@ -78,7 +144,8 @@ export class CampaignService {
         target_demographics: campaign.target_demographics,
         total_spent: campaign.total_spent,
         impressions: campaign.impressions,
-        clicks: campaign.clicks
+        clicks: campaign.clicks,
+        kiosks: campaign.kiosks?.map((k: any) => k.kiosks).filter(Boolean) || []
       })) || [];
     } catch (error) {
       console.error('Error fetching user campaigns:', error);

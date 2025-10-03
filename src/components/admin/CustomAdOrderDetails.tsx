@@ -37,8 +37,8 @@ const CustomAdOrderDetails: React.FC<CustomAdOrderDetailsProps> = ({ order, onUp
   const [newComment, setNewComment] = useState('');
   const [proofFiles, setProofFiles] = useState<File[]>([]);
   const [editingFields, setEditingFields] = useState({
-    firstName: order.first_name,
-    lastName: order.last_name,
+    firstName: order.user?.full_name?.split(' ')[0] || order.first_name,
+    lastName: order.user?.full_name?.split(' ').slice(1).join(' ') || order.last_name,
     email: order.email,
     phone: order.phone,
     address: order.address,
@@ -145,7 +145,7 @@ const CustomAdOrderDetails: React.FC<CustomAdOrderDetailsProps> = ({ order, onUp
               <User className="h-6 w-6 text-gray-600" />
               <div>
                 <h2 className="text-xl font-semibold">
-                  {order.first_name} {order.last_name}
+                  {order.user?.full_name || `${order.first_name} ${order.last_name}`}
                 </h2>
                 <p className="text-sm text-gray-600">
                   Order #{order.id.slice(-8)} • {new Date(order.created_at).toLocaleDateString()}

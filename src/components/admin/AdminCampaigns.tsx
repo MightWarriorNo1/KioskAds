@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Calendar, Play, PauseCircle, XCircle, RefreshCw, Search, Edit, Save, X, DollarSign, Filter, Image, Video, ArrowLeftRight, Eye, Download } from 'lucide-react';
 import { AdminService, AdminCampaignItem } from '../../services/adminService';
 import { MediaService } from '../../services/mediaService';
-import PhonePreview from './PhonePreview';
+import KioskPreview from './KioskPreview';
 import { useNotification } from '../../contexts/NotificationContext';
 import { supabase } from '../../lib/supabaseClient';
 
@@ -427,47 +427,64 @@ export default function AdminCampaigns() {
                 </div>
               ) : (
                 // View Mode
-                <div className="flex flex-col md:flex-row md:items-start md:justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white truncate max-w-full">{c.name}</h4>
-                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 capitalize flex-shrink-0">{c.status}</span>
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">{c.description || '—'}</p>
-                    
-                    {/* Media Preview for Draft, Pending, Active campaigns */}
-                    {['draft', 'pending', 'active'].includes(c.status) && mediaPreviews[c.id]?.url && (
-                      <div className="mt-4 mb-4">
-                        <PhonePreview
-                          mediaUrl={mediaPreviews[c.id].url}
-                          mediaType={mediaPreviews[c.id].type}
-                          title={`${c.name} - Ad Preview`}
-                          className="mx-auto"
-                        />
-                      </div>
-                    )}
-                    
-                    {/* Loading state for previews */}
-                    {['draft', 'pending', 'active'].includes(c.status) && loadingPreviews && !mediaPreviews[c.id] && (
-                      <div className="mt-4 mb-4 flex items-center justify-center">
-                        <div className="w-16 h-28 bg-gray-200 dark:bg-gray-700 rounded-[2.5rem] p-2 animate-pulse">
-                          <div className="w-full h-full bg-gray-300 dark:bg-gray-600 rounded-[2rem]"></div>
-                        </div>
-                      </div>
-                    )}
-                    <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
-                      <span className="inline-flex items-center gap-1"><Calendar className="h-4 w-4" />{new Date(c.start_date).toLocaleDateString()} - {new Date(c.end_date).toLocaleDateString()}</span>
-                      <span className="inline-flex items-center gap-1"><DollarSign className="h-4 w-4" />Budget: ${c.budget.toLocaleString()}</span>
-                      {c.daily_budget && (
-                        <span className="inline-flex items-center gap-1">Daily: ${c.daily_budget.toLocaleString()}</span>
-                      )}
-                      {c.user && (
-                        <span className="inline-flex items-center gap-1">Owner: {c.user.full_name} ({c.user.company_name || c.user.email}) · Role: {c.user.role ? c.user.role : 'Unknown'}</span>
-                      )}
-                    </div>
+                <div className="space-y-4">
+                  {/* Header Section */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white truncate max-w-full">{c.name}</h4>
+                    <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 capitalize flex-shrink-0">{c.status}</span>
                   </div>
                   
-                  <div className="mt-3 flex flex-col gap-2 w-full md:w-64 md:ml-4">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">{c.description || '—'}</p>
+                  
+                  {/* Main Content - Side by Side Layout */}
+                  <div className="flex flex-col lg:flex-row lg:items-start gap-6">
+                    {/* Campaign Details - Left Side */}
+                    <div className="flex-1 min-w-0 space-y-3">
+                      <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4 flex-shrink-0" />
+                          <span>{new Date(c.start_date).toLocaleDateString()} - {new Date(c.end_date).toLocaleDateString()}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <DollarSign className="h-4 w-4 flex-shrink-0" />
+                          <span>Budget: ${c.budget.toLocaleString()}</span>
+                        </div>
+                        {c.daily_budget && (
+                          <div className="flex items-center gap-2">
+                            <DollarSign className="h-4 w-4 flex-shrink-0" />
+                            <span>Daily: ${c.daily_budget.toLocaleString()}</span>
+                          </div>
+                        )}
+                        {c.user && (
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">Owner:</span>
+                            <span>{c.user.full_name} ({c.user.company_name || c.user.email}) · Role: {c.user.role ? c.user.role : 'Unknown'}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Media Preview - Right Side */}
+                    {['draft', 'pending', 'active'].includes(c.status) && (mediaPreviews[c.id]?.url || (loadingPreviews && !mediaPreviews[c.id])) && (
+                      <div className="flex-shrink-0 flex justify-center lg:justify-end">
+                        {mediaPreviews[c.id]?.url ? (
+                          <KioskPreview
+                            mediaUrl={mediaPreviews[c.id].url}
+                            mediaType={mediaPreviews[c.id].type}
+                            title={`${c.name} - Ad Preview`}
+                            className="w-32 h-48"
+                          />
+                        ) : loadingPreviews && !mediaPreviews[c.id] ? (
+                          <div className="w-32 h-48 bg-gray-200 dark:bg-gray-700 rounded-[0.5rem] p-2 animate-pulse flex items-center justify-center">
+                            <div className="w-full h-full bg-gray-300 dark:bg-gray-600 rounded-[0.3rem]"></div>
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Action Buttons Section */}
+                  <div className="flex flex-col gap-2 w-full">
                     <div className="flex flex-wrap gap-2">
                       <button
                         onClick={() => startEditing(c)}

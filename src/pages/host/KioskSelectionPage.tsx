@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { Search, MapPin, List, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import LeafletMap from '../../components/MapContainer';
-import EnhancedKioskSelection from '../../components/client/EnhancedKioskSelection';
 import { CampaignService, Kiosk } from '../../services/campaignService';
 import { LatLngTuple } from 'leaflet';
 
@@ -29,7 +28,7 @@ export default function HostKioskSelectionPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   const steps = [
-    { number: 1, name: 'Setup Service', current: false, completed: true },
+    { number: 1, name: 'Choose Ad Type', current: false, completed: true },
     { number: 2, name: 'Select Kiosk', current: true, completed: false },
     { number: 3, name: 'Choose Weeks', current: false, completed: false },
     { number: 4, name: 'Add Media & Duration', current: false, completed: false },
@@ -80,7 +79,7 @@ export default function HostKioskSelectionPage() {
 
   const selectedKiosks = kiosks.filter((k) => selectedKioskIds.includes(k.id));
 
-  const kioskMapData: KioskData[] = filtered.map((kiosk) => ({
+  const kioskMapData: KioskData[] = kiosks.map((kiosk) => ({
     id: kiosk.id,
     name: kiosk.name,
     city: kiosk.city,
@@ -106,8 +105,32 @@ export default function HostKioskSelectionPage() {
 
   return (
     <div>
-      {/* Progress - simple inline for host layout */}
+      {/* Progress Indicator */}
       <div className="mb-6 md:mb-8">
+        {/* Mobile Progress - Vertical Stack */}
+        <div className="block md:hidden">
+          <div className="flex items-center justify-center space-x-2 mb-4">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium shadow-soft ${
+              steps[1].current 
+                ? 'bg-black text-white' 
+                : steps[1].completed
+                ? 'bg-green-600 text-white'
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+            }`}>
+              {steps[1].completed ? '✓' : steps[1].number}
+            </div>
+            <span className={`text-sm font-medium ${
+              steps[1].current ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'
+            }`}>
+              {steps[1].name}
+            </span>
+          </div>
+          <div className="text-center text-xs text-gray-500 dark:text-gray-400">
+            Step 2 of {steps.length}
+          </div>
+        </div>
+        
+        {/* Desktop Progress - Horizontal */}
         <div className="hidden md:flex items-center space-x-4 overflow-x-auto">
           {steps.map((step, index) => (
             <div key={step.number} className="flex items-center flex-shrink-0">
@@ -142,7 +165,7 @@ export default function HostKioskSelectionPage() {
           className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors shadow-soft"
         >
           <ArrowLeft className="h-4 w-4" />
-          <span>Back to Setup Service</span>
+          <span>Back to Choose Ad Type</span>
         </button>
       </div>
 
@@ -199,8 +222,8 @@ export default function HostKioskSelectionPage() {
       {/* Enhanced Kiosk Selection / Map */}
       <div className="mb-6 md:mb-8">
         {viewMode === 'map' ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-2 h-[420px] md:h-[560px] w-full">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div className="lg:col-span-2 h-[500px] lg:h-[600px] w-full">
               <LeafletMap
                 center={[33.5689, -117.1865]}
                 zoom={11}
@@ -210,48 +233,232 @@ export default function HostKioskSelectionPage() {
                 onKioskSelect={handleMapKioskSelect}
               />
             </div>
-            <div className="md:col-span-1 max-h-[420px] md:max-h-[560px] overflow-y-auto">
-              <EnhancedKioskSelection
-                kiosks={filtered}
-                selectedKioskIds={selectedKioskIds}
-                onSelectionChange={handleKioskSelectionChange}
-              />
-            </div>
-            <div className="md:col-span-2">
-              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm md:text-base font-semibold text-gray-900 dark:text-white">Selected Kiosks</h3>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">{selectedKioskIds.length}</span>
-                </div>
-                {selectedKiosks.length === 0 ? (
-                  <div className="text-xs md:text-sm text-gray-500 dark:text-gray-400">No kiosks selected yet. Click a marker and choose "Select this kiosk".</div>
-                ) : (
-                  <ul className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {selectedKiosks.map((kiosk) => (
-                      <li key={kiosk.id} className="py-2 flex items-center justify-between">
-                        <div className="min-w-0 mr-3">
-                          <div className="text-sm font-medium text-gray-900 dark:text-white truncate">{kiosk.name}</div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{kiosk.city}</div>
+            <div className="lg:col-span-2">
+              <div className="space-y-6">
+                {/* All Kiosks Grid - No Scrollbar */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {kiosks.map((kiosk) => {
+                    const isSelected = selectedKioskIds.includes(kiosk.id);
+                    
+                    return (
+                      <div
+                        key={kiosk.id}
+                        className={`border rounded-lg p-4 transition-all cursor-pointer ${
+                          isSelected
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 ring-2 ring-blue-500'
+                            : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600'
+                        }`}
+                        onClick={() => handleKioskSelectionChange(
+                          isSelected 
+                            ? selectedKioskIds.filter(id => id !== kiosk.id)
+                            : [...selectedKioskIds, kiosk.id]
+                        )}
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-gray-900 dark:text-white mb-1 text-sm">
+                              {kiosk.name}
+                            </h3>
+                            <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
+                              {kiosk.address}
+                            </p>
+                            <div className="flex items-center space-x-2">
+                              <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                                kiosk.traffic_level === 'high' 
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                                  : kiosk.traffic_level === 'medium'
+                                  ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'
+                                  : 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
+                              }`}>
+                                {kiosk.traffic_level.charAt(0).toUpperCase() + kiosk.traffic_level.slice(1)} Traffic
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center space-x-2">
+                            {isSelected ? (
+                              <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
+                                <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                            ) : (
+                              <div className="w-6 h-6 border-2 border-gray-300 dark:border-gray-600 rounded-full" />
+                            )}
+                          </div>
                         </div>
-                        <button
-                          onClick={() => handleRemoveSelectedKiosk(kiosk.id)}
-                          className="text-xs px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
-                        >
-                          Remove
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+
+                        {/* Pricing Information */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-600 dark:text-gray-400">Base Price:</span>
+                            <span className="font-medium text-gray-900 dark:text-white text-sm">
+                              ${kiosk.price.toFixed(2)}/week
+                            </span>
+                          </div>
+                        </div>
+            </div>
+                    );
+                  })}
+                </div>
+
+                {/* Selected Kiosks Summary */}
+                {selectedKioskIds.length > 0 && (
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                    <h3 className="font-semibold text-gray-900 dark:text-white mb-3">
+                      Selected Kiosks ({selectedKioskIds.length})
+                    </h3>
+                    
+                    <div className="space-y-2">
+                    {selectedKiosks.map((kiosk) => (
+                        <div key={kiosk.id} className="flex items-center justify-between text-sm">
+                          <span className="text-gray-700 dark:text-gray-300">{kiosk.name}</span>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-gray-600 dark:text-gray-400">
+                              ${kiosk.price.toFixed(2)}/week
+                            </span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleKioskSelectionChange(selectedKioskIds.filter(id => id !== kiosk.id));
+                              }}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Pricing Summary */}
+                    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center justify-between text-lg font-bold">
+                        <span className="text-gray-900 dark:text-white">Total:</span>
+                        <span className="text-blue-600 dark:text-blue-400">
+                          ${selectedKiosks.reduce((sum, kiosk) => sum + kiosk.price, 0).toFixed(2)}/week
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
           </div>
         ) : (
-          <EnhancedKioskSelection
-            kiosks={filtered}
-            selectedKioskIds={selectedKioskIds}
-            onSelectionChange={handleKioskSelectionChange}
-          />
+          <div className="space-y-6">
+            {/* All Kiosks Grid - No Scrollbar */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {kiosks.map((kiosk) => {
+                const isSelected = selectedKioskIds.includes(kiosk.id);
+                
+                return (
+                  <div
+                    key={kiosk.id}
+                    className={`border rounded-lg p-4 transition-all cursor-pointer ${
+                      isSelected
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 ring-2 ring-blue-500'
+                        : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600'
+                    }`}
+                    onClick={() => handleKioskSelectionChange(
+                      isSelected 
+                        ? selectedKioskIds.filter(id => id !== kiosk.id)
+                        : [...selectedKioskIds, kiosk.id]
+                    )}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900 dark:text-white mb-1 text-sm">
+                          {kiosk.name}
+                        </h3>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
+                          {kiosk.address}
+                        </p>
+                        <div className="flex items-center space-x-2">
+                          <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                            kiosk.traffic_level === 'high' 
+                              ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                              : kiosk.traffic_level === 'medium'
+                              ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'
+                              : 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
+                          }`}>
+                            {kiosk.traffic_level.charAt(0).toUpperCase() + kiosk.traffic_level.slice(1)} Traffic
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        {isSelected ? (
+                          <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
+                            <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                        ) : (
+                          <div className="w-6 h-6 border-2 border-gray-300 dark:border-gray-600 rounded-full" />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Pricing Information */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-600 dark:text-gray-400">Base Price:</span>
+                        <span className="font-medium text-gray-900 dark:text-white text-sm">
+                          ${kiosk.price.toFixed(2)}/week
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Selected Kiosks Summary */}
+            {selectedKioskIds.length > 0 && (
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-3">
+                  Selected Kiosks ({selectedKioskIds.length})
+                </h3>
+                
+                <div className="space-y-2">
+                  {selectedKiosks.map((kiosk) => (
+                    <div key={kiosk.id} className="flex items-center justify-between text-sm">
+                      <span className="text-gray-700 dark:text-gray-300">{kiosk.name}</span>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-gray-600 dark:text-gray-400">
+                          ${kiosk.price.toFixed(2)}/week
+                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleKioskSelectionChange(selectedKioskIds.filter(id => id !== kiosk.id));
+                          }}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Pricing Summary */}
+                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between text-lg font-bold">
+                    <span className="text-gray-900 dark:text-white">Total:</span>
+                    <span className="text-blue-600 dark:text-blue-400">
+                      ${selectedKiosks.reduce((sum, kiosk) => sum + kiosk.price, 0).toFixed(2)}/week
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
 

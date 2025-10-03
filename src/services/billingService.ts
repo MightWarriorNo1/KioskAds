@@ -80,6 +80,29 @@ export class BillingService {
   }
   static async getActiveCampaigns(userId: string): Promise<BillingCampaign[]> {
     try {
+      // First, check and update campaign statuses based on current date
+      const { data: allCampaigns, error: fetchError } = await supabase
+        .from('campaigns')
+        .select('*')
+        .eq('user_id', userId)
+        .in('status', ['pending', 'active'])
+        .order('created_at', { ascending: false });
+
+      if (fetchError) throw fetchError;
+
+      // Check and update campaign statuses
+      for (const campaign of allCampaigns || []) {
+        // Check if campaign should be activated (start date reached)
+        if (campaign.status === 'pending' && new Date(campaign.start_date) <= new Date()) {
+          await this.updateCampaignStatus(campaign.id, 'active');
+        }
+        // Check if campaign should be completed (end date passed)
+        else if (campaign.status === 'active' && new Date(campaign.end_date) < new Date()) {
+          await this.updateCampaignStatus(campaign.id, 'completed');
+        }
+      }
+
+      // Now fetch only active campaigns
       const { data, error } = await supabase
         .from('campaigns')
         .select('*')
@@ -98,6 +121,29 @@ export class BillingService {
 
   static async getAllCampaigns(userId: string): Promise<BillingCampaign[]> {
     try {
+      // First, check and update campaign statuses based on current date
+      const { data: allCampaigns, error: fetchError } = await supabase
+        .from('campaigns')
+        .select('*')
+        .eq('user_id', userId)
+        .in('status', ['pending', 'active'])
+        .order('created_at', { ascending: false });
+
+      if (fetchError) throw fetchError;
+
+      // Check and update campaign statuses
+      for (const campaign of allCampaigns || []) {
+        // Check if campaign should be activated (start date reached)
+        if (campaign.status === 'pending' && new Date(campaign.start_date) <= new Date()) {
+          await this.updateCampaignStatus(campaign.id, 'active');
+        }
+        // Check if campaign should be completed (end date passed)
+        else if (campaign.status === 'active' && new Date(campaign.end_date) < new Date()) {
+          await this.updateCampaignStatus(campaign.id, 'completed');
+        }
+      }
+
+      // Now fetch all campaigns with updated statuses
       const { data, error } = await supabase
         .from('campaigns')
         .select('*')
@@ -110,6 +156,24 @@ export class BillingService {
     } catch (error) {
       console.error('Error fetching campaigns:', error);
       return [];
+    }
+  }
+
+  static async updateCampaignStatus(campaignId: string, status: 'draft' | 'pending' | 'active' | 'paused' | 'completed' | 'rejected'): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('campaigns')
+        .update({ 
+          status, 
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', campaignId);
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error updating campaign status:', error);
+      return false;
     }
   }
 

@@ -45,6 +45,7 @@ export interface FolderStructure {
   kioskName: string;
   activeFolderId: string;
   archiveFolderId: string;
+  scheduledFolderId?: string;
   status: 'ready' | 'pending' | 'error';
   folderPath?: string;
 }
@@ -563,10 +564,11 @@ export class GoogleDriveService {
           .eq('status', 'approved');
 
         for (const asset of activeAssets || []) {
-          // Move file from archive to active folder
+          // Move file from scheduled to active folder (or from archive if scheduled folder doesn't exist)
+          const sourceFolderId = folderMapping.scheduled_folder_id || folderMapping.archive_folder_id;
           await this.moveFileInGoogleDrive(
             asset.id,
-            folderMapping.archive_folder_id,
+            sourceFolderId,
             folderMapping.active_folder_id,
             config
           );
@@ -755,7 +757,7 @@ export class GoogleDriveService {
             media_asset_id: mediaAsset.id,
             scheduled_time: scheduledTime || new Date().toISOString(),
             upload_type: uploadType,
-            folder_type: 'active'
+            folder_type: 'scheduled'
           });
 
           if (jobId) {
@@ -809,7 +811,9 @@ export class GoogleDriveService {
           if (!fileUrl) continue;
           const pseudo = { file_name: asset.file_name, file_url: fileUrl } as any;
           try {
-            await this.uploadFileToGoogleDrive(pseudo, folderMapping.active_folder_id, gdriveConfig);
+            // Upload to scheduled folder during approval, will be moved to active when campaign starts
+            const targetFolderId = folderMapping.scheduled_folder_id || folderMapping.active_folder_id;
+            await this.uploadFileToGoogleDrive(pseudo, targetFolderId, gdriveConfig);
           } catch (e) {
             console.error('Direct upload failed for asset', asset.file_name, 'kiosk', kioskId, e);
           }
@@ -951,8 +955,9 @@ export class GoogleDriveService {
         kioskName: folder.kiosks?.name || 'Unknown',
         activeFolderId: folder.active_folder_id,
         archiveFolderId: folder.archive_folder_id,
+        scheduledFolderId: folder.scheduled_folder_id,
         status: 'ready' as const,
-        folderPath: `EZ Kiosk Ads > Kiosks > ${folder.kiosks?.name || 'Unknown'} > [Active/Archive]`
+        folderPath: `EZ Kiosk Ads > Kiosks > ${folder.kiosks?.name || 'Unknown'} > [Scheduled/Active/Archive]`
       }));
     } catch (error) {
       console.error('Error fetching folder structure status:', error);

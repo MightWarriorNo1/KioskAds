@@ -3,7 +3,7 @@ import { CheckSquare, X, Eye, Clock, AlertCircle, Check, RefreshCw } from 'lucid
 import { useNotification } from '../../contexts/NotificationContext';
 import { AdminService, AdReviewItem } from '../../services/adminService';
 import { MediaService } from '../../services/mediaService';
-import PhonePreview from './PhonePreview';
+import KioskPreview from './KioskPreview';
 
 export default function AdReviewQueue() {
   const [ads, setAds] = useState<AdReviewItem[]>([]);
@@ -536,11 +536,11 @@ export default function AdReviewQueue() {
                         console.log('Campaign Asset URL:', assetUrl);
                         
                         return (
-                          <PhonePreview
+                          <KioskPreview
                             mediaUrl={assetUrl}
                             mediaType={assetType}
                             title={assetTitle}
-                            className="w-64 h-96"
+                            className="w-48 h-96"
                           />
                         );
                       }
@@ -548,11 +548,12 @@ export default function AdReviewQueue() {
                     
                     // Fallback to placeholder if no assets
                     return (
-                      <div className="w-64 h-96 bg-gradient-to-br from-purple-100 to-blue-100 rounded-[2.5rem] p-2 shadow-2xl flex items-center justify-center">
-                        <div className="w-full h-full bg-white rounded-[2rem] flex items-center justify-center">
-                          <CheckSquare className="h-16 w-16 text-purple-600" />
-                        </div>
-                      </div>
+                      <KioskPreview
+                        mediaUrl=""
+                        mediaType="image"
+                        title="No assets available"
+                        className="w-48 h-96"
+                      />
                     );
                   }
 
@@ -582,21 +583,21 @@ export default function AdReviewQueue() {
                     const placeholderUrl = 'https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=400&h=800&fit=crop';
                     console.log('No media URL found, using placeholder:', placeholderUrl);
                     return (
-                      <PhonePreview
+                      <KioskPreview
                         mediaUrl={placeholderUrl}
                         mediaType="image"
                         title="Preview not available - showing placeholder"
-                        className="w-64 h-96"
+                        className="w-48 h-96"
                       />
                     );
                   }
 
                   return (
-                    <PhonePreview
+                    <KioskPreview
                       mediaUrl={mediaUrl}
                       mediaType={mediaType}
                       title={title}
-                      className="w-64 h-96"
+                      className="w-48 h-96"
                     />
                   );
                 })()}

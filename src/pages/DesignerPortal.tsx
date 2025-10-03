@@ -9,6 +9,8 @@ import DesignerLayout from '../components/layouts/DesignerLayout';
 import { supabase } from '../lib/supabaseClient';
 import { CustomAdsService } from '../services/customAdsService';
 import Card from '../components/ui/Card';
+import Button from '../components/ui/Button';
+import { MessageSquare, Send } from 'lucide-react';
 
 // Removed old inline DesignerLayout to use the shared layout
 
@@ -139,7 +141,7 @@ function DesignerDashboard() {
                 <div>
                   <div className="font-medium">{o.service?.name || 'Custom Ad'}</div>
                   <div className="text-xs text-gray-600">#{o.id.slice(0, 8)} • {new Date(o.created_at).toLocaleString()}</div>
-                  <div className="text-xs mt-1">Client: {o.first_name} {o.last_name} • ${o.total_amount.toFixed(2)}</div>
+                  <div className="text-xs mt-1">Client: {o.user?.full_name || `${o.first_name} ${o.last_name}`} • ${o.total_amount.toFixed(2)}</div>
                 </div>
                 <button
                   className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50 disabled:opacity-50"
@@ -265,11 +267,13 @@ function DesignerOrderDetails() {
   const { addNotification } = useNotification();
   const { user } = useAuth();
   const [order, setOrder] = useState<CustomAdOrder | null>(null);
-  const [comments, setComments] = useState<any[]>([]); // reserved for future inline comments UI
+  const [comments, setComments] = useState<any[]>([]);
   const [proofs, setProofs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -342,6 +346,26 @@ function DesignerOrderDetails() {
     }
   };
 
+  const handleSubmitComment = async () => {
+    if (!newComment.trim() || !id || !user?.id) return;
+    
+    try {
+      setSubmittingComment(true);
+      await DesignerService.addComment(id, newComment.trim(), user.id);
+      addNotification('success', 'Comment sent', 'Your message has been sent to the client/host');
+      setNewComment('');
+      
+      // Reload comments
+      const data = await DesignerService.getOrderWithDetails(id);
+      setComments(data.comments);
+    } catch (e) {
+      console.error(e);
+      addNotification('error', 'Failed', 'Could not send comment');
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
   if (loading) return <div className="text-sm text-gray-600">Loading…</div>;
   if (!order) return <div className="text-sm text-gray-600">Not found.</div>;
 
@@ -365,7 +389,7 @@ function DesignerOrderDetails() {
         <Card className="p-4">
           <h3 className="font-medium mb-2">Client Info</h3>
           <div className="text-sm text-gray-300 space-y-1">
-            <div>Name: {order.first_name} {order.last_name}</div>
+            <div>Name: {order.user?.full_name || `${order.first_name} ${order.last_name}`}</div>
             <div>Email: {order.email}</div>
             <div>Phone: {order.phone}</div>
             <div>Address: {order.address}</div>
@@ -509,6 +533,56 @@ function DesignerOrderDetails() {
             ))}
           </div>
         )}
+      </Card>
+
+      {/* Comments Section */}
+      <Card className="p-4">
+        <div className="flex items-center gap-2 mb-4">
+          <MessageSquare className="w-5 h-5" />
+          <h3 className="font-medium">Communication with Client/Host</h3>
+        </div>
+        
+        {/* Comments List */}
+        <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
+          {comments.length === 0 ? (
+            <p className="text-sm text-gray-600">No messages yet. Start a conversation with the client/host.</p>
+          ) : (
+            comments.map((comment: any) => (
+              <div key={comment.id} className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">{comment.author}</span>
+                  <span className="text-xs text-gray-500">{new Date(comment.created_at).toLocaleString()}</span>
+                </div>
+                <p className="text-sm text-gray-700 dark:text-gray-300">{comment.content}</p>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Add Comment Form */}
+        <div className="border-t pt-4">
+          <div className="flex gap-2">
+            <textarea
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              placeholder="Ask about colors, positioning, style changes, or any other design questions..."
+              className="flex-1 p-3 border rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              rows={3}
+              disabled={submittingComment}
+            />
+            <Button
+              onClick={handleSubmitComment}
+              disabled={!newComment.trim() || submittingComment}
+              className="px-4 py-2 flex items-center gap-2"
+            >
+              <Send className="w-4 h-4" />
+              {submittingComment ? 'Sending...' : 'Send'}
+            </Button>
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            Use this to communicate with the client/host about design changes, questions, or clarifications.
+          </p>
+        </div>
       </Card>
     </div>
   );

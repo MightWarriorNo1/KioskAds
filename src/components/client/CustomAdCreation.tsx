@@ -3,20 +3,8 @@ import {
   Upload, 
   X, 
   FileText, 
-  Image, 
-  Video, 
-  File, 
-  Plus, 
-  Save, 
-  Send,
   AlertCircle,
-  CheckCircle,
-  Clock,
-  Calendar,
-  DollarSign,
-  Users,
   Target,
-  Palette,
   Info
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -173,7 +161,7 @@ export default function CustomAdCreation({ onComplete, onCancel }: CustomAdCreat
 
         if (file.type.startsWith('image/')) {
           preview = URL.createObjectURL(file);
-          const img = new Image();
+          const img = new window.Image();
           img.onload = () => {
             dimensions = { width: img.width, height: img.height };
             aspectRatio = getAspectRatio(img.width, img.height);
@@ -270,17 +258,19 @@ export default function CustomAdCreation({ onComplete, onCancel }: CustomAdCreat
     setIsSaving(true);
 
     try {
+      console.log('Creating custom ad creation with data:', { ...formData, files: uploadedFiles.map(f => f.file) });
       const creation = await CustomAdCreationService.createCustomAdCreation(user.id, {
         ...formData,
         files: uploadedFiles.map(f => f.file)
       });
+      console.log('Custom ad creation created:', creation);
 
       addNotification('success', 'Draft Saved', 'Your custom ad creation has been saved as a draft');
       
       if (onComplete) {
         onComplete(creation.id);
       } else {
-        navigate(`/client/custom-ads/${creation.id}`);
+        navigate('/manage-custom-ads');
       }
     } catch (error) {
       console.error('Error saving draft:', error);
@@ -304,20 +294,23 @@ export default function CustomAdCreation({ onComplete, onCancel }: CustomAdCreat
     setIsSaving(true);
 
     try {
+      console.log('Creating custom ad creation with data:', { ...formData, files: uploadedFiles.map(f => f.file) });
       const creation = await CustomAdCreationService.createCustomAdCreation(user.id, {
         ...formData,
         files: uploadedFiles.map(f => f.file)
       });
+      console.log('Custom ad creation created:', creation);
 
       // Submit for review
       await CustomAdCreationService.submitForReview(creation.id);
+      console.log('Custom ad creation submitted for review');
 
       addNotification('success', 'Submitted for Review', 'Your custom ad creation has been submitted for review');
       
       if (onComplete) {
         onComplete(creation.id);
       } else {
-        navigate(`/client/custom-ads/${creation.id}`);
+        navigate('/manage-custom-ads');
       }
     } catch (error) {
       console.error('Error submitting custom ad creation:', error);

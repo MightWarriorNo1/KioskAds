@@ -44,6 +44,8 @@ export class CustomAdCreationService {
     input: CustomAdCreationInput
   ): Promise<CustomAdCreation> {
     try {
+      console.log('Creating custom ad creation for user:', userId, 'with input:', input);
+      
       const creationData: Inserts<'custom_ad_creations'> = {
         user_id: userId,
         title: input.title,
@@ -58,16 +60,24 @@ export class CustomAdCreationService {
         status: 'draft'
       };
 
+      console.log('Inserting custom ad creation data:', creationData);
+
       const { data, error } = await supabase
         .from('custom_ad_creations')
         .insert(creationData)
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error creating custom ad creation:', error);
+        throw error;
+      }
+
+      console.log('Custom ad creation created successfully:', data);
 
       // Upload files if provided
       if (input.files && input.files.length > 0) {
+        console.log('Uploading media files:', input.files.length, 'files');
         await this.uploadMediaFiles(data.id, input.files);
       }
 
@@ -205,6 +215,8 @@ export class CustomAdCreationService {
   // Get all custom ad creations for a user
   static async getUserCustomAdCreations(userId: string): Promise<CustomAdCreationWithFiles[]> {
     try {
+      console.log('Fetching custom ad creations for user:', userId);
+      
       const { data, error } = await supabase
         .from('custom_ad_creations')
         .select(`
@@ -216,8 +228,12 @@ export class CustomAdCreationService {
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        throw error;
+      }
 
+      console.log('Retrieved custom ad creations:', data);
       return data as CustomAdCreationWithFiles[];
     } catch (error) {
       console.error('Error fetching user custom ad creations:', error);

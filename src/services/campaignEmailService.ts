@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabaseClient';
 import { GmailService } from './gmailService';
 
-type CampaignEmailStatus = 'approved' | 'rejected' | 'active' | 'expiring' | 'expired' | 'paused' | 'resumed';
+type CampaignEmailStatus = 'purchased' | 'submitted' | 'approved' | 'rejected' | 'active' | 'expiring' | 'expired' | 'paused' | 'resumed';
 
 interface CampaignEmailData {
   campaign_id: string;
@@ -116,6 +116,7 @@ export class CampaignEmailService {
 
   private static prepareTemplateVariables(c: CampaignEmailData, status: CampaignEmailStatus): Record<string, any> {
     const variables: Record<string, any> = {
+      client_name: c.user_name,
       campaign_name: c.campaign_name,
       budget: c.budget ?? 0,
       start_date: c.start_date ? new Date(c.start_date).toLocaleDateString() : '',
@@ -125,11 +126,17 @@ export class CampaignEmailService {
     };
 
     switch (status) {
+      case 'purchased':
+      case 'submitted':
+        variables.start_date = variables.start_date || new Date().toLocaleDateString();
+        break;
       case 'approved':
       case 'active':
         variables.start_date = variables.start_date || new Date().toLocaleDateString();
         break;
       case 'expiring':
+        variables.days_remaining = c.end_date ? Math.ceil((new Date(c.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 0;
+        break;
       case 'expired':
         variables.end_date = variables.end_date || new Date().toLocaleDateString();
         break;

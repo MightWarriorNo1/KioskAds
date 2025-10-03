@@ -831,6 +831,7 @@ export interface Database {
           gdrive_config_id: string;
           active_folder_id: string;
           archive_folder_id: string;
+          scheduled_folder_id?: string;
           created_at: string;
           updated_at: string;
         };
@@ -840,6 +841,7 @@ export interface Database {
           gdrive_config_id: string;
           active_folder_id: string;
           archive_folder_id: string;
+          scheduled_folder_id?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -849,6 +851,7 @@ export interface Database {
           gdrive_config_id?: string;
           active_folder_id?: string;
           archive_folder_id?: string;
+          scheduled_folder_id?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -863,7 +866,7 @@ export interface Database {
           scheduled_time: string;
           status: 'pending' | 'uploading' | 'completed' | 'failed' | 'cancelled';
           upload_type: 'scheduled' | 'immediate' | 'sync';
-          folder_type: 'active' | 'archive';
+          folder_type: 'scheduled' | 'active' | 'archive';
           gdrive_file_id?: string;
           error_message?: string;
           started_at?: string;
@@ -880,7 +883,7 @@ export interface Database {
           scheduled_time: string;
           status?: 'pending' | 'uploading' | 'completed' | 'failed' | 'cancelled';
           upload_type?: 'scheduled' | 'immediate' | 'sync';
-          folder_type?: 'active' | 'archive';
+          folder_type?: 'scheduled' | 'active' | 'archive';
           gdrive_file_id?: string;
           error_message?: string;
           started_at?: string;
@@ -897,7 +900,7 @@ export interface Database {
           scheduled_time?: string;
           status?: 'pending' | 'uploading' | 'completed' | 'failed' | 'cancelled';
           upload_type?: 'scheduled' | 'immediate' | 'sync';
-          folder_type?: 'active' | 'archive';
+          folder_type?: 'scheduled' | 'active' | 'archive';
           gdrive_file_id?: string;
           error_message?: string;
           started_at?: string;

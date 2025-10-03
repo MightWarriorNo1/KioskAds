@@ -9,7 +9,18 @@ export default function Invitations() {
   const [statusFilter, setStatusFilter] = useState<'all'|'pending'|'sent'|'accepted'|'expired'|'revoked'>('all');
   const [roleFilter, setRoleFilter] = useState<'all'|'client'|'host'|'designer'|'admin'>('all');
   const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
   const [items, setItems] = useState<InvitationItem[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  // Clear messages after timeout
+  const clearMessages = () => {
+    setTimeout(() => {
+      setError(null);
+      setSuccess(null);
+    }, 5000);
+  };
 
   const load = async () => {
     setLoading(true);
@@ -24,15 +35,75 @@ export default function Invitations() {
   useEffect(() => { load(); }, [statusFilter, roleFilter]);
 
   const onSendInvite = async () => {
-    if (!email) return;
-    await AdminService.sendInvitation(email, role, expires);
-    setEmail('');
-    await load();
+    if (!email) {
+      setError('Please enter an email address');
+      return;
+    }
+    
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
+    setSending(true);
+    setError(null);
+    setSuccess(null);
+    
+    try {
+      await AdminService.sendInvitation(email, role, expires);
+      setEmail('');
+      setSuccess(`Invitation sent successfully to ${email}`);
+      clearMessages();
+      await load();
+    } catch (err: any) {
+      console.error('Error sending invitation:', err);
+      setError(err.message || 'Failed to send invitation. Please try again.');
+      clearMessages();
+    } finally {
+      setSending(false);
+    }
   };
 
-  const onResend = async (id: string) => { await AdminService.resendInvitation(id); await load(); };
-  const onRevoke = async (id: string) => { await AdminService.revokeInvitation(id); await load(); };
-  const onCancelAllPending = async () => { await AdminService.cancelAllPendingInvitations(); await load(); };
+  const onResend = async (id: string) => {
+    try {
+      await AdminService.resendInvitation(id);
+      setSuccess('Invitation resent successfully');
+      clearMessages();
+      await load();
+    } catch (err: any) {
+      console.error('Error resending invitation:', err);
+      setError(err.message || 'Failed to resend invitation');
+      clearMessages();
+    }
+  };
+  
+  const onRevoke = async (id: string) => {
+    try {
+      await AdminService.revokeInvitation(id);
+      setSuccess('Invitation revoked successfully');
+      clearMessages();
+      await load();
+    } catch (err: any) {
+      console.error('Error revoking invitation:', err);
+      setError(err.message || 'Failed to revoke invitation');
+      clearMessages();
+    }
+  };
+  
+  const onCancelAllPending = async () => {
+    try {
+      await AdminService.cancelAllPendingInvitations();
+      setSuccess('All pending invitations cancelled successfully');
+      clearMessages();
+      await load();
+    } catch (err: any) {
+      console.error('Error cancelling pending invitations:', err);
+      setError(err.message || 'Failed to cancel pending invitations');
+      clearMessages();
+    }
+  };
 
   const statusBadge = (s: InvitationItem['status']) => {
     const map: Record<InvitationItem['status'], string> = {
@@ -48,6 +119,18 @@ export default function Invitations() {
 
   return (
     <div className="space-y-4">
+      {/* Success/Error Messages */}
+      {success && (
+        <div className="bg-green-900/20 border border-green-700 text-green-300 rounded-lg px-4 py-3">
+          {success}
+        </div>
+      )}
+      {error && (
+        <div className="bg-red-900/20 border border-red-700 text-red-300 rounded-lg px-4 py-3">
+          {error}
+        </div>
+      )}
+
       {/* New Invitation */}
       <div className="bg-slate-900 rounded-xl border border-slate-700 p-4">
         <div className="text-slate-200 font-semibold mb-2">New Invitation</div>
@@ -64,7 +147,13 @@ export default function Invitations() {
             <option value={14}>14 days</option>
             <option value={30}>30 days</option>
           </select>
-          <button onClick={onSendInvite} disabled={loading} className="bg-amber-500 hover:bg-amber-600 text-black font-semibold rounded-lg px-4 py-2">Send Invite</button>
+          <button 
+            onClick={onSendInvite} 
+            disabled={sending || loading || !email.trim()} 
+            className="bg-amber-500 hover:bg-amber-600 disabled:bg-amber-500/50 disabled:cursor-not-allowed text-black font-semibold rounded-lg px-4 py-2"
+          >
+            {sending ? 'Sending...' : 'Send Invite'}
+          </button>
         </div>
       </div>
 
@@ -78,27 +167,51 @@ export default function Invitations() {
             <input type="file" accept=".csv" className="hidden" onChange={async (e)=>{
               const file = e.target.files?.[0];
               if (!file) return;
-              const text = await file.text();
-              // Expect header: email,role,expires_days
-              const lines = text.split(/\r?\n/).filter(l=>l.trim().length>0);
-              if (!lines.length) return;
-              const header = lines[0].split(',').map(h=>h.trim().toLowerCase());
-              const emailIdx = header.indexOf('email');
-              const roleIdx = header.indexOf('role');
-              const expIdx = header.indexOf('expires_days');
-              const rows: any[] = [];
-              for (let i=1;i<lines.length;i++){
-                const cols = lines[i].split(',');
-                const email = cols[emailIdx]?.trim();
-                const role = (cols[roleIdx]?.trim() as any) || 'client';
-                const expires_days = Number((cols[expIdx]?.trim())||'7')||7;
-                if (email) rows.push({ email, role, expires_days });
+              
+              try {
+                const text = await file.text();
+                // Expect header: email,role,expires_days
+                const lines = text.split(/\r?\n/).filter(l=>l.trim().length>0);
+                if (!lines.length) {
+                  setError('CSV file is empty');
+                  clearMessages();
+                  return;
+                }
+                const header = lines[0].split(',').map(h=>h.trim().toLowerCase());
+                const emailIdx = header.indexOf('email');
+                const roleIdx = header.indexOf('role');
+                const expIdx = header.indexOf('expires_days');
+                
+                if (emailIdx === -1) {
+                  setError('CSV must contain an "email" column');
+                  clearMessages();
+                  return;
+                }
+                
+                const rows: any[] = [];
+                for (let i=1;i<lines.length;i++){
+                  const cols = lines[i].split(',');
+                  const email = cols[emailIdx]?.trim();
+                  const role = (cols[roleIdx]?.trim() as any) || 'client';
+                  const expires_days = Number((cols[expIdx]?.trim())||'7')||7;
+                  if (email) rows.push({ email, role, expires_days });
+                }
+                if (rows.length){
+                  await AdminService.bulkCreateInvitations(rows);
+                  setSuccess(`Successfully created ${rows.length} invitations`);
+                  clearMessages();
+                  await load();
+                } else {
+                  setError('No valid email addresses found in CSV');
+                  clearMessages();
+                }
+              } catch (err: any) {
+                console.error('Error processing CSV:', err);
+                setError(err.message || 'Failed to process CSV file');
+                clearMessages();
+              } finally {
+                e.currentTarget.value='';
               }
-              if (rows.length){
-                await AdminService.bulkCreateInvitations(rows);
-                await load();
-              }
-              e.currentTarget.value='';
             }} />
           </label>
           <a

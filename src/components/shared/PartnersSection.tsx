@@ -79,14 +79,7 @@ export default function PartnersSection({ className = '' }: PartnersSectionProps
   return (
     <section className={`px-6 py-20 ${className}`}>
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4 text-black dark:text-white">
-            Our Partners
-          </h2>
-          <p className="text-xl text-black dark:text-white/90 max-w-3xl mx-auto">
-            Discover our network of trusted partners and their premium kiosk locations
-          </p>
-        </div>
+        
 
         {/* Logo strip slider */}
         {partners.some(p => p.logo_url) && (

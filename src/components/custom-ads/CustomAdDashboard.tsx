@@ -22,7 +22,9 @@ import {
   Download,
   Calendar,
   User,
-  DollarSign
+  DollarSign,
+  MessageSquare,
+  Send
 } from 'lucide-react';
 
 interface CustomAdDashboardProps {
@@ -266,7 +268,7 @@ function OrderDetailsModal({ order, onClose, userRole }: OrderDetailsModalProps)
   const navigate = useNavigate();
   const [proofs, setProofs] = useState<any[]>([]);
   const [loadingProofs, setLoadingProofs] = useState(false);
-  const [activeTab, setActiveTab] = useState<'details' | 'proofs' | 'workflow'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'proofs' | 'workflow' | 'comments'>('details');
   const [showPayment, setShowPayment] = useState(false);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentMessage, setPaymentMessage] = useState<string | null>(null);
@@ -403,7 +405,7 @@ function OrderDetailsModal({ order, onClose, userRole }: OrderDetailsModalProps)
         {/* Tabs */}
         <div className="border-b border-gray-200 dark:border-gray-700">
           <nav className="flex space-x-8 px-6">
-            {['details', 'proofs', 'workflow'].map((tab) => (
+            {['details', 'proofs', 'workflow', 'comments'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab as any)}
@@ -446,6 +448,10 @@ function OrderDetailsModal({ order, onClose, userRole }: OrderDetailsModalProps)
           
           {activeTab === 'workflow' && (
             <WorkflowTab order={order} workflowSteps={workflowSteps} />
+          )}
+          
+          {activeTab === 'comments' && (
+            <CommentsTab order={order} onClose={onClose} />
           )}
         </div>
       </div>
@@ -537,7 +543,7 @@ function OrderDetailsTab({
             <div>
               <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Name</label>
               <p className="text-gray-900 dark:text-white">
-                {order.first_name} {order.last_name}
+                {order.user?.full_name || `${order.first_name} ${order.last_name}`}
               </p>
             </div>
             <div>
@@ -855,6 +861,87 @@ function PaymentForm({ onSuccess }: { onSuccess: () => void }) {
         </div>
       )}
     </form>
+  );
+}
+
+function CommentsTab({ order, onClose }: { order: CustomAdOrder; onClose: () => void }) {
+  const { user } = useAuth();
+  const { addNotification } = useNotification();
+  const [newComment, setNewComment] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
+  const [comments, setComments] = useState(order.comments || []);
+
+  const handleSubmitComment = async () => {
+    if (!newComment.trim() || !user?.id) return;
+    
+    try {
+      setSubmittingComment(true);
+      await CustomAdsService.addComment(order.id, newComment.trim(), user.id);
+      addNotification('success', 'Comment sent', 'Your message has been sent to the designer');
+      setNewComment('');
+      
+      // Reload comments
+      const updatedOrder = await CustomAdsService.getOrder(order.id);
+      if (updatedOrder) {
+        setComments(updatedOrder.comments || []);
+      }
+    } catch (e) {
+      console.error(e);
+      addNotification('error', 'Failed', 'Could not send comment');
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-2 mb-4">
+        <MessageSquare className="w-5 h-5" />
+        <h3 className="text-lg font-semibold">Communication with Designer</h3>
+      </div>
+      
+      {/* Comments List */}
+      <div className="space-y-3 max-h-60 overflow-y-auto">
+        {comments.length === 0 ? (
+          <p className="text-sm text-gray-600">No messages yet. Start a conversation with the designer.</p>
+        ) : (
+          comments.map((comment) => (
+            <div key={comment.id} className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">{comment.author}</span>
+                <span className="text-xs text-gray-500">{new Date(comment.created_at).toLocaleString()}</span>
+              </div>
+              <p className="text-sm text-gray-700 dark:text-gray-300">{comment.content}</p>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Add Comment Form */}
+      <div className="border-t pt-4">
+        <div className="flex gap-2">
+          <textarea
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            placeholder="Ask questions, provide feedback, or request changes..."
+            className="flex-1 p-3 border rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            rows={3}
+            disabled={submittingComment}
+          />
+          <Button
+            onClick={handleSubmitComment}
+            disabled={!newComment.trim() || submittingComment}
+            className="px-4 py-2 flex items-center gap-2"
+          >
+            <Send className="w-4 h-4" />
+            {submittingComment ? 'Sending...' : 'Send'}
+          </Button>
+        </div>
+        <p className="text-xs text-gray-500 mt-2">
+          Use this to communicate with the designer about your ad requirements, feedback, or questions.
+        </p>
+      </div>
+    </div>
   );
 }
 

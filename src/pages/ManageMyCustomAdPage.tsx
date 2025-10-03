@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { 
   MessageSquare, 
   Send, 
@@ -10,47 +11,66 @@ import {
   Calendar,
   DollarSign,
   Users,
-  Target,
-  Palette,
-  Plus,
   Eye,
   EyeOff,
-  Download,
-  Edit,
-  Trash2,
   RefreshCw
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
-import { CustomAdCreationService, CustomAdCreationWithFiles } from '../services/customAdCreationService';
+import { CustomAdsService, CustomAdOrder } from '../services/customAdsService';
 import Button from '../components/ui/Button';
 import DashboardLayout from '../components/layouts/DashboardLayout';
 
 export default function ManageMyCustomAdPage() {
   const { user } = useAuth();
   const { addNotification } = useNotification();
+  const location = useLocation();
   
-  const [customAds, setCustomAds] = useState<CustomAdCreationWithFiles[]>([]);
+  const [customAds, setCustomAds] = useState<CustomAdOrder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedAd, setSelectedAd] = useState<CustomAdCreationWithFiles | null>(null);
+  const [selectedAd, setSelectedAd] = useState<CustomAdOrder | null>(null);
   const [showNotes, setShowNotes] = useState(false);
   const [newNote, setNewNote] = useState('');
   const [isAddingNote, setIsAddingNote] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'draft' | 'submitted' | 'in_review' | 'approved' | 'rejected' | 'completed'>('all');
+  const [filter, setFilter] = useState<'all' | 'submitted' | 'in_review' | 'designer_assigned' | 'proofs_ready' | 'client_review' | 'approved' | 'rejected' | 'completed' | 'cancelled'>('all');
 
   useEffect(() => {
     loadCustomAds();
   }, [user?.id]);
 
+  // Refresh data when page becomes visible (user navigates back)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && user?.id) {
+        loadCustomAds();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [user?.id]);
+
+  // Refresh data when location changes (user navigates to this page)
+  useEffect(() => {
+    if (location.pathname === '/manage-custom-ads' && user?.id) {
+      loadCustomAds();
+    }
+  }, [location.pathname, user?.id]);
+
   const loadCustomAds = async () => {
     try {
       setLoading(true);
-      if (!user?.id) return;
-      const ads = await CustomAdCreationService.getUserCustomAdCreations(user.id);
+      if (!user?.id) {
+        console.log('No user ID available');
+        return;
+      }
+      console.log('Loading custom ad orders for user:', user.id);
+      const ads = await CustomAdsService.getUserOrders(user.id);
+      console.log('Loaded custom ad orders:', ads);
       setCustomAds(ads);
     } catch (error) {
-      console.error('Error loading custom ads:', error);
-      addNotification('error', 'Load Failed', 'Failed to load custom ads');
+      console.error('Error loading custom ad orders:', error);
+      addNotification('error', 'Load Failed', 'Failed to load custom ad orders');
     } finally {
       setLoading(false);
     }
@@ -61,19 +81,19 @@ export default function ManageMyCustomAdPage() {
 
     try {
       setIsAddingNote(true);
-      await CustomAdCreationService.addNote(
+      await CustomAdsService.addComment(
         selectedAd.id,
-        user.id,
         newNote.trim(),
-        'comment',
-        false
+        user.id
       );
       setNewNote('');
       addNotification('success', 'Note Added', 'Note added successfully');
       loadCustomAds(); // Reload to get updated notes
       if (selectedAd) {
-        const updatedAd = await CustomAdCreationService.getCustomAdCreation(selectedAd.id);
-        setSelectedAd(updatedAd);
+        const updatedAd = await CustomAdsService.getOrder(selectedAd.id);
+        if (updatedAd) {
+          setSelectedAd(updatedAd);
+        }
       }
     } catch (error) {
       console.error('Error adding note:', error);
@@ -85,18 +105,24 @@ export default function ManageMyCustomAdPage() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'draft':
-        return <Edit className="w-4 h-4 text-gray-500" />;
       case 'submitted':
         return <Clock className="w-4 h-4 text-blue-500" />;
       case 'in_review':
         return <Eye className="w-4 h-4 text-yellow-500" />;
+      case 'designer_assigned':
+        return <Users className="w-4 h-4 text-purple-500" />;
+      case 'proofs_ready':
+        return <FileText className="w-4 h-4 text-indigo-500" />;
+      case 'client_review':
+        return <Eye className="w-4 h-4 text-orange-500" />;
       case 'approved':
         return <CheckCircle className="w-4 h-4 text-green-500" />;
       case 'rejected':
         return <XCircle className="w-4 h-4 text-red-500" />;
       case 'completed':
         return <CheckCircle className="w-4 h-4 text-green-600" />;
+      case 'cancelled':
+        return <XCircle className="w-4 h-4 text-gray-500" />;
       default:
         return <AlertCircle className="w-4 h-4 text-gray-500" />;
     }
@@ -104,24 +130,30 @@ export default function ManageMyCustomAdPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'draft':
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
       case 'submitted':
         return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
       case 'in_review':
         return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
+      case 'designer_assigned':
+        return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300';
+      case 'proofs_ready':
+        return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300';
+      case 'client_review':
+        return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300';
       case 'approved':
         return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
       case 'rejected':
         return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
       case 'completed':
         return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
+      case 'cancelled':
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
       default:
         return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
     }
   };
 
-  const filteredAds = customAds.filter(ad => filter === 'all' || ad.status === filter);
+  const filteredAds = customAds.filter(ad => filter === 'all' || ad.workflow_status === filter);
 
   if (loading) {
     return (
@@ -158,12 +190,14 @@ export default function ManageMyCustomAdPage() {
       <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
         {[
           { key: 'all', label: 'All', count: customAds.length },
-          { key: 'draft', label: 'Draft', count: customAds.filter(ad => ad.status === 'draft').length },
-          { key: 'submitted', label: 'Submitted', count: customAds.filter(ad => ad.status === 'submitted').length },
-          { key: 'in_review', label: 'In Review', count: customAds.filter(ad => ad.status === 'in_review').length },
-          { key: 'approved', label: 'Approved', count: customAds.filter(ad => ad.status === 'approved').length },
-          { key: 'rejected', label: 'Rejected', count: customAds.filter(ad => ad.status === 'rejected').length },
-          { key: 'completed', label: 'Completed', count: customAds.filter(ad => ad.status === 'completed').length },
+          { key: 'submitted', label: 'Submitted', count: customAds.filter(ad => ad.workflow_status === 'submitted').length },
+          { key: 'in_review', label: 'In Review', count: customAds.filter(ad => ad.workflow_status === 'in_review').length },
+          { key: 'designer_assigned', label: 'Designer Assigned', count: customAds.filter(ad => ad.workflow_status === 'designer_assigned').length },
+          { key: 'proofs_ready', label: 'Proofs Ready', count: customAds.filter(ad => ad.workflow_status === 'proofs_ready').length },
+          { key: 'client_review', label: 'Client Review', count: customAds.filter(ad => ad.workflow_status === 'client_review').length },
+          { key: 'approved', label: 'Approved', count: customAds.filter(ad => ad.workflow_status === 'approved').length },
+          { key: 'rejected', label: 'Rejected', count: customAds.filter(ad => ad.workflow_status === 'rejected').length },
+          { key: 'completed', label: 'Completed', count: customAds.filter(ad => ad.workflow_status === 'completed').length },
         ].map(({ key, label, count }) => (
           <button
             key={key}
@@ -207,23 +241,23 @@ export default function ManageMyCustomAdPage() {
                 >
                   <div className="flex items-start justify-between mb-2">
                     <h3 className="font-medium text-gray-900 dark:text-white truncate">
-                      {ad.title}
+                      Order #{ad.id.slice(-8)}
                     </h3>
                     <div className="flex items-center space-x-2">
-                      {getStatusIcon(ad.status)}
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(ad.status)}`}>
-                        {ad.status.replace('_', ' ')}
+                      {getStatusIcon(ad.workflow_status)}
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(ad.workflow_status)}`}>
+                        {ad.workflow_status.replace('_', ' ')}
                       </span>
                     </div>
                   </div>
                   
                   <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 mb-2">
-                    {ad.description || 'No description provided.'}
+                    {ad.details || 'No details provided.'}
                   </p>
                   
                   <div className="flex items-center justify-between text-xs text-gray-500">
                     <span>{new Date(ad.created_at).toLocaleDateString()}</span>
-                    <span>{ad.notes.length} notes</span>
+                    <span>{ad.comments?.length || 0} comments</span>
                   </div>
                 </div>
               ))}
@@ -239,18 +273,18 @@ export default function ManageMyCustomAdPage() {
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                    {selectedAd.title}
+                    Order #{selectedAd.id.slice(-8)}
                   </h2>
                   <div className="flex items-center space-x-2">
-                    {getStatusIcon(selectedAd.status)}
-                    <span className={`px-3 py-1 text-sm font-medium rounded-full ${getStatusColor(selectedAd.status)}`}>
-                      {selectedAd.status.replace('_', ' ')}
+                    {getStatusIcon(selectedAd.workflow_status)}
+                    <span className={`px-3 py-1 text-sm font-medium rounded-full ${getStatusColor(selectedAd.workflow_status)}`}>
+                      {selectedAd.workflow_status.replace('_', ' ')}
                     </span>
                   </div>
                 </div>
                 
                 <p className="text-gray-700 dark:text-gray-300 mb-4">
-                  {selectedAd.description || 'No description provided.'}
+                  {selectedAd.details || 'No details provided.'}
                 </p>
                 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -258,24 +292,18 @@ export default function ManageMyCustomAdPage() {
                     <Calendar className="w-4 h-4 mr-2" />
                     <span>Created: {new Date(selectedAd.created_at).toLocaleDateString()}</span>
                   </div>
-                  {selectedAd.deadline && (
-                    <div className="flex items-center text-gray-600 dark:text-gray-400">
-                      <Clock className="w-4 h-4 mr-2" />
-                      <span>Deadline: {new Date(selectedAd.deadline).toLocaleDateString()}</span>
-                    </div>
-                  )}
-                  {selectedAd.budget_range && (
-                    <div className="flex items-center text-gray-600 dark:text-gray-400">
-                      <DollarSign className="w-4 h-4 mr-2" />
-                      <span>{selectedAd.budget_range}</span>
-                    </div>
-                  )}
-                  {selectedAd.category && (
-                    <div className="flex items-center text-gray-600 dark:text-gray-400">
-                      <Palette className="w-4 h-4 mr-2" />
-                      <span>{selectedAd.category}</span>
-                    </div>
-                  )}
+                  <div className="flex items-center text-gray-600 dark:text-gray-400">
+                    <DollarSign className="w-4 h-4 mr-2" />
+                    <span>Amount: ${selectedAd.total_amount}</span>
+                  </div>
+                  <div className="flex items-center text-gray-600 dark:text-gray-400">
+                    <Users className="w-4 h-4 mr-2" />
+                    <span>Service: {selectedAd.service_key}</span>
+                  </div>
+                  <div className="flex items-center text-gray-600 dark:text-gray-400">
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    <span>Payment: {selectedAd.payment_status}</span>
+                  </div>
                 </div>
               </div>
 
@@ -300,7 +328,7 @@ export default function ManageMyCustomAdPage() {
                 {showNotes && (
                   <div className="space-y-4">
                     {/* Add Note Form */}
-                    {selectedAd.status !== 'completed' && (
+                    {selectedAd.workflow_status !== 'completed' && (
                       <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
                         <h4 className="font-medium text-gray-900 dark:text-white mb-3">
                           Send Message to Designer
@@ -325,41 +353,27 @@ export default function ManageMyCustomAdPage() {
                     )}
 
                     {/* Messages List */}
-                    {selectedAd.notes.length > 0 ? (
+                    {selectedAd.comments && selectedAd.comments.length > 0 ? (
                       <div className="space-y-3">
-                        {selectedAd.notes
-                          .filter(note => !note.is_internal) // Only show client-visible notes
-                          .map((note) => (
+                        {selectedAd.comments.map((comment: any) => (
                             <div
-                              key={note.id}
+                              key={comment.id}
                               className={`border rounded-lg p-4 ${
-                                note.note_type === 'comment' && note.user_id === user?.id
+                                comment.author_id === user?.id
                                   ? 'border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800'
                                   : 'border-gray-200 dark:border-gray-600'
                               }`}
                             >
                               <div className="flex items-center justify-between mb-2">
                                 <span className="text-sm font-medium text-gray-900 dark:text-white">
-                                  {note.note_type === 'comment' && note.user_id === user?.id
-                                    ? 'You'
-                                    : note.note_type === 'comment'
-                                    ? 'Designer'
-                                    : note.note_type === 'requirement' 
-                                    ? 'Requirement'
-                                    : note.note_type === 'feedback' 
-                                    ? 'Designer Feedback'
-                                    : note.note_type === 'approval' 
-                                    ? 'Designer Approval'
-                                    : note.note_type === 'rejection' 
-                                    ? 'Designer Rejection'
-                                    : 'System Message'}
+                                  {comment.author_id === user?.id ? 'You' : comment.author}
                                 </span>
                                 <span className="text-xs text-gray-500">
-                                  {new Date(note.created_at).toLocaleDateString()} at {new Date(note.created_at).toLocaleTimeString()}
+                                  {new Date(comment.created_at).toLocaleDateString()} at {new Date(comment.created_at).toLocaleTimeString()}
                                 </span>
                               </div>
                               <p className="text-gray-700 dark:text-gray-300 text-sm">
-                                {note.content}
+                                {comment.content}
                               </p>
                             </div>
                           ))}
@@ -377,17 +391,17 @@ export default function ManageMyCustomAdPage() {
               </div>
 
               {/* Media Files */}
-              {selectedAd.media_files.length > 0 && (
+              {selectedAd.files && selectedAd.files.length > 0 && (
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
                     <FileText className="w-5 h-5 mr-2" />
-                    Media Files ({selectedAd.media_files.length})
+                    Media Files ({selectedAd.files.length})
                   </h3>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {selectedAd.media_files.map((file) => (
+                    {selectedAd.files.map((file: any) => (
                       <div
-                        key={file.id}
+                        key={file.name}
                         className="border border-gray-200 dark:border-gray-600 rounded-lg p-4"
                       >
                         <div className="flex items-start justify-between mb-3">
@@ -395,19 +409,19 @@ export default function ManageMyCustomAdPage() {
                             <span className="text-2xl">📁</span>
                             <div className="min-w-0 flex-1">
                               <p className="font-medium text-gray-900 dark:text-white truncate">
-                                {file.original_name}
+                                {file.name}
                               </p>
                               <p className="text-sm text-gray-500">
-                                {file.mime_type?.includes('image') ? 'Image' : 
-                                 file.mime_type?.includes('video') ? 'Video' : 'File'} • 
-                                {Math.round(file.file_size / 1024)} KB
+                                {file.type?.includes('image') ? 'Image' : 
+                                 file.type?.includes('video') ? 'Video' : 'File'} • 
+                                {Math.round(file.size / 1024)} KB
                               </p>
                             </div>
                           </div>
                           
-                          {file.public_url && (
+                          {file.url && (
                             <Button
-                              onClick={() => window.open(file.public_url, '_blank')}
+                              onClick={() => window.open(file.url, '_blank')}
                               variant="secondary"
                               size="sm"
                               className="flex items-center space-x-1"

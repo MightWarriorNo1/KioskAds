@@ -45,6 +45,12 @@ export interface CustomAdOrder {
   designer_notes?: string;
   created_at: string;
   updated_at: string;
+  user?: {
+    id: string;
+    full_name: string;
+    email: string;
+    company_name?: string;
+  };
   designer?: {
     id: string;
     full_name: string;
@@ -57,6 +63,12 @@ export interface CustomAdOrder {
     base_price: number;
     turnaround_days: number;
   };
+  comments?: Array<{
+    id: string;
+    content: string;
+    author: string;
+    created_at: string;
+  }>;
 }
 
 export interface CustomAdProof {
@@ -164,13 +176,31 @@ export class CustomAdsService {
       .from('custom_ad_orders')
       .select(`
         *,
+        user:profiles!custom_ad_orders_user_id_fkey(id, full_name, email, company_name),
         designer:profiles!custom_ad_orders_assigned_designer_id_fkey(id, full_name, email)
       `)
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return data || [];
+    
+    // Get comments for each order
+    const ordersWithComments = await Promise.all(
+      (data || []).map(async (order) => {
+        const { data: comments } = await supabase
+          .from('custom_ad_order_comments')
+          .select('*')
+          .eq('order_id', order.id)
+          .order('created_at', { ascending: true });
+        
+        return {
+          ...order,
+          comments: comments || []
+        };
+      })
+    );
+
+    return ordersWithComments;
   }
 
   // Get order details
@@ -179,13 +209,51 @@ export class CustomAdsService {
       .from('custom_ad_orders')
       .select(`
         *,
+        user:profiles!custom_ad_orders_user_id_fkey(id, full_name, email, company_name),
         designer:profiles!custom_ad_orders_assigned_designer_id_fkey(id, full_name, email)
       `)
       .eq('id', orderId)
       .single();
 
     if (error) throw error;
-    return data;
+    
+    // Get comments for the order
+    const { data: comments } = await supabase
+      .from('custom_ad_order_comments')
+      .select('*')
+      .eq('order_id', orderId)
+      .order('created_at', { ascending: true });
+    
+    return {
+      ...data,
+      comments: comments || []
+    };
+  }
+
+  // Add comment to custom ad order (for clients/hosts)
+  static async addComment(orderId: string, content: string, userId: string): Promise<void> {
+    try {
+      // Get user profile for author name
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', userId)
+        .single();
+
+      const { error } = await supabase
+        .from('custom_ad_order_comments')
+        .insert({
+          order_id: orderId,
+          content,
+          author: profile?.full_name || 'Client',
+          created_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      throw error;
+    }
   }
 
   // Get proofs for an order

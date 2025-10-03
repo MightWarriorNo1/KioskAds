@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { 
@@ -15,13 +15,9 @@ import {
   FileImage,
   FileVideo,
   Trash2,
-  ArrowRight,
-  ArrowLeft,
   Eye,
-  Edit,
   Plus,
-  CheckCircle,
-  Search
+  CheckCircle
 } from 'lucide-react';
 import DashboardLayout from '../components/layouts/DashboardLayout';
 import Button from '../components/ui/Button';
@@ -31,6 +27,7 @@ import { Elements, useElements, useStripe, PaymentElement } from '@stripe/react-
 import { loadStripe } from '@stripe/stripe-js';
 import { BillingService } from '../services/billingService';
 import { CustomAdsService } from '../services/customAdsService';
+import { ProfileService } from '../services/profileService';
 import PaymentMethodSelector from '../components/PaymentMethodSelector';
 import { PaymentMethod } from '../types/database';
 import { validateCustomAdFile } from '../utils/customAdFileValidation';
@@ -98,6 +95,7 @@ export default function CustomAdsPage() {
   const [selectedService, setSelectedService] = useState<ServiceTile | null>(null);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
   const [showOrderForm, setShowOrderForm] = useState(false);
+  const { user } = useAuth();
   const [formData, setFormData] = useState<OrderFormData>({
     firstName: '',
     lastName: '',
@@ -128,11 +126,42 @@ export default function CustomAdsPage() {
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [selectedProofForComments, setSelectedProofForComments] = useState<any>(null);
   const [commentText, setCommentText] = useState('');
-  const { user }=useAuth();
   const navigate=useNavigate();
   const location = useLocation();
+
+  // Update form data when user changes
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      if (user) {
+        try {
+          // Fetch user profile to get full_name from profiles table
+          const profile = await ProfileService.getProfile(user.id);
+          const fullName = profile?.full_name || user.name || '';
+          const nameParts = fullName.split(' ');
+          
+          setFormData(prev => ({
+            ...prev,
+            firstName: nameParts[0] || prev.firstName,
+            lastName: nameParts.slice(1).join(' ') || prev.lastName,
+            email: user.email || prev.email,
+          }));
+        } catch (error) {
+          console.error('Error loading user profile:', error);
+          // Fallback to user.name if profile fetch fails
+          const nameParts = (user.name || '').split(' ');
+          setFormData(prev => ({
+            ...prev,
+            firstName: nameParts[0] || prev.firstName,
+            lastName: nameParts.slice(1).join(' ') || prev.lastName,
+            email: user.email || prev.email,
+          }));
+        }
+      }
+    };
+    
+    loadUserProfile();
+  }, [user]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const addressInputRef = useRef<HTMLInputElement>(null);
   const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string);
 
   const steps = [
@@ -256,17 +285,6 @@ export default function CustomAdsPage() {
     }
   };
 
-  const handleNextStep = () => {
-    if (currentStep < 4) {
-      setCurrentStep(currentStep + 1);
-    }
-  };
-
-  const handlePrevStep = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
 
   const handleStartOver = () => {
     setCurrentStep(1);
@@ -405,20 +423,16 @@ export default function CustomAdsPage() {
   const validateForm = (): boolean => {
     const errors: Partial<OrderFormData> = {};
 
-    // All fields except uploads are required
+    // Required fields: first name, last name, email, phone, details
     if (!formData.firstName.trim()) errors.firstName = 'First name is required';
     if (!formData.lastName.trim()) errors.lastName = 'Last name is required';
     if (!formData.email.trim()) errors.email = 'Email is required';
     else if (!/\S+@\S+\.\S+/.test(formData.email)) errors.email = 'Invalid email format';
     if (!formData.phone.trim()) errors.phone = 'Phone number is required';
-    if (!formData.address.trim()) errors.address = 'Address is required';
     if (!formData.details.trim()) errors.details = 'Project details are required';
     
-    // Date and time are required for Photography/Videography services
-    if (selectedService?.id === 'photography' || selectedService?.id === 'videography') {
-      if (!formData.preferredDate) errors.preferredDate = 'Preferred date is required';
-      if (!formData.preferredTime) errors.preferredTime = 'Preferred time is required';
-    }
+    // Address is now optional - no validation required
+    // Date and time are now optional for all services - no validation required
     
     // Note: Files are optional - no validation for uploads
 
@@ -456,35 +470,6 @@ export default function CustomAdsPage() {
     }
   };
 
-  const handleFinalSubmit = async () => {
-    if (!selectedService || !user) return;
-
-    setIsUploading(true);
-    
-    try {
-      // Create the order
-      const orderId = await CustomAdsService.createOrder({
-        userId: user.id,
-        serviceKey: selectedService.id,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        phone: formData.phone,
-        address: formData.address,
-        details: formData.details,
-        files: formData.files,
-        totalAmount: selectedService.price,
-      });
-
-      setSubmittedOrderId(orderId);
-      setOrderSubmitted(true);
-    } catch (error) {
-      console.error('Error creating order:', error);
-      alert('Error creating order. Please try again.');
-    } finally {
-      setIsUploading(false);
-    }
-  };
 
   const handlePaymentMethodSelect = (methodId: string | null) => {
     setSelectedPaymentMethodId(methodId);
@@ -694,23 +679,6 @@ export default function CustomAdsPage() {
                 100MB per file
               </span>
             </div>
-            <div className="flex gap-3 justify-center">
-              <Button
-                onClick={() => navigate('/client/custom-ads/create')}
-                className="flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Create Custom Ad
-              </Button>
-              <Button
-                onClick={() => navigate('/client/custom-ads/manage')}
-                variant="secondary"
-                className="flex items-center gap-2"
-              >
-                <Eye className="w-4 h-4" />
-                Manage My Ads
-              </Button>
-            </div>
           </div>
         </div>
       )}
@@ -855,6 +823,8 @@ export default function CustomAdsPage() {
                     onChange={(e) => handleInputChange('firstName', e.target.value)}
                     error={formErrors.firstName}
                     required
+                    disabled
+                    className="bg-gray-100 dark:bg-gray-700"
                   />
                   <Input
                     label="Last Name"
@@ -862,6 +832,8 @@ export default function CustomAdsPage() {
                     onChange={(e) => handleInputChange('lastName', e.target.value)}
                     error={formErrors.lastName}
                     required
+                    disabled
+                    className="bg-gray-100 dark:bg-gray-700"
                   />
                 </div>
 
@@ -873,6 +845,8 @@ export default function CustomAdsPage() {
                     onChange={(e) => handleInputChange('email', e.target.value)}
                     error={formErrors.email}
                     required
+                    disabled
+                    className="bg-gray-100 dark:bg-gray-700"
                   />
                   <Input
                     label="Phone"
@@ -885,17 +859,7 @@ export default function CustomAdsPage() {
                 </div>
 
                 <div className="relative">
-                  <Input
-                    ref={addressInputRef}
-                    label={selectedService?.id === 'photography' || selectedService?.id === 'videography' 
-                      ? "Address you would like Photography/Videography" 
-                      : "Address"}
-                    value={formData.address}
-                    onChange={(e) => handleInputChange('address', e.target.value)}
-                    error={formErrors.address}
-                    required
-                    placeholder="Start typing to search for addresses..."
-                  />
+                  
                   
                   {/* Address Autocomplete Suggestions */}
                   {showAddressSuggestions && addressSuggestions.length > 0 && (
@@ -930,7 +894,7 @@ export default function CustomAdsPage() {
                   <div className="grid md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Preferred Date *
+                        Preferred Date (Optional)
                       </label>
                       <input
                         type="date"
@@ -940,7 +904,6 @@ export default function CustomAdsPage() {
                         className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                           formErrors.preferredDate ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                         } bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
-                        required
                       />
                       {formErrors.preferredDate && (
                         <p className="text-red-500 text-sm mt-1">{formErrors.preferredDate}</p>
@@ -948,7 +911,7 @@ export default function CustomAdsPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Preferred Time *
+                        Preferred Time (Optional)
                       </label>
                       <input
                         type="time"
@@ -957,7 +920,6 @@ export default function CustomAdsPage() {
                         className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                           formErrors.preferredTime ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                         } bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
-                        required
                       />
                       {formErrors.preferredTime && (
                         <p className="text-red-500 text-sm mt-1">{formErrors.preferredTime}</p>
@@ -1321,10 +1283,10 @@ export default function CustomAdsPage() {
                       Create Another Ad
                     </Button>
                     <Button
-                      onClick={() => navigate('/client/new-campaign')}
+                      onClick={() => navigate('/client/manage-custom-ads')}
                       className="flex-1 bg-blue-600 hover:bg-blue-700"
                     >
-                      Create Campaign
+                      Manage Custom Ad
                     </Button>
                   </div>
                 </div>

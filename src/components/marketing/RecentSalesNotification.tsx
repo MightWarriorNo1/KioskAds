@@ -116,7 +116,7 @@ export default function RecentSalesNotification({}: RecentSalesNotificationProps
       setIsLoading(true);
       console.log('RecentSalesNotification: Loading recent sales data');
       // Try public method first, fallback to regular method
-      const recentSales = await BillingService.getPublicRecentSales(3);
+      const recentSales = await BillingService.getPublicRecentSales(1);
       
       if (recentSales.length === 0) {
         console.log('RecentSalesNotification: No recent sales found, not showing notification');
@@ -136,10 +136,10 @@ export default function RecentSalesNotification({}: RecentSalesNotificationProps
       
       console.log('RecentSalesNotification: Loaded real sales data', salesData);
       
-      // Start showing individual notifications (limit to 3)
+      // Start showing individual notifications (limit to 1)
       if (salesData.length > 0) {
-        const limitedSalesData = salesData.slice(0, 3);
-        console.log('RecentSalesNotification: Limiting to 3 sales', limitedSalesData);
+        const limitedSalesData = salesData.slice(0, 1);
+        console.log('RecentSalesNotification: Limiting to 1 sale', limitedSalesData);
         startNotificationSequence(limitedSalesData);
       }
     } catch (error) {
@@ -155,9 +155,9 @@ export default function RecentSalesNotification({}: RecentSalesNotificationProps
     const settings = marketingTool?.settings as any;
     const delay = settings?.displayDelay || 3; // 3 seconds delay before showing notifications
     
-    // Ensure we only show maximum 3 notifications
-    const limitedSalesData = salesData.slice(0, 3);
-    console.log('RecentSalesNotification: Starting sequence with', limitedSalesData.length, 'notifications');
+    // Ensure we only show maximum 1 notification
+    const limitedSalesData = salesData.slice(0, 1);
+    console.log('RecentSalesNotification: Starting sequence with', limitedSalesData.length, 'notification');
     
     // Clear any existing displayed sales first
     setDisplayedSales([]);
@@ -207,7 +207,7 @@ export default function RecentSalesNotification({}: RecentSalesNotificationProps
   };
 
 
-  // Remove the cycling effect - we want to show all 3 records at once
+  // Remove the cycling effect - we want to show 1 record at once
 
   const handleCloseSale = (saleId: string) => {
     // Add to closing set to trigger slide-out animation

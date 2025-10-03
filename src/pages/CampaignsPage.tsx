@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, RefreshCw, ArrowRight, CheckCircle, MapPin, List, Layout } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/layouts/DashboardLayout';
@@ -25,6 +25,18 @@ export default function CampaignsPage({ wrapInDashboard = true, basePath = '/cli
   const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'map' | 'split'>('split');
   const [mediaPreviews, setMediaPreviews] = useState<Record<string, { url: string; type: 'image' | 'video' }>>({});
+  const [kioskData, setKioskData] = useState<any[]>([]);
+  const [mapCenter, setMapCenter] = useState<[number, number]>([33.5689, -117.1865]);
+
+  // Calculate map center based on kiosk positions
+  const calculateMapCenter = (kiosks: any[]): [number, number] => {
+    if (kiosks.length === 0) return [33.5689, -117.1865]; // Default to Murrieta, CA
+    
+    const totalLat = kiosks.reduce((sum, kiosk) => sum + kiosk.position[0], 0);
+    const totalLng = kiosks.reduce((sum, kiosk) => sum + kiosk.position[1], 0);
+    
+    return [totalLat / kiosks.length, totalLng / kiosks.length];
+  };
 
   useEffect(() => {
     if (location.state?.message) {
@@ -83,6 +95,32 @@ export default function CampaignsPage({ wrapInDashboard = true, basePath = '/cli
       setLoading(true);
       const userCampaigns = await CampaignService.getUserCampaigns(user.id);
       setCampaigns(userCampaigns);
+      
+      // Extract and deduplicate kiosk data
+      const allKiosks = userCampaigns.flatMap(campaign => campaign.kiosks || []);
+      const uniqueKiosks = allKiosks.filter((kiosk, index, self) => 
+        index === self.findIndex(k => k.id === kiosk.id)
+      );
+      
+      // Transform kiosk data for map component
+      const mapKioskData = uniqueKiosks.map(kiosk => ({
+        id: kiosk.id,
+        name: kiosk.name,
+        city: kiosk.city,
+        price: `$${kiosk.price}`,
+        originalPrice: kiosk.base_rate !== kiosk.price ? `$${kiosk.base_rate}` : undefined,
+        traffic: kiosk.traffic_level === 'high' ? 'High Traffic' : 
+                kiosk.traffic_level === 'medium' ? 'Medium Traffic' : 'Low Traffic',
+        position: [kiosk.coordinates.lat, kiosk.coordinates.lng] as [number, number],
+        address: kiosk.address,
+        description: kiosk.description
+      }));
+      
+      setKioskData(mapKioskData);
+      
+      // Calculate and set map center based on kiosk positions
+      const center = calculateMapCenter(mapKioskData);
+      setMapCenter(center);
     } catch (error) {
       console.error('Error fetching campaigns:', error);
     } finally {
@@ -338,10 +376,10 @@ export default function CampaignsPage({ wrapInDashboard = true, basePath = '/cli
               </div>
               <div className="h-[500px] lg:h-[600px] w-full">
                 <LeafletMap 
-                  center={[33.5689, -117.1865]}
+                  center={mapCenter}
                   zoom={11}
                   className="h-full w-full"
-                  kioskData={[]}
+                  kioskData={kioskData}
                 />
               </div>
             </div>
@@ -357,10 +395,10 @@ export default function CampaignsPage({ wrapInDashboard = true, basePath = '/cli
                 </div>
                 <div className="h-[400px] lg:h-[500px] w-full">
                   <LeafletMap 
-                    center={[33.5689, -117.1865]}
+                    center={mapCenter}
                     zoom={11}
                     className="h-full w-full"
-                    kioskData={[]}
+                    kioskData={kioskData}
                   />
                 </div>
               </div>

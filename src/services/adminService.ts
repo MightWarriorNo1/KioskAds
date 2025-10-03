@@ -156,7 +156,14 @@ export interface AssetLifecycleItem {
 export interface EmailTemplate {
   id: string;
   name: string;
-  type: 'ad_approval' | 'ad_rejection' | 'campaign_approved' | 'campaign_rejected' | 'welcome' | 'payment_confirmation';
+  type: 'ad_approval' | 'ad_rejection' | 'welcome' | 'payment_confirmation' | 'daily_pending_review' |
+        'campaign_purchased' | 'campaign_submitted' | 'campaign_approved' | 'campaign_rejected' | 
+        'campaign_active' | 'campaign_expiring' | 'campaign_expired' | 'campaign_paused' | 'campaign_resumed' |
+        'custom_ad_purchased' | 'custom_ad_submitted' | 'custom_ad_rejected' | 'custom_ad_approved' | 
+        'custom_ad_designer_assigned' | 'custom_ad_proofs_ready' | 'custom_ad_proof_approved' | 
+        'custom_ad_proof_rejected' | 'custom_ad_completed' | 'custom_ad_designer_assignment' | 
+        'custom_ad_designer_rejection' | 'custom_ad_proof_submitted' |
+        'subscription_payment_declined' | 'subscription_payment_success';
   subject: string;
   body_html: string;
   body_text?: string;
@@ -238,12 +245,19 @@ export class AdminService {
 
   static async sendInvitation(email: string, role: 'client' | 'host' | 'designer' | 'admin', expiresInDays: number, invitedBy?: string): Promise<string> {
     try {
+      // Get current user if invitedBy not provided
+      let currentUserId = invitedBy;
+      if (!currentUserId) {
+        const { data: { user } } = await supabase.auth.getUser();
+        currentUserId = user?.id;
+      }
+
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + expiresInDays);
       const token = crypto.randomUUID?.() || Math.random().toString(36).slice(2);
       const { data, error } = await supabase
         .from('invitations')
-        .insert({ email, role, status: 'sent', sent_at: new Date().toISOString(), expires_at: expiresAt.toISOString(), invited_by: invitedBy, token })
+        .insert({ email, role, status: 'sent', sent_at: new Date().toISOString(), expires_at: expiresAt.toISOString(), invited_by: currentUserId, token })
         .select('id')
         .single();
       if (error) throw error;
@@ -276,6 +290,14 @@ export class AdminService {
 
   static async bulkCreateInvitations(rows: Array<{ email: string; role: 'client'|'host'|'designer'|'admin'; expires_days?: number; invited_by?: string }>): Promise<void> {
     if (!rows.length) return;
+    
+    // Get current user if not provided
+    let currentUserId = rows[0]?.invited_by;
+    if (!currentUserId) {
+      const { data: { user } } = await supabase.auth.getUser();
+      currentUserId = user?.id;
+    }
+    
     const now = new Date();
     const records = rows.map(r => {
       const expires = new Date(now);
@@ -288,7 +310,7 @@ export class AdminService {
         status: 'sent',
         sent_at: now.toISOString(),
         expires_at: expires.toISOString(),
-        invited_by: r.invited_by,
+        invited_by: r.invited_by || currentUserId,
         token,
       } as any;
     });
@@ -2346,6 +2368,7 @@ export class AdminService {
     gdrive_config_id: string;
     active_folder_id: string;
     archive_folder_id: string;
+    scheduled_folder_id?: string;
   }): Promise<string> {
     try {
       const { data, error } = await supabase
@@ -2370,6 +2393,7 @@ export class AdminService {
       gdrive_config_id: string;
       active_folder_id: string;
       archive_folder_id: string;
+      scheduled_folder_id?: string;
     }
   ): Promise<void> {
     try {

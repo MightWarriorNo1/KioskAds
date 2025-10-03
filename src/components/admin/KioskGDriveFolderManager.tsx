@@ -24,6 +24,7 @@ interface KioskGDriveFolder {
   gdrive_config_id: string;
   active_folder_id: string;
   archive_folder_id: string;
+  scheduled_folder_id?: string;
   kiosk?: Kiosk;
   gdrive_config?: GoogleDriveConfig;
 }
@@ -33,6 +34,7 @@ interface FolderAssignmentForm {
   gdrive_config_id: string;
   active_folder_id: string;
   archive_folder_id: string;
+  scheduled_folder_id?: string;
 }
 
 export default function KioskGDriveFolderManager() {
@@ -48,7 +50,8 @@ export default function KioskGDriveFolderManager() {
     kiosk_id: '',
     gdrive_config_id: '',
     active_folder_id: '',
-    archive_folder_id: ''
+    archive_folder_id: '',
+    scheduled_folder_id: ''
   });
   const [saving, setSaving] = useState(false);
 
@@ -113,7 +116,8 @@ export default function KioskGDriveFolderManager() {
       kiosk_id: '',
       gdrive_config_id: '',
       active_folder_id: '',
-      archive_folder_id: ''
+      archive_folder_id: '',
+      scheduled_folder_id: ''
     });
     setShowForm(true);
   };
@@ -124,7 +128,8 @@ export default function KioskGDriveFolderManager() {
       kiosk_id: assignment.kiosk_id,
       gdrive_config_id: assignment.gdrive_config_id,
       active_folder_id: assignment.active_folder_id,
-      archive_folder_id: assignment.archive_folder_id
+      archive_folder_id: assignment.archive_folder_id,
+      scheduled_folder_id: assignment.scheduled_folder_id || ''
     });
     setShowForm(true);
   };
@@ -262,6 +267,9 @@ export default function KioskGDriveFolderManager() {
                   Active Folder ID
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Scheduled Folder ID
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Archive Folder ID
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -272,7 +280,7 @@ export default function KioskGDriveFolderManager() {
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {folderAssignments.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
                     <Folder className="w-12 h-12 mx-auto mb-4 text-gray-400" />
                     <p className="text-lg font-medium">No folder assignments found</p>
                     <p className="text-sm">Create your first folder assignment to get started</p>
@@ -307,6 +315,11 @@ export default function KioskGDriveFolderManager() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900 dark:text-white font-mono">
                         {assignment.active_folder_id || 'Not set'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900 dark:text-white font-mono">
+                        {assignment.scheduled_folder_id || 'Not set'}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -412,6 +425,22 @@ export default function KioskGDriveFolderManager() {
                   placeholder="Enter Google Drive folder ID for active ads"
                   required
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Scheduled Folder ID
+                </label>
+                <input
+                  type="text"
+                  value={formData.scheduled_folder_id || ''}
+                  onChange={(e) => setFormData({ ...formData, scheduled_folder_id: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="Enter Google Drive folder ID for scheduled ads (optional)"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Ads will be uploaded here when approved, then moved to active when campaign starts
+                </p>
               </div>
 
               <div>

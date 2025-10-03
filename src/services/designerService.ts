@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabaseClient';
 import type { Database } from '../types/database';
 
 export type CustomAdOrder = Database['public']['Tables']['custom_ad_orders']['Row'] & {
+  user?: { id: string; full_name: string; email: string; company_name?: string } | null;
   designer?: { id: string; full_name: string; email: string } | null;
   service?: { id: string; name: string; description: string; base_price: number; turnaround_days: number } | null;
 };
@@ -46,7 +47,10 @@ export class DesignerService {
     const [orderRes, commentsRes, proofsRes] = await Promise.all([
       supabase
         .from('custom_ad_orders')
-        .select(`*`)
+        .select(`
+          *,
+          user:profiles!custom_ad_orders_user_id_fkey(id, full_name, email, company_name)
+        `)
         .eq('id', orderId)
         .single(),
       supabase
@@ -137,6 +141,32 @@ export class DesignerService {
       recentOrders: (ordersRes.data as any) || [],
       recentProofs: proofsRes.data || []
     };
+  }
+
+  // Add comment to custom ad order
+  static async addComment(orderId: string, content: string, designerId: string): Promise<void> {
+    try {
+      // Get designer profile for author name
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', designerId)
+        .single();
+
+      const { error } = await supabase
+        .from('custom_ad_order_comments')
+        .insert({
+          order_id: orderId,
+          content,
+          author: profile?.full_name || 'Designer',
+          created_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      throw error;
+    }
   }
 }
 
