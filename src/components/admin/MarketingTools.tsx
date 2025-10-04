@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Megaphone, Plus, Edit, Trash2, Eye, EyeOff, RefreshCw, Star, MessageSquare, Bell, BarChart3 } from 'lucide-react';
+import { Megaphone, Plus, Edit, Trash2, Eye, EyeOff, RefreshCw, Star, MessageSquare, Bell, BarChart3, Users } from 'lucide-react';
 import { useNotification } from '../../contexts/NotificationContext';
 import { AdminService, MarketingTool, Testimonial } from '../../services/adminService';
+import PartnerSettings from './PartnerSettings';
 
 export default function MarketingTools() {
   const [marketingTools, setMarketingTools] = useState<MarketingTool[]>([]);
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'tools' | 'testimonials'>('tools');
+  const [activeTab, setActiveTab] = useState<'tools' | 'testimonials' | 'partner-settings'>('tools');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingItem, setEditingItem] = useState<MarketingTool | Testimonial | null>(null);
   const { addNotification } = useNotification();
@@ -277,13 +278,15 @@ export default function MarketingTools() {
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
           </button>
-          <button
-            onClick={openCreateModal}
-            className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Create {activeTab === 'testimonials' ? 'Testimonial' : 'Tool'}</span>
-          </button>
+          {activeTab !== 'partner-settings' && (
+            <button
+              onClick={openCreateModal}
+              className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Create {activeTab === 'testimonials' ? 'Testimonial' : 'Tool'}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -310,6 +313,16 @@ export default function MarketingTools() {
               }`}
             >
               Testimonials
+            </button>
+            <button
+              onClick={() => setActiveTab('partner-settings')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'partner-settings'
+                  ? 'border-purple-500 text-purple-600'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'
+              }`}
+            >
+              Partner Settings
             </button>
           </nav>
         </div>
@@ -386,7 +399,7 @@ export default function MarketingTools() {
                 </div>
               )}
             </div>
-          ) : (
+          ) : activeTab === 'testimonials' ? (
             <div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Testimonials</h3>
               {loading ? (
@@ -480,7 +493,9 @@ export default function MarketingTools() {
                 </div>
               )}
             </div>
-          )}
+          ) : activeTab === 'partner-settings' ? (
+            <PartnerSettings />
+          ) : null}
         </div>
       </div>
 
@@ -733,6 +748,35 @@ export default function MarketingTools() {
                   </div>
 
                   <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Padding (px)</label>
+                      <input
+                        type="number"
+                        value={(formData.settings as any).padding || 12}
+                        onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), padding: Number(e.target.value) } }))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        min="0"
+                        max="50"
+                        placeholder="12"
+                      />
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Vertical padding for banner background</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Font Size (px)</label>
+                      <input
+                        type="number"
+                        value={(formData.settings as any).fontSize || 14}
+                        onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), fontSize: Number(e.target.value) } }))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        min="10"
+                        max="24"
+                        placeholder="14"
+                      />
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Text size for banner content</p>
+                    </div>
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-4">
                     <div className="flex items-center">
                       <input
                         type="checkbox"
@@ -770,6 +814,35 @@ export default function MarketingTools() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Email Input Styling Controls */}
+                  {Boolean((formData.settings as any).collectEmail) && (
+                    <div className="space-y-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Email Input Styling</h4>
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email Input Background Color</label>
+                          <input
+                            type="text"
+                            value={(formData.settings as any).emailInputBackgroundColor || ''}
+                            onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), emailInputBackgroundColor: e.target.value } }))}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            placeholder="#ffffff or white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email Input Text Color</label>
+                          <input
+                            type="text"
+                            value={(formData.settings as any).emailInputTextColor || ''}
+                            onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), emailInputTextColor: e.target.value } }))}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            placeholder="#000000 or black"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

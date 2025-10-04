@@ -1,14 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Plus, 
   Eye, 
   Edit, 
-  Trash2, 
   Play, 
   Pause, 
   Calendar, 
-  MapPin, 
   Upload, 
   CheckCircle, 
   XCircle, 
@@ -23,8 +21,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../contexts/NotificationContext';
-import { HostService, HostAd, HostAdAssignment, HostKiosk } from '../../services/hostService';
-import { AdminService } from '../../services/adminService';
+import { HostService, HostAd, HostAdAssignment } from '../../services/hostService';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import AssetSwapModal from './AssetSwapModal';
@@ -41,7 +38,6 @@ export default function AdManagement() {
   const { addNotification } = useNotification();
   
   const [ads, setAds] = useState<AdWithAssignments[]>([]);
-  const [kiosks, setKiosks] = useState<HostKiosk[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -50,6 +46,8 @@ export default function AdManagement() {
   const [selectedAdForSwap, setSelectedAdForSwap] = useState<HostAd | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingAd, setDeletingAd] = useState<string | null>(null);
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -57,28 +55,24 @@ export default function AdManagement() {
       
       try {
         setLoading(true);
-        const [adsData, kiosksData, assignmentsData] = await Promise.all([
+        const [adsData, assignmentsData] = await Promise.all([
           HostService.getHostAds(user.id),
-          HostService.getHostKiosks(user.id),
           HostService.getHostAdAssignments(user.id)
         ]);
 
         // Enrich ads with assignment data and metrics
         const enrichedAds = adsData.map(ad => {
           const adAssignments = assignmentsData.filter(assignment => assignment.ad_id === ad.id);
-          const totalImpressions = adAssignments.reduce((sum, assignment) => sum + (assignment.impressions || 0), 0);
-          const totalRevenue = adAssignments.reduce((sum, assignment) => sum + (assignment.revenue || 0), 0);
           
           return {
             ...ad,
             assignments: adAssignments,
-            totalImpressions,
-            totalRevenue
+            totalImpressions: 0, // TODO: Add impressions tracking
+            totalRevenue: 0 // TODO: Add revenue tracking
           };
         });
 
         setAds(enrichedAds);
-        setKiosks(kiosksData);
       } catch (error) {
         console.error('Error loading ads:', error);
         addNotification('error', 'Error', 'Failed to load ads');
@@ -89,6 +83,20 @@ export default function AdManagement() {
 
     loadData();
   }, [user?.id, addNotification]);
+
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setOpenDropdownId(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -165,7 +173,41 @@ export default function AdManagement() {
 
   const handleSwapComplete = () => {
     // Reload ads to reflect the new status
-    loadData();
+    if (user?.id) {
+      const loadData = async () => {
+        try {
+          setLoading(true);
+          const [adsData, assignmentsData] = await Promise.all([
+            HostService.getHostAds(user.id),
+            HostService.getHostAdAssignments(user.id)
+          ]);
+
+          // Enrich ads with assignment data and metrics
+          const enrichedAds = adsData.map(ad => {
+            const adAssignments = assignmentsData.filter(assignment => assignment.ad_id === ad.id);
+            
+            return {
+              ...ad,
+              assignments: adAssignments,
+              totalImpressions: 0, // TODO: Add impressions tracking
+              totalRevenue: 0 // TODO: Add revenue tracking
+            };
+          });
+
+          setAds(enrichedAds);
+        } catch (error) {
+          console.error('Error loading ads:', error);
+          addNotification('error', 'Error', 'Failed to load ads');
+        } finally {
+          setLoading(false);
+        }
+      };
+      loadData();
+    }
+  };
+
+  const toggleDropdown = (adId: string) => {
+    setOpenDropdownId(openDropdownId === adId ? null : adId);
   };
 
   const handlePauseAd = async (adId: string) => {
@@ -399,21 +441,24 @@ export default function AdManagement() {
                     Preview
                   </Button>
                   
-                  <div className="relative">
+                  <div className="relative" ref={dropdownRef}>
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => setSelectedAd(ad)}
+                      onClick={() => toggleDropdown(ad.id)}
                     >
                       <MoreVertical className="h-4 w-4" />
                     </Button>
                     
-                    {selectedAd?.id === ad.id && (
-                      <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10">
+                    {openDropdownId === ad.id && (
+                      <div className="absolute right-0 bottom-full mb-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10">
                         <div className="py-1">
                           {ad.status === 'draft' && (
                             <button
-                              onClick={() => handleSubmitForReview(ad.id)}
+                              onClick={() => {
+                                handleSubmitForReview(ad.id);
+                                setOpenDropdownId(null);
+                              }}
                               className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                             >
                               Submit for Review
@@ -423,13 +468,19 @@ export default function AdManagement() {
                           {ad.status === 'active' && (
                             <>
                               <button
-                                onClick={() => handleSwapAsset(ad)}
+                                onClick={() => {
+                                  handleSwapAsset(ad);
+                                  setOpenDropdownId(null);
+                                }}
                                 className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                               >
                                 Swap Asset
                               </button>
                               <button
-                                onClick={() => handlePauseAd(ad.id)}
+                                onClick={() => {
+                                  handlePauseAd(ad.id);
+                                  setOpenDropdownId(null);
+                                }}
                                 className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                               >
                                 Pause Ad
@@ -439,7 +490,10 @@ export default function AdManagement() {
                           
                           {ad.status === 'paused' && (
                             <button
-                              onClick={() => handleResumeAd(ad.id)}
+                              onClick={() => {
+                                handleResumeAd(ad.id);
+                                setOpenDropdownId(null);
+                              }}
                               className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                             >
                               Resume Ad
@@ -447,14 +501,20 @@ export default function AdManagement() {
                           )}
                           
                           <button
-                            onClick={() => navigate(`/host/ads/${ad.id}/assign`)}
+                            onClick={() => {
+                              navigate(`/host/ads/${ad.id}/assign`);
+                              setOpenDropdownId(null);
+                            }}
                             className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                           >
                             Assign to Kiosks
                           </button>
                           
                           <button
-                            onClick={() => navigate(`/host/ads/${ad.id}/edit`)}
+                            onClick={() => {
+                              navigate(`/host/ads/${ad.id}/edit`);
+                              setOpenDropdownId(null);
+                            }}
                             className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                           >
                             Edit Ad
@@ -466,6 +526,7 @@ export default function AdManagement() {
                             onClick={() => {
                               setSelectedAd(ad);
                               setShowDeleteModal(true);
+                              setOpenDropdownId(null);
                             }}
                             className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
                           >

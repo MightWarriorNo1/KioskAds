@@ -11,6 +11,7 @@ import StorageConfigurationManagement from './StorageConfigurationManagement';
 import NotificationSettings from './NotificationSettings';
 import Invitations from './Invitations/Invitations';
 import AdUploadLimits from './AdUploadLimits';
+import PartnerSettings from './PartnerSettings';
 
 export default function SystemSettings() {
   const [activeTab, setActiveTab] = useState('integrations');
@@ -105,6 +106,7 @@ export default function SystemSettings() {
     { id: 'ad-upload-limits', name: 'Ad Upload Limits', icon: Upload },
     { id: 'tracking-tags', name: 'Tracking Tags', icon: Tag },
     { id: 'volume-discounts', name: 'Volume Discounts', icon: TrendingUp },
+    { id: 'partner-settings', name: 'Partner Settings', icon: Users },
     { id: 'payments', name: 'Payments', icon: CreditCard },
     { id: 'notifications', name: 'Notifications', icon: Mail },
     { id: 'security', name: 'Security', icon: Key }
@@ -343,8 +345,11 @@ export default function SystemSettings() {
             <Invitations />
           )}
 
+          {/* Partner Settings Tab */}
+          {activeTab === 'partner-settings' && <PartnerSettings />}
+
           {/* Other tabs content would go here */}
-          {!['integrations', 'storage-config', 's3-config', 'gdrive-config', 'gdrive-settings', 'upload-management', 'ad-upload-limits', 'tracking-tags', 'volume-discounts', 'notifications'].includes(activeTab) && (
+          {!['integrations', 'storage-config', 's3-config', 'gdrive-config', 'gdrive-settings', 'upload-management', 'ad-upload-limits', 'tracking-tags', 'volume-discounts', 'partner-settings', 'notifications'].includes(activeTab) && (
             <div className="text-center py-12">
               <Settings className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">{tabs.find(t => t.id === activeTab)?.name} Settings</h3>

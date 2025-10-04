@@ -446,20 +446,24 @@ export default function AssetLifecycleManagement() {
                   <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
                     Preview
                   </h4>
-                  <div className="bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
-                    {selectedAsset.media_asset.file_type === 'video' ? (
-                      <video
-                        src={MediaService.getMediaPreviewUrl(selectedAsset.media_asset.file_path)}
-                        controls
-                        className="w-full h-auto max-h-96"
-                      />
-                    ) : (
-                      <img
-                        src={MediaService.getMediaPreviewUrl(selectedAsset.media_asset.file_path)}
-                        alt={selectedAsset.media_asset.file_name}
-                        className="w-full h-auto max-h-96 object-contain"
-                      />
-                    )}
+                  <div className="bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden p-4">
+                    <div className="mx-auto" style={{ width: '270px' }}>
+                      <div style={{ aspectRatio: '9 / 16' }} className="w-full bg-black rounded-lg overflow-hidden">
+                        {selectedAsset.media_asset.file_type === 'video' ? (
+                          <video
+                            src={MediaService.getMediaPreviewUrl(selectedAsset.media_asset.file_path)}
+                            controls
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <img
+                            src={MediaService.getMediaPreviewUrl(selectedAsset.media_asset.file_path)}
+                            alt={selectedAsset.media_asset.file_name}
+                            className="w-full h-full object-cover"
+                          />
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
 

@@ -58,9 +58,10 @@ export default function BannerMarketing({ className = '' }: BannerMarketingProps
       style={{
         backgroundColor: settings?.backgroundColor || '#4f46e5',
         color: settings?.textColor || '#ffffff',
+        padding: `${settings?.padding || 12}px 0`,
       }}
     >
-      <div className="max-w-7xl mx-auto px-4 py-3">
+      <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-center relative">
           {/* Close button positioned absolutely on the right */}
           <button
@@ -73,7 +74,10 @@ export default function BannerMarketing({ className = '' }: BannerMarketingProps
           {/* Centered content */}
           <div className="flex items-center space-x-4">
             <div>
-              <p className="text-sm font-medium text-center">
+              <p 
+                className="font-medium text-center"
+                style={{ fontSize: `${settings?.fontSize || 14}px` }}
+              >
                 {marketingTool.content}
               </p>
             </div>
@@ -81,7 +85,8 @@ export default function BannerMarketing({ className = '' }: BannerMarketingProps
             {settings?.cta?.label && !settings?.collectEmail && (
               <button
                 onClick={handleCtaClick}
-                className="px-4 py-1.5 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-md text-sm font-medium transition-colors"
+                className="px-4 py-1.5 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-md font-medium transition-colors"
+                style={{ fontSize: `${settings?.fontSize || 14}px` }}
               >
                 {settings.cta.label}
               </button>
@@ -92,10 +97,18 @@ export default function BannerMarketing({ className = '' }: BannerMarketingProps
                 <input
                   type="email"
                   placeholder="Enter your email"
-                  className="px-3 py-1.5 text-sm bg-white bg-opacity-20 placeholder-white placeholder-opacity-70 rounded-md border-0 focus:ring-2 focus:ring-white focus:ring-opacity-50"
-                  style={{ color: settings?.textColor || '#ffffff' }}
+                  className="px-3 py-1.5 rounded-md border-0 focus:ring-2 focus:ring-white focus:ring-opacity-50"
+                  style={{ 
+                    backgroundColor: settings?.emailInputBackgroundColor || 'rgba(255, 255, 255, 0.2)',
+                    color: settings?.emailInputTextColor || settings?.textColor || '#ffffff',
+                    fontSize: `${settings?.fontSize || 14}px`,
+                    '::placeholder': { color: 'rgba(255, 255, 255, 0.7)' }
+                  }}
                 />
-                <button className="px-4 py-1.5 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-md text-sm font-medium transition-colors">
+                <button 
+                  className="px-4 py-1.5 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-md font-medium transition-colors"
+                  style={{ fontSize: `${settings?.fontSize || 14}px` }}
+                >
                   Subscribe
                 </button>
               </div>

@@ -4,6 +4,7 @@ import { ArrowLeft, Upload, AlertTriangle, Clock, CheckCircle } from 'lucide-rea
 import DashboardLayout from '../components/layouts/DashboardLayout';
 import { MediaService } from '../services/mediaService';
 import { useAuth } from '../contexts/AuthContext';
+import PhonePreview from '../components/admin/PhonePreview';
 
 interface SelectedWeek {
   startDate: string;
@@ -568,37 +569,17 @@ export default function AddMediaDurationPage() {
                 <div>
                   <h5 className="font-medium text-gray-900 dark:text-white mb-4">Preview</h5>
                   <div className="relative">
-                    {/* Digital Sign Kiosk Frame */}
-                    <div className="w-80 h-96 mx-auto relative">
-                      {/* Kiosk Base */}
-                      <div className="w-full h-16 bg-black rounded-lg shadow-lg"></div>
-                      
-                      {/* Kiosk Main Body */}
-                      <div className="w-full h-80 mx-auto p-4 bg-black rounded-lg shadow-2xl relative">
-                        {/* Top sensors/camera dots */}
-                        <div className="absolute top-2 left-1/2 transform -translate-x-1/2 flex space-x-1">
-                          <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
-                          <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
-                        </div>
-                        
-                        {/* Screen Area */}
-                        <div className="w-full h-48 bg-white rounded-lg overflow-hidden relative object-contain">
-                          {/* Preview Image/Video */}
-                          {filePreview && (
-                            <div className="w-full h-full">
-                              <div style={{ aspectRatio: '9 / 16' }} className="w-full bg-black rounded-md overflow-hidden">
-                                {uploadedFile?.type.startsWith('image/') ? (
-                                  <img src={filePreview} alt="Preview" className="w-full h-full object-cover" />
-                                ) : (
-                                  <video src={filePreview} controls className="w-full h-full object-cover" />
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                    {/* Phone Preview */}
+                    {filePreview && (
+                      <div className="flex justify-center mb-4">
+                        <PhonePreview
+                          mediaUrl={filePreview}
+                          mediaType={uploadedFile?.type.startsWith('image/') ? 'image' : 'video'}
+                          title={uploadedFile?.name || 'Ad Preview'}
+                          className="w-80 h-96"
+                        />
                       </div>
-                      
-                    </div>
+                    )}
                     
                     {/* Remove File Button */}
                     <button

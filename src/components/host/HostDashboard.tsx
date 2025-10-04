@@ -7,7 +7,6 @@ import { ProofOfPlayService } from '../../services/proofOfPlayService';
 import MetricsCard from '../shared/MetricsCard';
 import RecentActivity from '../shared/RecentActivity';
 import ProofOfPlayWidget from '../shared/ProofOfPlayWidget';
-import RecentSales from '../RecentSales';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 
@@ -266,10 +265,6 @@ export default function HostDashboard() {
         </Card>
       </div>
 
-      {/* Recent Sales */}
-      <div className="animate-fade-in-up">
-        <RecentSales limit={3} />
-      </div>
 
       {/* Revenue Chart & PoP Widget */}
       <div className="grid lg:grid-cols-2 gap-6">

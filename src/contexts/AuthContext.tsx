@@ -82,6 +82,16 @@ async function mapSupabaseUserToUser(supabaseUser: SupabaseUser, lastKnownRole?:
     }
   } catch (e) {
     console.error('Profile lookup error:', e);
+    
+    // Handle specific permission errors
+    if (e && typeof e === 'object' && 'code' in e) {
+      const error = e as any;
+      if (error.code === '42501') {
+        console.warn('Permission denied error - this may indicate database configuration issues');
+        // Don't fail completely, use fallback role
+      }
+    }
+    
     // Preserve last known role if profile lookup fails to prevent role downgrades
     if (lastKnownRole) {
       role = lastKnownRole;

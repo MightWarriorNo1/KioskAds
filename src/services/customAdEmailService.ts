@@ -529,13 +529,20 @@ export class CustomAdEmailService {
     }
   }
 
-  // Replace template variables
+  // Replace template variables and remove any remaining placeholders
   private static replaceVariables(text: string, variables: Record<string, string>): string {
     let result = text;
+    
+    // First, replace all known variables
     for (const [key, value] of Object.entries(variables)) {
       const regex = new RegExp(`{{${key}}}`, 'g');
-      result = result.replace(regex, value);
+      const replacement = value !== null && value !== undefined ? value : '';
+      result = result.replace(regex, replacement);
     }
+    
+    // Then, remove any remaining placeholders that weren't replaced
+    result = result.replace(/\{\{[^}]+\}\}/g, '');
+    
     return result;
   }
 

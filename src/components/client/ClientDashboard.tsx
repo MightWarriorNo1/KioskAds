@@ -6,7 +6,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import MetricsCard from '../shared/MetricsCard';
 import RecentActivity from '../shared/RecentActivity';
 import QuickActions from '../shared/QuickActions';
-import RecentSales from '../RecentSales';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import { CampaignService } from '../../services/campaignService';
@@ -267,10 +266,6 @@ export default function ClientDashboard() {
         </div>
       </div>
 
-      {/* Recent Sales */}
-      <div className="animate-fade-in-up" style={{ animationDelay: '550ms' }}>
-        <RecentSales limit={3} />
-      </div>
 
       {/* Campaign Performance Chart */}
       <div className="animate-fade-in-up" style={{ animationDelay: '600ms' }}>

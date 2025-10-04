@@ -5,6 +5,10 @@ interface AnnouncementSettings {
   position?: 'top' | 'bottom';
   backgroundColor?: string;
   textColor?: string;
+  padding?: number;
+  fontSize?: number;
+  emailInputBackgroundColor?: string;
+  emailInputTextColor?: string;
   cta?: {
     label?: string;
     href?: string;
@@ -42,6 +46,10 @@ export default function AnnouncementBar() {
   const position = settings.position || 'top';
   const backgroundColor = settings.backgroundColor || 'rgb(var(--primary))';
   const textColor = settings.textColor || 'white';
+  const padding = settings.padding || 8;
+  const fontSize = settings.fontSize || 14;
+  const emailInputBackgroundColor = settings.emailInputBackgroundColor || 'white';
+  const emailInputTextColor = settings.emailInputTextColor || 'black';
   const collectEmail = Boolean(settings.collectEmail);
   const cta = settings.cta || null;
 
@@ -68,11 +76,12 @@ export default function AnnouncementBar() {
         bottom: position === 'bottom' ? 0 : undefined,
         zIndex: 50,
         backgroundColor,
-        color: textColor
+        color: textColor,
+        padding: `${padding}px 0`
       }}
       className="w-full"
     >
-      <div className="mx-auto max-w-7xl px-4 py-2 flex items-center justify-center relative">
+      <div className="mx-auto max-w-7xl px-4 flex items-center justify-center relative">
         {/* Dismiss button positioned absolutely on the right */}
         <button
           onClick={() => setDismissedId(activeBar.id)}
@@ -85,7 +94,10 @@ export default function AnnouncementBar() {
         
         {/* Centered content */}
         <div className="flex items-center gap-3">
-          <div className="text-sm font-medium text-center">
+          <div 
+            className="font-medium text-center"
+            style={{ fontSize: `${fontSize}px` }}
+          >
             {activeBar.title ? (
               <span className="mr-2">{activeBar.title}</span>
             ) : null}
@@ -95,8 +107,8 @@ export default function AnnouncementBar() {
           {cta && cta.label && cta.href && !collectEmail && (
             <a
               href={cta.href}
-              className="text-sm font-semibold underline underline-offset-2"
-              style={{ color: textColor }}
+              className="font-semibold underline underline-offset-2"
+              style={{ color: textColor, fontSize: `${fontSize}px` }}
             >
               {cta.label}
             </a>
@@ -109,15 +121,19 @@ export default function AnnouncementBar() {
                 placeholder="Enter your email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="rounded px-2 py-1 text-sm"
-                style={{ color: 'black' }}
+                className="rounded px-2 py-1"
+                style={{ 
+                  backgroundColor: emailInputBackgroundColor,
+                  color: emailInputTextColor,
+                  fontSize: `${fontSize}px`
+                }}
                 required
               />
               <button
                 type="submit"
                 disabled={submitting}
-                className="rounded bg-white/20 px-3 py-1 text-sm font-semibold"
-                style={{ color: textColor }}
+                className="rounded bg-white/20 px-3 py-1 font-semibold"
+                style={{ color: textColor, fontSize: `${fontSize}px` }}
               >
                 {submitting ? 'Sending...' : 'Submit'}
               </button>

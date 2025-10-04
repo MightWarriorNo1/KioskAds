@@ -494,6 +494,349 @@ export default function HostCustomAdsPage() {
         </div>
       )}
 
+      {/* Description & Details Step */}
+      {currentStep === 2 && selectedService && (
+        <div className="space-y-8">
+          <div className="text-center">
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+              Description & Details
+            </h2>
+            <p className="text-lg text-gray-600 dark:text-gray-300">
+              Tell us about your project requirements and preferences
+            </p>
+          </div>
+
+          <Card className="max-w-4xl mx-auto">
+            <div className="p-8">
+              {/* Selected Service Summary */}
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {selectedService.icon}
+                    <div>
+                      <h3 className="font-semibold text-gray-900 dark:text-white">{selectedService.title}</h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">
+                        {selectedService.turnaround} • ${selectedService.price}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <form onSubmit={(e) => { e.preventDefault(); setCurrentStep(3); }} className="space-y-6">
+                {/* Personal Information */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  <Input
+                    label="First Name"
+                    value={formData.firstName}
+                    onChange={(e) => handleInputChange('firstName', e.target.value)}
+                    error={formErrors.firstName}
+                    required
+                    disabled
+                    className="bg-gray-100 dark:bg-gray-700"
+                  />
+                  <Input
+                    label="Last Name"
+                    value={formData.lastName}
+                    onChange={(e) => handleInputChange('lastName', e.target.value)}
+                    error={formErrors.lastName}
+                    required
+                    disabled
+                    className="bg-gray-100 dark:bg-gray-700"
+                  />
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <Input
+                    label="Email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => handleInputChange('email', e.target.value)}
+                    error={formErrors.email}
+                    required
+                    disabled
+                    className="bg-gray-100 dark:bg-gray-700"
+                  />
+                  <Input
+                    label="Phone"
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => handleInputChange('phone', e.target.value)}
+                    error={formErrors.phone}
+                    required
+                  />
+                </div>
+
+                <div className="relative">
+                  <Input
+                    label="Address (Optional)"
+                    value={formData.address}
+                    onChange={(e) => handleInputChange('address', e.target.value)}
+                    placeholder="Enter your address"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Project Details *
+                  </label>
+                  <textarea
+                    value={formData.details}
+                    onChange={(e) => handleInputChange('details', e.target.value)}
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                    placeholder="Describe how you want your ad to look and any specific requirements..."
+                    required
+                  />
+                  {formErrors.details && (
+                    <p className="mt-1 text-sm text-red-600">{formErrors.details}</p>
+                  )}
+                </div>
+
+                <div className="flex justify-between">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setCurrentStep(1)}
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="px-8 py-3"
+                  >
+                    Continue to File Upload
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* File Upload Step */}
+      {currentStep === 3 && selectedService && (
+        <div className="space-y-8">
+          <div className="text-center">
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+              File Upload
+            </h2>
+            <p className="text-lg text-gray-600 dark:text-gray-300">
+              Upload any media assets or reference materials for your project
+            </p>
+          </div>
+
+          <Card className="max-w-4xl mx-auto">
+            <div className="p-8">
+              {/* Selected Service Summary */}
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {selectedService.icon}
+                    <div>
+                      <h3 className="font-semibold text-gray-900 dark:text-white">{selectedService.title}</h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">
+                        {selectedService.turnaround} • ${selectedService.price}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                {/* File Upload Section */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Upload Media Assets (Max 20 files)
+                  </label>
+                  <div
+                    className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-gray-400 dark:hover:border-gray-500 transition-colors cursor-pointer"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                      Click to upload or drag and drop
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-500">
+                      Any dimensions allowed • Images up to 100MB • Videos up to 5 minutes • Many common document types supported
+                    </p>
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept="image/*,video/*,.pdf,.doc,.docx,.txt"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  
+                  {formData.files.length > 0 && (
+                    <div className="mt-4 space-y-2">
+                      {formData.files.map((file, index) => (
+                        <div key={index} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded">
+                          <div className="flex items-center space-x-2">
+                            {file.type.startsWith('image/') ? (
+                              <FileImage className="h-4 w-4 text-blue-500" />
+                            ) : file.type.startsWith('video/') ? (
+                              <FileVideo className="h-4 w-4 text-purple-500" />
+                            ) : (
+                              <FileImage className="h-4 w-4 text-gray-500" />
+                            )}
+                            <span className="text-sm text-gray-700 dark:text-gray-300">
+                              {file.name} ({formatFileSize(file.size)})
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeFile(index)}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {fileValidationErrors.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {fileValidationErrors.map((error, index) => (
+                        <p key={index} className="text-sm text-red-600">{error}</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-between">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setCurrentStep(2)}
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    onClick={() => setCurrentStep(4)}
+                    className="px-8 py-3"
+                  >
+                    Continue to Review
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Review & Submit Step */}
+      {currentStep === 4 && selectedService && (
+        <div className="space-y-8">
+          <div className="text-center">
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+              Review & Submit
+            </h2>
+            <p className="text-lg text-gray-600 dark:text-gray-300">
+              Review your order details and submit your custom ad request
+            </p>
+          </div>
+
+          <Card className="max-w-4xl mx-auto">
+            <div className="p-8">
+              {/* Order Summary */}
+              <div className="space-y-6">
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Order Summary</h3>
+                  
+                  {/* Service Details */}
+                  <div className="flex items-center gap-3 mb-4">
+                    {selectedService.icon}
+                    <div>
+                      <h4 className="font-semibold text-gray-900 dark:text-white">{selectedService.title}</h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">
+                        {selectedService.turnaround} • ${selectedService.price}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Contact Information */}
+                  <div className="grid md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Name</label>
+                      <p className="text-gray-900 dark:text-white">{formData.firstName} {formData.lastName}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Email</label>
+                      <p className="text-gray-900 dark:text-white">{formData.email}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Phone</label>
+                      <p className="text-gray-900 dark:text-white">{formData.phone}</p>
+                    </div>
+                    {formData.address && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Address</label>
+                        <p className="text-gray-900 dark:text-white">{formData.address}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Project Details */}
+                  <div className="mb-4">
+                    <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Project Details</label>
+                    <p className="text-gray-900 dark:text-white mt-1">{formData.details}</p>
+                  </div>
+
+                  {/* Uploaded Files */}
+                  {formData.files.length > 0 && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Uploaded Files</label>
+                      <div className="mt-2 space-y-2">
+                        {formData.files.map((file, index) => (
+                          <div key={index} className="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300">
+                            {file.type.startsWith('image/') ? (
+                              <FileImage className="h-4 w-4 text-blue-500" />
+                            ) : file.type.startsWith('video/') ? (
+                              <FileVideo className="h-4 w-4 text-purple-500" />
+                            ) : (
+                              <FileImage className="h-4 w-4 text-gray-500" />
+                            )}
+                            <span>{file.name} ({formatFileSize(file.size)})</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Total */}
+                <div className="border-t pt-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-semibold text-gray-900 dark:text-white">Total</span>
+                    <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">${selectedService.price}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-between mt-8">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setCurrentStep(3)}
+                >
+                  Back
+                </Button>
+                <Button
+                  onClick={() => setShowOrderForm(true)}
+                  className="px-8 py-3"
+                >
+                  Submit Order
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
       {/* Order Form */}
       {showOrderForm && selectedService && (
         <Card className="max-w-4xl mx-auto">

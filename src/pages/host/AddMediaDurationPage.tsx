@@ -4,6 +4,7 @@ import { ArrowLeft, Upload, AlertTriangle, Clock, CheckCircle } from 'lucide-rea
 import { MediaService } from '../../services/mediaService';
 import { useAuth } from '../../contexts/AuthContext';
 import { validateFile } from '../../utils/fileValidation';
+import PhonePreview from '../../components/admin/PhonePreview';
 
 interface SelectedWeek {
   startDate: string;
@@ -189,16 +190,15 @@ export default function HostAddMediaDurationPage() {
           <div className="p-4 border border-dashed border-gray-300 dark:border-gray-700 rounded-lg text-center">
             {filePreview ? (
               <div className="space-y-3">
-                <div className="max-w-[270px] mx-auto w-full">
-                  <div style={{ aspectRatio: '9 / 16' }} className="w-full bg-black rounded overflow-hidden">
-                    {uploadedFile?.type.startsWith('image/') ? (
-                      <img src={filePreview} alt="preview" className="w-full h-full object-cover" />
-                    ) : (
-                      <video src={filePreview} controls className="w-full h-full object-cover" />
-                    )}
-                  </div>
+                <div className="flex justify-center">
+                  <PhonePreview
+                    mediaUrl={filePreview}
+                    mediaType={uploadedFile?.type.startsWith('image/') ? 'image' : 'video'}
+                    title={uploadedFile?.name || 'Ad Preview'}
+                    className="w-80 h-96"
+                  />
                 </div>
-                <div className="text-sm text-gray-600 dark:text-gray-300">{uploadedFile?.name}</div>
+                <div className="text-sm text-gray-600 dark:text-gray-300 text-center">{uploadedFile?.name}</div>
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   className="px-4 py-2 rounded bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200"

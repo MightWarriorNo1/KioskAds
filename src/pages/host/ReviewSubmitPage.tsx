@@ -192,6 +192,16 @@ export default function HostReviewSubmitPage() {
             <div className="space-y-3 text-sm">
               <div className="flex items-center space-x-2"><MapPin className="h-4 w-4" /><span>{kiosks.map(k => k.name).join(', ')}</span></div>
               <div className="flex items-center space-x-2"><Calendar className="h-4 w-4" /><span>{selectedWeeks.length} week(s)</span></div>
+              <div className="flex items-center space-x-2"><Calendar className="h-4 w-4" /><span>Start Date: {selectedWeeks[0]?.startDate ? new Date(selectedWeeks[0].startDate).toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              }) : 'N/A'}</span></div>
+              <div className="flex items-center space-x-2"><Calendar className="h-4 w-4" /><span>End Date: {selectedWeeks[selectedWeeks.length - 1]?.endDate ? new Date(selectedWeeks[selectedWeeks.length - 1].endDate).toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              }) : 'N/A'}</span></div>
               <div className="flex items-center space-x-2"><DollarSign className="h-4 w-4" /><span>Base rate: {formatCurrency(baseRate)}</span></div>
             </div>
           </div>

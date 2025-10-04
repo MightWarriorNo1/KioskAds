@@ -1,60 +1,47 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Calendar, Clock, Play, PauseCircle, CheckCircle2, XCircle, RefreshCw, Search, Edit, Save, X, Trash2, AlertTriangle } from 'lucide-react';
+import { Calendar, Play, PauseCircle, XCircle, RefreshCw, Search, Edit, Save, X, Trash2 } from 'lucide-react';
 import { AdminService } from '../../services/adminService';
 import { useNotification } from '../../contexts/NotificationContext';
 
-interface HostAdAssignment {
+interface HostKioskAssignment {
   id: string;
   host_id: string;
-  ad_id: string;
   kiosk_id: string;
-  start_date: string;
-  end_date: string;
-  status: 'pending' | 'approved' | 'rejected' | 'active' | 'paused' | 'completed';
-  priority: number;
+  assigned_at: string;
+  status: 'active' | 'inactive' | 'suspended';
+  commission_rate: number;
   created_at: string;
   updated_at: string;
-  ad: {
-    id: string;
-    name: string;
-    description?: string;
-    media_url: string;
-    media_type: 'image' | 'video';
-    duration: number;
-    status: string;
-  };
   kiosk: {
     id: string;
     name: string;
     location: string;
     city: string;
     state: string;
+    status: string;
   };
   host: {
     id: string;
     full_name: string;
     email: string;
     company_name?: string;
+    role: string;
   };
 }
 
 export default function AdminHostAdAssignments() {
   const { addNotification } = useNotification();
-  const [assignments, setAssignments] = useState<HostAdAssignment[]>([]);
+  const [assignments, setAssignments] = useState<HostKioskAssignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [editingAssignment, setEditingAssignment] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{
     status: string;
-    priority: number;
-    startDate: string;
-    endDate: string;
+    commissionRate: number;
   }>({
     status: '',
-    priority: 1,
-    startDate: '',
-    endDate: ''
+    commissionRate: 70.00
   });
 
   useEffect(() => {
@@ -64,23 +51,21 @@ export default function AdminHostAdAssignments() {
   const loadAssignments = async () => {
     try {
       setLoading(true);
-      const data = await AdminService.getAllHostAdAssignments();
+      const data = await AdminService.getAllHostKioskAssignments();
       setAssignments(data);
     } catch (error) {
-      console.error('Error loading host ad assignments:', error);
-      addNotification('error', 'Error', 'Failed to load host ad assignments');
+      console.error('Error loading host kiosk assignments:', error);
+      addNotification('error', 'Error', 'Failed to load host kiosk assignments');
     } finally {
       setLoading(false);
     }
   };
 
-  const startEditing = (assignment: HostAdAssignment) => {
+  const startEditing = (assignment: HostKioskAssignment) => {
     setEditingAssignment(assignment.id);
     setEditForm({
       status: assignment.status,
-      priority: assignment.priority,
-      startDate: assignment.start_date,
-      endDate: assignment.end_date
+      commissionRate: assignment.commission_rate
     });
   };
 
@@ -88,9 +73,7 @@ export default function AdminHostAdAssignments() {
     setEditingAssignment(null);
     setEditForm({
       status: '',
-      priority: 1,
-      startDate: '',
-      endDate: ''
+      commissionRate: 70.00
     });
   };
 
@@ -99,34 +82,36 @@ export default function AdminHostAdAssignments() {
       const assignment = assignments.find(a => a.id === assignmentId);
       if (!assignment) return;
 
+      const updates: any = {};
+      
       // Update status if changed
       if (editForm.status !== assignment.status) {
-        await AdminService.updateHostAdAssignmentStatus(assignmentId, editForm.status as any);
+        updates.status = editForm.status;
       }
 
-      // Update priority if changed
-      if (editForm.priority !== assignment.priority) {
-        await AdminService.updateHostAdAssignmentPriority(assignmentId, editForm.priority);
+      // Update commission rate if changed
+      if (editForm.commissionRate !== assignment.commission_rate) {
+        updates.commission_rate = editForm.commissionRate;
       }
 
-      // Update dates if changed
-      if (editForm.startDate !== assignment.start_date || editForm.endDate !== assignment.end_date) {
-        await AdminService.updateHostAdAssignmentDates(assignmentId, editForm.startDate, editForm.endDate);
+      // Only update if there are changes
+      if (Object.keys(updates).length > 0) {
+        await AdminService.updateHostKioskAssignment(assignmentId, updates);
       }
 
       // Reload assignments to reflect changes
       await loadAssignments();
       setEditingAssignment(null);
-      addNotification('success', 'Assignment Updated', 'Host ad assignment has been updated successfully');
+      addNotification('success', 'Assignment Updated', 'Host kiosk assignment has been updated successfully');
     } catch (error) {
       console.error('Error updating assignment:', error);
-      addNotification('error', 'Update Failed', 'Failed to update host ad assignment');
+      addNotification('error', 'Update Failed', 'Failed to update host kiosk assignment');
     }
   };
 
   const updateAssignmentStatus = async (assignmentId: string, status: string) => {
     try {
-      await AdminService.updateHostAdAssignmentStatus(assignmentId, status as any);
+      await AdminService.updateHostKioskAssignment(assignmentId, { status: status as any });
       await loadAssignments();
       addNotification('success', 'Status Updated', `Assignment status changed to ${status}`);
     } catch (error) {
@@ -141,23 +126,20 @@ export default function AdminHostAdAssignments() {
     }
 
     try {
-      await AdminService.deleteHostAdAssignment(assignmentId);
+      await AdminService.unassignKioskFromHost(assignmentId);
       await loadAssignments();
-      addNotification('success', 'Assignment Deleted', 'Host ad assignment has been deleted');
+      addNotification('success', 'Assignment Deleted', 'Host kiosk assignment has been deleted');
     } catch (error) {
       console.error('Error deleting assignment:', error);
-      addNotification('error', 'Delete Failed', 'Failed to delete host ad assignment');
+      addNotification('error', 'Delete Failed', 'Failed to delete host kiosk assignment');
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'bg-green-100 text-green-800';
-      case 'approved': return 'bg-blue-100 text-blue-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'paused': return 'bg-orange-100 text-orange-800';
-      case 'completed': return 'bg-gray-100 text-gray-800';
-      case 'rejected': return 'bg-red-100 text-red-800';
+      case 'inactive': return 'bg-gray-100 text-gray-800';
+      case 'suspended': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -174,9 +156,10 @@ export default function AdminHostAdAssignments() {
     if (query.trim()) {
       const q = query.trim().toLowerCase();
       filtered = filtered.filter(a => 
-        a.ad.name.toLowerCase().includes(q) ||
         a.kiosk.name.toLowerCase().includes(q) ||
         a.kiosk.location.toLowerCase().includes(q) ||
+        a.kiosk.city.toLowerCase().includes(q) ||
+        a.kiosk.state.toLowerCase().includes(q) ||
         a.host.full_name.toLowerCase().includes(q) ||
         a.host.email.toLowerCase().includes(q) ||
         (a.host.company_name && a.host.company_name.toLowerCase().includes(q))
@@ -204,8 +187,8 @@ export default function AdminHostAdAssignments() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Host Ad Assignments</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">Manage Host Kiosk ad assignments</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Host Kiosk Assignments</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">Manage which kiosks are assigned to which hosts</p>
         </div>
         <button
           onClick={loadAssignments}
@@ -217,12 +200,11 @@ export default function AdminHostAdAssignments() {
         </button>
       </div>
 
-      <div className="grid md:grid-cols-5 gap-6">
-        <Stat label="Total" value={assignments.length} icon={Calendar} color="bg-gray-50" />
-        <Stat label="Pending" value={assignments.filter(a => a.status === 'pending').length} icon={AlertTriangle} color="bg-yellow-50" />
-        <Stat label="Active" value={assignments.filter(a => a.status === 'active').length} icon={Play} color="bg-green-50" />
-        <Stat label="Approved" value={assignments.filter(a => a.status === 'approved').length} icon={CheckCircle2} color="bg-blue-50" />
-        <Stat label="Rejected" value={assignments.filter(a => a.status === 'rejected').length} icon={XCircle} color="bg-red-50" />
+      <div className="grid md:grid-cols-4 gap-6">
+        <Stat label="Total" value={assignments.length} icon={Calendar} color="bg-blue-500" />
+        <Stat label="Active" value={assignments.filter(a => a.status === 'active').length} icon={Play} color="bg-green-500" />
+        <Stat label="Inactive" value={assignments.filter(a => a.status === 'inactive').length} icon={PauseCircle} color="bg-gray-500" />
+        <Stat label="Suspended" value={assignments.filter(a => a.status === 'suspended').length} icon={XCircle} color="bg-red-500" />
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 p-4">
@@ -232,7 +214,7 @@ export default function AdminHostAdAssignments() {
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by ad name, kiosk, host..."
+              placeholder="Search by kiosk name, location, host..."
               className="w-full bg-transparent outline-none text-sm text-gray-900 dark:text-white placeholder:text-gray-400"
             />
           </div>
@@ -242,12 +224,9 @@ export default function AdminHostAdAssignments() {
             className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
           >
             <option value="all">All Statuses</option>
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
             <option value="active">Active</option>
-            <option value="paused">Paused</option>
-            <option value="completed">Completed</option>
-            <option value="rejected">Rejected</option>
+            <option value="inactive">Inactive</option>
+            <option value="suspended">Suspended</option>
           </select>
         </div>
       </div>
@@ -293,43 +272,21 @@ export default function AdminHostAdAssignments() {
                           onChange={(e) => setEditForm(prev => ({ ...prev, status: e.target.value }))}
                           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         >
-                          <option value="pending">Pending</option>
-                          <option value="approved">Approved</option>
                           <option value="active">Active</option>
-                          <option value="paused">Paused</option>
-                          <option value="completed">Completed</option>
-                          <option value="rejected">Rejected</option>
+                          <option value="inactive">Inactive</option>
+                          <option value="suspended">Suspended</option>
                         </select>
                       </div>
                       
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Priority</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Commission Rate (%)</label>
                         <input
                           type="number"
-                          min="1"
-                          max="10"
-                          value={editForm.priority}
-                          onChange={(e) => setEditForm(prev => ({ ...prev, priority: parseInt(e.target.value) || 1 }))}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Date</label>
-                        <input
-                          type="date"
-                          value={editForm.startDate}
-                          onChange={(e) => setEditForm(prev => ({ ...prev, startDate: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Date</label>
-                        <input
-                          type="date"
-                          value={editForm.endDate}
-                          onChange={(e) => setEditForm(prev => ({ ...prev, endDate: e.target.value }))}
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          value={editForm.commissionRate}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, commissionRate: parseFloat(e.target.value) || 0 }))}
                           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         />
                       </div>
@@ -340,28 +297,28 @@ export default function AdminHostAdAssignments() {
                   <div className="flex flex-col md:flex-row md:items-start md:justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="text-lg font-semibold text-gray-900 dark:text-white truncate max-w-full">{assignment.ad.name}</h4>
+                        <h4 className="text-lg font-semibold text-gray-900 dark:text-white truncate max-w-full">{assignment.kiosk.name}</h4>
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full capitalize flex-shrink-0 ${getStatusColor(assignment.status)}`}>
                           {assignment.status}
                         </span>
                         <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 flex-shrink-0">
-                          Priority: {assignment.priority}
+                          Commission: {assignment.commission_rate}%
                         </span>
                       </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{assignment.ad.description || '—'}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{assignment.kiosk.location}</p>
                       <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
                         <span className="inline-flex items-center gap-1">
                           <Calendar className="h-4 w-4" />
-                          {new Date(assignment.start_date).toLocaleDateString()} - {new Date(assignment.end_date).toLocaleDateString()}
+                          Assigned: {new Date(assignment.assigned_at).toLocaleDateString()}
                         </span>
                         <span className="inline-flex items-center gap-1">
-                          📺 {assignment.kiosk.name} ({assignment.kiosk.location}, {assignment.kiosk.city}, {assignment.kiosk.state})
+                          📺 {assignment.kiosk.name} ({assignment.kiosk.city}, {assignment.kiosk.state})
                         </span>
                         <span className="inline-flex items-center gap-1">
                           👤 Host: {assignment.host.full_name} ({assignment.host.company_name || assignment.host.email})
                         </span>
                         <span className="inline-flex items-center gap-1">
-                          🎬 {assignment.ad.media_type} ({assignment.ad.duration}s)
+                          🏢 Kiosk Status: {assignment.kiosk.status}
                         </span>
                       </div>
                     </div>

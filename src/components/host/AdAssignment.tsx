@@ -39,8 +39,8 @@ export default function AdAssignment() {
         ]);
 
         setAssignments(assignmentsData);
-        setAds(adsData.filter(ad => ad.status === 'approved'));
-        setKiosks(kiosksData.filter(k => k.kiosk.status === 'active'));
+        setAds(adsData.filter(ad => ad.status === 'active'));
+        setKiosks(kiosksData); // HostService now filters for active kiosks
       } catch (error) {
         console.error('Error loading assignment data:', error);
         addNotification('error', 'Error', 'Failed to load assignment data');

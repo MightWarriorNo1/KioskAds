@@ -323,7 +323,7 @@ export default function AdminCampaigns() {
       ) : (
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
           {items.map(c => (
-            <div key={c.id} className="p-6">
+            <div key={c.id} className="p-6 relative">
               {editingCampaign === c.id ? (
                 // Edit Mode
                 <div className="space-y-4">
@@ -437,7 +437,7 @@ export default function AdminCampaigns() {
                   <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">{c.description || '—'}</p>
                   
                   {/* Main Content - Side by Side Layout */}
-                  <div className="flex flex-col lg:flex-row lg:items-start gap-6">
+                  <div className="flex flex-col xl:flex-row xl:items-start gap-6">
                     {/* Campaign Details - Left Side */}
                     <div className="flex-1 min-w-0 space-y-3">
                       <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
@@ -466,16 +466,18 @@ export default function AdminCampaigns() {
                     
                     {/* Media Preview - Right Side */}
                     {['draft', 'pending', 'active'].includes(c.status) && (mediaPreviews[c.id]?.url || (loadingPreviews && !mediaPreviews[c.id])) && (
-                      <div className="flex-shrink-0 flex justify-center lg:justify-end">
+                      <div className="flex-shrink-0 flex justify-center xl:justify-end mb-4 xl:mb-0">
                         {mediaPreviews[c.id]?.url ? (
-                          <KioskPreview
-                            mediaUrl={mediaPreviews[c.id].url}
-                            mediaType={mediaPreviews[c.id].type}
-                            title={`${c.name} - Ad Preview`}
-                            className="w-32 h-48"
-                          />
+                          <div className="w-32 h-80">
+                            <KioskPreview
+                              mediaUrl={mediaPreviews[c.id].url}
+                              mediaType={mediaPreviews[c.id].type}
+                              title={`${c.name} - Ad Preview`}
+                              className="w-full h-full"
+                            />
+                          </div>
                         ) : loadingPreviews && !mediaPreviews[c.id] ? (
-                          <div className="w-32 h-48 bg-gray-200 dark:bg-gray-700 rounded-[0.5rem] p-2 animate-pulse flex items-center justify-center">
+                          <div className="w-32 h-80 bg-gray-200 dark:bg-gray-700 rounded-[0.5rem] p-2 animate-pulse flex items-center justify-center">
                             <div className="w-full h-full bg-gray-300 dark:bg-gray-600 rounded-[0.3rem]"></div>
                           </div>
                         ) : null}
@@ -484,7 +486,7 @@ export default function AdminCampaigns() {
                   </div>
                   
                   {/* Action Buttons Section */}
-                  <div className="flex flex-col gap-2 w-full">
+                  <div className="flex flex-col gap-2 w-full mt-4">
                     <div className="flex flex-wrap gap-2">
                       <button
                         onClick={() => startEditing(c)}
@@ -496,7 +498,7 @@ export default function AdminCampaigns() {
                       <select
                         value={c.status}
                         onChange={(e) => updateCampaignStatus(c.id, e.target.value)}
-                        className="flex-1 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        className="flex-1 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white relative z-10"
                       >
                         <option value="draft">Draft</option>
                         <option value="pending">Pending</option>
@@ -678,7 +680,7 @@ export default function AdminCampaigns() {
           <CampaignList title="Expired" items={categorized.expired} />
         </div>
       ) : (
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           <CampaignList 
             title={`${statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)} Campaigns`} 
             items={filteredCampaigns} 

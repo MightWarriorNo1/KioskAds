@@ -130,14 +130,20 @@ export class HostService {
           kiosk:kiosks(*)
         `)
         .eq('host_id', hostId)
+        .eq('status', 'active') // Only get active host-kiosk assignments
         .order('assigned_at', { ascending: false });
 
       if (error) throw error;
 
-      return data?.map(item => ({
+      // Filter to only include kiosks that are also active
+      const activeKiosks = data?.filter(item => 
+        item.kiosk && item.kiosk.status === 'active'
+      ).map(item => ({
         ...item,
         kiosk: item.kiosk
       })) || [];
+
+      return activeKiosks;
     } catch (error) {
       console.error('Error fetching host kiosks:', error);
       throw error;

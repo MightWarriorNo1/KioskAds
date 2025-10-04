@@ -255,12 +255,40 @@ export class AdminService {
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + expiresInDays);
       const token = crypto.randomUUID?.() || Math.random().toString(36).slice(2);
+      
+      // First create the invitation record
       const { data, error } = await supabase
         .from('invitations')
-        .insert({ email, role, status: 'sent', sent_at: new Date().toISOString(), expires_at: expiresAt.toISOString(), invited_by: currentUserId, token })
+        .insert({ 
+          email, 
+          role, 
+          status: 'pending', // Start as pending, will be updated to 'sent' after email is queued
+          expires_at: expiresAt.toISOString(), 
+          invited_by: currentUserId, 
+          token 
+        })
         .select('id')
         .single();
+      
       if (error) throw error;
+
+      // Now send the invitation email using the edge function
+      try {
+        const { data: emailResult, error: emailError } = await supabase.functions.invoke('send-invitation-email', {
+          body: { invitationId: data.id }
+        });
+
+        if (emailError) {
+          console.error('Error sending invitation email:', emailError);
+          // Don't throw here, just log the error - the invitation record is still created
+        } else if (emailResult?.success) {
+          console.log('Invitation email sent successfully');
+        }
+      } catch (emailError) {
+        console.error('Error calling invitation email function:', emailError);
+        // Don't throw here, just log the error - the invitation record is still created
+      }
+
       return data.id;
     } catch (error) {
       console.error('Error sending invitation:', error);
@@ -279,8 +307,35 @@ export class AdminService {
   }
 
   static async resendInvitation(inviteId: string): Promise<void> {
-    const { error } = await supabase.from('invitations').update({ sent_at: new Date().toISOString(), status: 'sent' }).eq('id', inviteId);
-    if (error) throw error;
+    try {
+      // First update the invitation status to pending
+      const { error: updateError } = await supabase
+        .from('invitations')
+        .update({ status: 'pending' })
+        .eq('id', inviteId);
+      
+      if (updateError) throw updateError;
+
+      // Now send the invitation email using the edge function
+      try {
+        const { data: emailResult, error: emailError } = await supabase.functions.invoke('send-invitation-email', {
+          body: { invitationId: inviteId }
+        });
+
+        if (emailError) {
+          console.error('Error resending invitation email:', emailError);
+          throw emailError;
+        } else if (emailResult?.success) {
+          console.log('Invitation email resent successfully');
+        }
+      } catch (emailError) {
+        console.error('Error calling invitation email function:', emailError);
+        throw emailError;
+      }
+    } catch (error) {
+      console.error('Error resending invitation:', error);
+      throw error;
+    }
   }
 
   static async cancelAllPendingInvitations(): Promise<void> {
@@ -939,7 +994,7 @@ export class AdminService {
   // Approve or reject host ad
   static async reviewHostAd(hostAdId: string, action: 'approve' | 'reject', rejectionReason?: string): Promise<void> {
     try {
-      const status = action === 'approve' ? 'approved' : 'rejected';
+      const status = action === 'approve' ? 'active' : 'rejected';
       
       const { error, data } = await supabase
         .from('host_ads')
@@ -955,26 +1010,6 @@ export class AdminService {
       if (error) throw error;
       if (!data) {
         throw new Error('Host ad review update failed: host ad not found or not permitted');
-      }
-
-      // If approved, reactivate ads that were previously active (due to asset change) and have current assignments
-      if (action === 'approve') {
-        // Check if the ad has any active window assignments (now to future)
-        const nowIso = new Date().toISOString();
-        const { data: assignments } = await supabase
-          .from('host_ad_assignments')
-          .select('id')
-          .eq('ad_id', hostAdId)
-          .lte('start_date', nowIso)
-          .gte('end_date', nowIso);
-
-        if (assignments && assignments.length > 0) {
-          // Set ad status to active
-          await supabase
-            .from('host_ads')
-            .update({ status: 'active', updated_at: new Date().toISOString() })
-            .eq('id', hostAdId);
-        }
       }
 
       // Log admin action
@@ -1977,24 +2012,23 @@ export class AdminService {
       if (!template) return;
 
       // Queue email
-      await supabase
-        .from('email_queue')
-        .insert({
-          template_id: template.id,
-          recipient_email: mediaAsset.user.email,
-          recipient_name: mediaAsset.user.full_name,
-          subject: template.subject.replace('{{campaign_name}}', mediaAsset.campaign.name),
-          body_html: template.body_html
-            .replace('{{campaign_name}}', mediaAsset.campaign.name)
-            .replace('{{start_date}}', new Date(mediaAsset.campaign.start_date).toLocaleDateString())
-            .replace('{{end_date}}', new Date(mediaAsset.campaign.end_date).toLocaleDateString())
-            .replace('{{budget}}', mediaAsset.campaign.budget.toString()),
-          body_text: template.body_text
-            ?.replace('{{campaign_name}}', mediaAsset.campaign.name)
-            .replace('{{start_date}}', new Date(mediaAsset.campaign.start_date).toLocaleDateString())
-            .replace('{{end_date}}', new Date(mediaAsset.campaign.end_date).toLocaleDateString())
-            .replace('{{budget}}', mediaAsset.campaign.budget.toString())
-        });
+        const variables = {
+          campaign_name: mediaAsset.campaign.name,
+          start_date: new Date(mediaAsset.campaign.start_date).toLocaleDateString(),
+          end_date: new Date(mediaAsset.campaign.end_date).toLocaleDateString(),
+          budget: mediaAsset.campaign.budget.toString()
+        };
+
+        await supabase
+          .from('email_queue')
+          .insert({
+            template_id: template.id,
+            recipient_email: mediaAsset.user.email,
+            recipient_name: mediaAsset.user.full_name,
+            subject: this.replaceVariables(template.subject, variables),
+            body_html: this.replaceVariables(template.body_html, variables),
+            body_text: template.body_text ? this.replaceVariables(template.body_text, variables) : undefined
+          });
     } catch (error) {
       console.error('Error sending ad approval email:', error);
     }
@@ -2029,20 +2063,21 @@ export class AdminService {
       if (!template) return;
 
       // Queue email
-      await supabase
-        .from('email_queue')
-        .insert({
-          template_id: template.id,
-          recipient_email: mediaAsset.user.email,
-          recipient_name: mediaAsset.user.full_name,
-          subject: template.subject.replace('{{campaign_name}}', mediaAsset.campaign.name),
-          body_html: template.body_html
-            .replace('{{campaign_name}}', mediaAsset.campaign.name)
-            .replace('{{rejection_reason}}', rejectionReason || 'Content does not meet our guidelines'),
-          body_text: template.body_text
-            ?.replace('{{campaign_name}}', mediaAsset.campaign.name)
-            .replace('{{rejection_reason}}', rejectionReason || 'Content does not meet our guidelines')
-        });
+        const variables = {
+          campaign_name: mediaAsset.campaign.name,
+          rejection_reason: rejectionReason || 'Content does not meet our guidelines'
+        };
+
+        await supabase
+          .from('email_queue')
+          .insert({
+            template_id: template.id,
+            recipient_email: mediaAsset.user.email,
+            recipient_name: mediaAsset.user.full_name,
+            subject: this.replaceVariables(template.subject, variables),
+            body_html: this.replaceVariables(template.body_html, variables),
+            body_text: template.body_text ? this.replaceVariables(template.body_text, variables) : undefined
+          });
     } catch (error) {
       console.error('Error sending ad rejection email:', error);
     }
@@ -2076,9 +2111,10 @@ export class AdminService {
       if (!template) return;
 
       // Queue email (align with campaign approval path)
-      const subject = template.subject.replace('{{ad_name}}', hostAd.name);
-      const bodyHtml = template.body_html.replace('{{ad_name}}', hostAd.name);
-      const bodyText = template.body_text?.replace('{{ad_name}}', hostAd.name);
+      const variables = { ad_name: hostAd.name };
+      const subject = this.replaceVariables(template.subject, variables);
+      const bodyHtml = this.replaceVariables(template.body_html, variables);
+      const bodyText = template.body_text ? this.replaceVariables(template.body_text, variables) : undefined;
 
       await supabase
         .from('email_queue')
@@ -2136,16 +2172,17 @@ export class AdminService {
       if (!template) return;
 
       // Send email
+      const variables = {
+        ad_name: hostAd.name,
+        rejection_reason: rejectionReason || 'Content does not meet our guidelines'
+      };
+
       await supabase.functions.invoke('send-email', {
         body: {
           to: hostAd.host.email,
-          subject: template.subject.replace('{{ad_name}}', hostAd.name),
-          body_html: template.body_html
-            .replace('{{ad_name}}', hostAd.name)
-            .replace('{{rejection_reason}}', rejectionReason || 'Content does not meet our guidelines'),
-          body_text: template.body_text
-            ?.replace('{{ad_name}}', hostAd.name)
-            .replace('{{rejection_reason}}', rejectionReason || 'Content does not meet our guidelines')
+          subject: this.replaceVariables(template.subject, variables),
+          body_html: this.replaceVariables(template.body_html, variables),
+          body_text: template.body_text ? this.replaceVariables(template.body_text, variables) : undefined
         }
       });
     } catch (error) {
@@ -2179,24 +2216,23 @@ export class AdminService {
       if (!template) return;
 
       // Queue email
-      await supabase
-        .from('email_queue')
-        .insert({
-          template_id: template.id,
-          recipient_email: campaign.user.email,
-          recipient_name: campaign.user.full_name,
-          subject: template.subject.replace('{{campaign_name}}', campaign.name),
-          body_html: template.body_html
-            .replace('{{campaign_name}}', campaign.name)
-            .replace('{{start_date}}', new Date(campaign.start_date).toLocaleDateString())
-            .replace('{{end_date}}', new Date(campaign.end_date).toLocaleDateString())
-            .replace('{{budget}}', campaign.budget.toString()),
-          body_text: template.body_text
-            ?.replace('{{campaign_name}}', campaign.name)
-            .replace('{{start_date}}', new Date(campaign.start_date).toLocaleDateString())
-            .replace('{{end_date}}', new Date(campaign.end_date).toLocaleDateString())
-            .replace('{{budget}}', campaign.budget.toString())
-        });
+        const variables = {
+          campaign_name: campaign.name,
+          start_date: new Date(campaign.start_date).toLocaleDateString(),
+          end_date: new Date(campaign.end_date).toLocaleDateString(),
+          budget: campaign.budget.toString()
+        };
+
+        await supabase
+          .from('email_queue')
+          .insert({
+            template_id: template.id,
+            recipient_email: campaign.user.email,
+            recipient_name: campaign.user.full_name,
+            subject: this.replaceVariables(template.subject, variables),
+            body_html: this.replaceVariables(template.body_html, variables),
+            body_text: template.body_text ? this.replaceVariables(template.body_text, variables) : undefined
+          });
 
       try {
         // Try local Gmail first; if not configured, invoke edge processor
@@ -2238,20 +2274,21 @@ export class AdminService {
       if (!template) return;
 
       // Queue email
-      await supabase
-        .from('email_queue')
-        .insert({
-          template_id: template.id,
-          recipient_email: campaign.user.email,
-          recipient_name: campaign.user.full_name,
-          subject: template.subject.replace('{{campaign_name}}', campaign.name),
-          body_html: template.body_html
-            .replace('{{campaign_name}}', campaign.name)
-            .replace('{{rejection_reason}}', rejectionReason || 'Campaign does not meet our guidelines'),
-          body_text: template.body_text
-            ?.replace('{{campaign_name}}', campaign.name)
-            .replace('{{rejection_reason}}', rejectionReason || 'Campaign does not meet our guidelines')
-        });
+        const variables = {
+          campaign_name: campaign.name,
+          rejection_reason: rejectionReason || 'Campaign does not meet our guidelines'
+        };
+
+        await supabase
+          .from('email_queue')
+          .insert({
+            template_id: template.id,
+            recipient_email: campaign.user.email,
+            recipient_name: campaign.user.full_name,
+            subject: this.replaceVariables(template.subject, variables),
+            body_html: this.replaceVariables(template.body_html, variables),
+            body_text: template.body_text ? this.replaceVariables(template.body_text, variables) : undefined
+          });
 
       try {
         const { GmailService } = await import('./gmailService');
@@ -3178,6 +3215,22 @@ export class AdminService {
         throw new Error('Insufficient permissions: Admin role required');
       }
 
+      // Check if assignment already exists
+      const { data: existingAssignment, error: checkError } = await supabase
+        .from('host_kiosks')
+        .select('id')
+        .eq('kiosk_id', kioskId)
+        .eq('host_id', hostId)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw checkError;
+      }
+
+      if (existingAssignment) {
+        throw new Error('This kiosk is already assigned to this host');
+      }
+
       const { error } = await supabase
         .from('host_kiosks')
         .insert({
@@ -3319,30 +3372,55 @@ export class AdminService {
       const assignedIds = assignedKioskIds?.map(item => item.kiosk_id) || [];
 
       // Get unassigned kiosks
-      let query = supabase
-        .from('kiosks')
-        .select('id');
+      let unassignedKiosks;
+      let kiosksError;
       
-      // Only apply the not.in filter if there are assigned IDs
       if (assignedIds.length > 0) {
-        query = query.not('id', 'in', assignedIds);
+        // Get all kiosks first, then filter out assigned ones
+        const { data: allKiosks, error: allKiosksError } = await supabase
+          .from('kiosks')
+          .select('id');
+        
+        if (allKiosksError) {
+          kiosksError = allKiosksError;
+          unassignedKiosks = null;
+        } else {
+          // Filter out assigned kiosks
+          unassignedKiosks = allKiosks?.filter(kiosk => !assignedIds.includes(kiosk.id)) || [];
+        }
+      } else {
+        // If no assigned IDs, get all kiosks
+        const { data: allKiosks, error: allKiosksError } = await supabase
+          .from('kiosks')
+          .select('id');
+        
+        unassignedKiosks = allKiosks;
+        kiosksError = allKiosksError;
       }
-      
-      const { data: unassignedKiosks, error: kiosksError } = await query;
 
       if (kiosksError || !unassignedKiosks || unassignedKiosks.length === 0) return;
 
       // Assign admin to all unassigned kiosks
-      const assignments = unassignedKiosks.map(kiosk => ({
-        kiosk_id: kiosk.id,
-        host_id: adminData.id,
-        commission_rate: 100.00, // Admin gets 100% since they're the platform owner
-        status: 'active'
-      }));
+      if (unassignedKiosks.length > 0) {
+        const assignments = unassignedKiosks.map(kiosk => ({
+          kiosk_id: kiosk.id,
+          host_id: adminData.id,
+          commission_rate: 100.00, // Admin gets 100% since they're the platform owner
+          status: 'active'
+        }));
 
-      await supabase
-        .from('host_kiosks')
-        .insert(assignments);
+        // Use upsert to handle potential duplicates gracefully
+        const { error: insertError } = await supabase
+          .from('host_kiosks')
+          .upsert(assignments, { 
+            onConflict: 'host_id,kiosk_id',
+            ignoreDuplicates: false 
+          });
+
+        if (insertError) {
+          console.error('Error inserting admin kiosk assignments:', insertError);
+        }
+      }
 
     } catch (error) {
       console.error('Error ensuring admin as default for unassigned kiosks:', error);
@@ -3409,27 +3487,22 @@ export class AdminService {
         ? [...pendingClientCampaigns, ...pendingHostCampaigns].map(campaign => `• ${campaign.name} - ${campaign.user?.full_name || 'User'} (${campaign.created_at})`).join('<br>')
         : 'No pending campaigns';
 
-      // Replace template variables
-      const subject = template.subject.replace('{{date}}', today);
-      const bodyHtml = template.body_html
-        .replace('{{date}}', today)
-        .replace('{{client_ads_count}}', clientAds.length.toString())
-        .replace('{{host_ads_count}}', hostAds.length.toString())
-        .replace('{{campaigns_count}}', (pendingClientCampaigns.length + pendingHostCampaigns.length).toString())
-        .replace('{{total_count}}', totalCount.toString())
-        .replace('{{client_ads_list}}', clientAdsList)
-        .replace('{{host_ads_list}}', hostAdsList)
-        .replace('{{campaigns_list}}', campaignsList);
+      // Prepare variables for template replacement
+      const variables = {
+        date: today,
+        client_ads_count: clientAds.length.toString(),
+        host_ads_count: hostAds.length.toString(),
+        campaigns_count: (pendingClientCampaigns.length + pendingHostCampaigns.length).toString(),
+        total_count: totalCount.toString(),
+        client_ads_list: clientAdsList,
+        host_ads_list: hostAdsList,
+        campaigns_list: campaignsList
+      };
 
-      const bodyText = template.body_text
-        ?.replace('{{date}}', today)
-        .replace('{{client_ads_count}}', clientAds.length.toString())
-        .replace('{{host_ads_count}}', hostAds.length.toString())
-        .replace('{{campaigns_count}}', (pendingClientCampaigns.length + pendingHostCampaigns.length).toString())
-        .replace('{{total_count}}', totalCount.toString())
-        .replace('{{client_ads_list}}', clientAdsList.replace(/<br>/g, '\n'))
-        .replace('{{host_ads_list}}', hostAdsList.replace(/<br>/g, '\n'))
-        .replace('{{campaigns_list}}', campaignsList.replace(/<br>/g, '\n'));
+      // Replace template variables
+      const subject = this.replaceVariables(template.subject, variables);
+      const bodyHtml = this.replaceVariables(template.body_html, variables);
+      const bodyText = template.body_text ? this.replaceVariables(template.body_text, { ...variables, client_ads_list: clientAdsList.replace(/<br>/g, '\n'), host_ads_list: hostAdsList.replace(/<br>/g, '\n'), campaigns_list: campaignsList.replace(/<br>/g, '\n') }) : undefined;
 
       // Queue emails for all recipients
       const emailQueue = recipients.map(recipient => ({
@@ -3495,26 +3568,9 @@ export class AdminService {
       };
 
       // Replace template variables
-      const subject = template.subject.replace('{{date}}', testData.date);
-      const bodyHtml = template.body_html
-        .replace('{{date}}', testData.date)
-        .replace('{{client_ads_count}}', testData.client_ads_count.toString())
-        .replace('{{host_ads_count}}', testData.host_ads_count.toString())
-        .replace('{{campaigns_count}}', testData.campaigns_count.toString())
-        .replace('{{total_count}}', testData.total_count.toString())
-        .replace('{{client_ads_list}}', testData.client_ads_list)
-        .replace('{{host_ads_list}}', testData.host_ads_list)
-        .replace('{{campaigns_list}}', testData.campaigns_list);
-
-      const bodyText = template.body_text
-        ?.replace('{{date}}', testData.date)
-        .replace('{{client_ads_count}}', testData.client_ads_count.toString())
-        .replace('{{host_ads_count}}', testData.host_ads_count.toString())
-        .replace('{{campaigns_count}}', testData.campaigns_count.toString())
-        .replace('{{total_count}}', testData.total_count.toString())
-        .replace('{{client_ads_list}}', testData.client_ads_list.replace(/<br>/g, '\n'))
-        .replace('{{host_ads_list}}', testData.host_ads_list.replace(/<br>/g, '\n'))
-        .replace('{{campaigns_list}}', testData.campaigns_list.replace(/<br>/g, '\n'));
+      const subject = this.replaceVariables(template.subject, testData);
+      const bodyHtml = this.replaceVariables(template.body_html, testData);
+      const bodyText = template.body_text ? this.replaceVariables(template.body_text, { ...testData, client_ads_list: testData.client_ads_list.replace(/<br>/g, '\n'), host_ads_list: testData.host_ads_list.replace(/<br>/g, '\n'), campaigns_list: testData.campaigns_list.replace(/<br>/g, '\n') }) : undefined;
 
       // Queue test emails for all recipients
       const emailQueue = recipients.map(recipient => ({
@@ -3742,26 +3798,23 @@ export class AdminService {
       if (!template) return;
 
       // Queue email
-      await supabase
-        .from('email_queue')
-        .insert({
-          template_id: template.id,
-          recipient_email: order.user.email,
-          recipient_name: order.user.full_name,
-          subject: template.subject
-            .replace('{{order_id}}', order.id)
-            .replace('{{status}}', status),
-          body_html: template.body_html
-            .replace('{{order_id}}', order.id)
-            .replace('{{status}}', status)
-            .replace('{{service_key}}', order.service_key)
-            .replace('{{total_amount}}', order.total_amount.toString()),
-          body_text: template.body_text
-            ?.replace('{{order_id}}', order.id)
-            .replace('{{status}}', status)
-            .replace('{{service_key}}', order.service_key)
-            .replace('{{total_amount}}', order.total_amount.toString())
-        });
+        const variables = {
+          order_id: order.id,
+          status: status,
+          service_key: order.service_key,
+          total_amount: order.total_amount.toString()
+        };
+
+        await supabase
+          .from('email_queue')
+          .insert({
+            template_id: template.id,
+            recipient_email: order.user.email,
+            recipient_name: order.user.full_name,
+            subject: this.replaceVariables(template.subject, variables),
+            body_html: this.replaceVariables(template.body_html, variables),
+            body_text: template.body_text ? this.replaceVariables(template.body_text, variables) : undefined
+          });
     } catch (error) {
       console.error('Error sending custom ad order status email:', error);
     }
@@ -3793,21 +3846,21 @@ export class AdminService {
       if (!template) return;
 
       // Queue email
-      await supabase
-        .from('email_queue')
-        .insert({
-          template_id: template.id,
-          recipient_email: order.user.email,
-          recipient_name: order.user.full_name,
-          subject: template.subject
-            .replace('{{order_id}}', order.id),
-          body_html: template.body_html
-            .replace('{{order_id}}', order.id)
-            .replace('{{service_key}}', order.service_key),
-          body_text: template.body_text
-            ?.replace('{{order_id}}', order.id)
-            .replace('{{service_key}}', order.service_key)
-        });
+        const variables = {
+          order_id: order.id,
+          service_key: order.service_key
+        };
+
+        await supabase
+          .from('email_queue')
+          .insert({
+            template_id: template.id,
+            recipient_email: order.user.email,
+            recipient_name: order.user.full_name,
+            subject: this.replaceVariables(template.subject, variables),
+            body_html: this.replaceVariables(template.body_html, variables),
+            body_text: template.body_text ? this.replaceVariables(template.body_text, variables) : undefined
+          });
     } catch (error) {
       console.error('Error sending custom ad order proof email:', error);
     }
@@ -4544,6 +4597,23 @@ export class AdminService {
       console.error('Error queueing email:', error);
       return false;
     }
+  }
+
+  // Replace template variables and remove any remaining placeholders
+  private static replaceVariables(text: string, variables: Record<string, any>): string {
+    let result = text;
+    
+    // First, replace all known variables
+    Object.entries(variables).forEach(([key, value]) => {
+      const placeholder = new RegExp(`{{${key}}}`, 'g');
+      const replacement = value !== null && value !== undefined ? String(value) : '';
+      result = result.replace(placeholder, replacement);
+    });
+    
+    // Then, remove any remaining placeholders that weren't replaced
+    result = result.replace(/\{\{[^}]+\}\}/g, '');
+    
+    return result;
   }
 
 }

@@ -157,16 +157,9 @@ export class SubscriptionEmailService {
     toEmail: string,
     toName: string
   ): Promise<void> {
-    let subject = template.subject;
-    let bodyHtml = template.body_html;
-    let bodyText = template.body_text as string | undefined;
-
-    Object.entries(variables).forEach(([key, value]) => {
-      const placeholder = new RegExp(`{{${key}}}`, 'g');
-      subject = subject.replace(placeholder, String(value));
-      bodyHtml = bodyHtml.replace(placeholder, String(value));
-      bodyText = bodyText?.replace(placeholder, String(value));
-    });
+    let subject = this.replaceVariables(template.subject, variables);
+    let bodyHtml = this.replaceVariables(template.body_html, variables);
+    let bodyText = template.body_text ? this.replaceVariables(template.body_text, variables) : undefined;
 
     await supabase.from('email_queue').insert({
       template_id: template.id,
@@ -179,5 +172,22 @@ export class SubscriptionEmailService {
       retry_count: 0,
       max_retries: 3
     });
+  }
+
+  // Replace template variables and remove any remaining placeholders
+  private static replaceVariables(text: string, variables: Record<string, any>): string {
+    let result = text;
+    
+    // First, replace all known variables
+    Object.entries(variables).forEach(([key, value]) => {
+      const placeholder = new RegExp(`{{${key}}}`, 'g');
+      const replacement = value !== null && value !== undefined ? String(value) : '';
+      result = result.replace(placeholder, replacement);
+    });
+    
+    // Then, remove any remaining placeholders that weren't replaced
+    result = result.replace(/\{\{[^}]+\}\}/g, '');
+    
+    return result;
   }
 }

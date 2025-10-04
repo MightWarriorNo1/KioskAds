@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Mail, Lock, UserCircle2, Shield, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useNotification } from '../contexts/NotificationContext';
@@ -13,15 +13,72 @@ export default function SignUp() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
-  const [role, setRole] = useState<'client' | 'host'>('client');
+  const [role, setRole] = useState<'client' | 'host' | 'designer' | 'admin'>('client');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showCapsWarning, setShowCapsWarning] = useState(false);
   const [errors, setErrors] = useState<{ name?: string; email?: string; password?: string; confirmPassword?: string }>({});
   const [newsletterOptIn, setNewsletterOptIn] = useState(true);
+  const [invitationToken, setInvitationToken] = useState<string | null>(null);
+  const [invitationEmail, setInvitationEmail] = useState<string | null>(null);
+  const [invitationRole, setInvitationRole] = useState<string | null>(null);
+  const [isInvitationValid, setIsInvitationValid] = useState<boolean | null>(null);
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { addNotification } = useNotification();
+
+  // Handle invitation parameters
+  useEffect(() => {
+    const token = searchParams.get('invitation');
+    const emailParam = searchParams.get('email');
+    const roleParam = searchParams.get('role');
+
+    if (token && emailParam && roleParam) {
+      setInvitationToken(token);
+      setInvitationEmail(emailParam);
+      setInvitationRole(roleParam);
+      setEmail(emailParam);
+      setRole(roleParam as 'client' | 'host' | 'designer' | 'admin');
+      
+      // Validate invitation
+      validateInvitation(token, emailParam, roleParam);
+    }
+  }, [searchParams]);
+
+  const validateInvitation = async (token: string, email: string, role: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('invitations')
+        .select('*')
+        .eq('token', token)
+        .eq('email', email)
+        .eq('role', role)
+        .eq('status', 'sent')
+        .single();
+
+      if (error || !data) {
+        setIsInvitationValid(false);
+        addNotification('error', 'Invalid Invitation', 'This invitation is invalid or has expired.');
+        return;
+      }
+
+      // Check if invitation is expired
+      const now = new Date();
+      const expiresAt = new Date(data.expires_at);
+      if (now > expiresAt) {
+        setIsInvitationValid(false);
+        addNotification('error', 'Invitation Expired', 'This invitation has expired.');
+        return;
+      }
+
+      setIsInvitationValid(true);
+    } catch (error) {
+      console.error('Error validating invitation:', error);
+      setIsInvitationValid(false);
+      addNotification('error', 'Error', 'Failed to validate invitation.');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,6 +110,13 @@ export default function SignUp() {
     }
 
     try {
+      // If this is an invitation signup, validate the invitation first
+      if (invitationToken && isInvitationValid === false) {
+        addNotification('error', 'Invalid Invitation', 'This invitation is invalid or has expired.');
+        setIsLoading(false);
+        return;
+      }
+
       // Sign up the user with Supabase
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
@@ -71,6 +135,23 @@ export default function SignUp() {
       }
 
       if (data.user) {
+        // If this is an invitation signup, mark the invitation as accepted
+        if (invitationToken && isInvitationValid) {
+          try {
+            await supabase
+              .from('invitations')
+              .update({ 
+                status: 'accepted',
+                accepted_at: new Date().toISOString()
+              })
+              .eq('token', invitationToken)
+              .eq('email', email.trim());
+          } catch (inviteError) {
+            console.error('Error updating invitation status:', inviteError);
+            // Don't fail the signup if invitation update fails
+          }
+        }
+
         addNotification('success', 'Account Created!', 'Please check your email to confirm your account before signing in.');
         // Fire-and-forget Mailchimp opt-in (non-blocking)
         if ((import.meta as any)?.env?.VITE_ENABLE_MAILCHIMP && newsletterOptIn) {
@@ -108,6 +189,41 @@ export default function SignUp() {
       <div className="text-center mb-8">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Create your account</h2>
         <p className="text-sm text-gray-600 dark:text-gray-400">Join our digital advertising platform today</p>
+        
+        {/* Invitation indicator */}
+        {invitationToken && (
+          <div className={`mt-4 p-4 rounded-lg border-2 ${
+            isInvitationValid === true 
+              ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' 
+              : isInvitationValid === false
+              ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+              : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+          }`}>
+            <div className="flex items-center justify-center space-x-2">
+              <Shield className={`h-5 w-5 ${
+                isInvitationValid === true 
+                  ? 'text-green-600 dark:text-green-400' 
+                  : isInvitationValid === false
+                  ? 'text-red-600 dark:text-red-400'
+                  : 'text-blue-600 dark:text-blue-400'
+              }`} />
+              <span className={`text-sm font-medium ${
+                isInvitationValid === true 
+                  ? 'text-green-800 dark:text-green-200' 
+                  : isInvitationValid === false
+                  ? 'text-red-800 dark:text-red-200'
+                  : 'text-blue-800 dark:text-blue-200'
+              }`}>
+                {isInvitationValid === true 
+                  ? `You've been invited as a ${invitationRole}`
+                  : isInvitationValid === false
+                  ? 'Invalid or expired invitation'
+                  : 'Validating invitation...'
+                }
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -278,10 +394,13 @@ export default function SignUp() {
               <select 
                 className="w-full pl-11 pr-4 py-3 border-2 rounded-xl text-gray-900 dark:text-white bg-white dark:bg-slate-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 hover:border-gray-400 dark:hover:border-gray-600 border-gray-300 dark:border-gray-600 focus:bg-white dark:focus:bg-slate-700 appearance-none" 
                 value={role} 
-                onChange={(e) => setRole(e.target.value as 'client' | 'host')}
+                onChange={(e) => setRole(e.target.value as 'client' | 'host' | 'designer' | 'admin')}
+                disabled={!!invitationToken} // Disable if this is an invitation signup
               >
                 <option value="client">Client - I want to advertise</option>
                 <option value="host">Host - I have display spaces</option>
+                <option value="designer">Designer - I create ad content</option>
+                <option value="admin">Admin - I manage the platform</option>
               </select>
               <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                 <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">

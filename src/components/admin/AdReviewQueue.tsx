@@ -106,7 +106,7 @@ export default function AdReviewQueue() {
       setReviewing(hostAdId);
       await AdminService.reviewHostAd(hostAdId, 'approve');
       setHostAds(prev => prev.filter(ad => ad.id !== hostAdId));
-      addNotification('success', 'Host Ad Approved', 'The host ad has been approved and is now live. Host has been notified via email.');
+      addNotification('success', 'Host Ad Approved', 'The host ad has been approved and is now active. Host has been notified via email.');
       setSelectedHostAd(null);
     } catch (error) {
       console.error('Error approving host ad:', error);

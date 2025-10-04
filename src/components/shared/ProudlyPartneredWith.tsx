@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { AdminService } from '../../services/adminService';
 import { PartnersService, Partner } from '../../services/partnersService';
 
 interface ProudlyPartneredWithProps {
@@ -9,20 +10,39 @@ export default function ProudlyPartneredWith({ className = '' }: ProudlyPartnere
   const [partners, setPartners] = useState<Partner[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [partnerSettings, setPartnerSettings] = useState({
+    partnerNameText: 'Proudly Partnered With',
+    partnerLogoUrl: ''
+  });
 
   useEffect(() => {
-    loadPartners();
+    loadData();
   }, []);
 
-  const loadPartners = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const partnersData = await PartnersService.getPartners();
+      
+      // Load both partners and settings in parallel
+      const [partnersData, settingsData] = await Promise.all([
+        PartnersService.getPartners(),
+        AdminService.getSystemSettings()
+      ]);
+      
       setPartners(partnersData);
+      
+      // Extract partner settings
+      const partnerNameSetting = settingsData.find(s => s.key === 'partner_name_text');
+      const partnerLogoSetting = settingsData.find(s => s.key === 'partner_logo_url');
+      
+      setPartnerSettings({
+        partnerNameText: partnerNameSetting?.value || 'Proudly Partnered With',
+        partnerLogoUrl: partnerLogoSetting?.value || ''
+      });
     } catch (err) {
-      console.error('Error loading partners:', err);
-      setError('Failed to load partners');
+      console.error('Error loading data:', err);
+      setError('Failed to load data');
     } finally {
       setLoading(false);
     }
@@ -42,7 +62,7 @@ export default function ProudlyPartneredWith({ className = '' }: ProudlyPartnere
       <section className={`px-6 py-16 ${className}`}>
         <div className="max-w-7xl mx-auto text-center">
           <h2 className="text-2xl md:text-3xl font-bold mb-8 text-black dark:text-white">
-            Proudly Partnered With
+            {partnerSettings.partnerNameText}
           </h2>
           <div className="flex justify-center items-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
@@ -57,7 +77,7 @@ export default function ProudlyPartneredWith({ className = '' }: ProudlyPartnere
       <section className={`px-6 py-16 ${className}`}>
         <div className="max-w-7xl mx-auto text-center">
           <h2 className="text-2xl md:text-3xl font-bold mb-8 text-black dark:text-white">
-            Proudly Partnered With
+            {partnerSettings.partnerNameText}
           </h2>
           <p className="text-red-600 dark:text-red-400">{error}</p>
         </div>
@@ -74,8 +94,17 @@ export default function ProudlyPartneredWith({ className = '' }: ProudlyPartnere
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-12">
           <h2 className="text-2xl md:text-3xl font-bold mb-4 text-black dark:text-white">
-            Proudly Partnered With
+            {partnerSettings.partnerNameText}
           </h2>
+          {partnerSettings.partnerLogoUrl && (
+            <div className="flex justify-center mb-4">
+              <img
+                src={partnerSettings.partnerLogoUrl}
+                alt="Partner logo"
+                className="h-12 w-auto object-contain"
+              />
+            </div>
+          )}
         </div>
 
         {/* Partners Grid */}
