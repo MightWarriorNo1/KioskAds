@@ -73,7 +73,7 @@ export default function SelectWeeksPage() {
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       
       // Block 1 week (7 days) from selected date
-      return diffDays >= 0 && diffDays <= 7;
+      return diffDays >= 0 && diffDays < 7;
     });
   };
 

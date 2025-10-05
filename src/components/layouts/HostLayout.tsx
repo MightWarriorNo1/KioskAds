@@ -140,7 +140,7 @@ export default function HostLayout({ children }: HostLayoutProps) {
                     <item.icon className={`h-5 w-5 transition-transform group-hover:scale-110 ${
                       isActive ? 'text-white' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300'
                     }`} />
-                    <span>{item.name}</span>
+                    <span className='text-white'>{item.name}</span>
                     {isActive && (
                       <div className="ml-auto w-2 h-2 bg-white rounded-full"></div>
                     )}

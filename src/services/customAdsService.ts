@@ -184,9 +184,12 @@ export class CustomAdsService {
 
     if (error) throw error;
     
+    console.log('Raw data from database:', data);
+    
     // Get comments for each order
     const ordersWithComments = await Promise.all(
       (data || []).map(async (order) => {
+        console.log('Processing order:', order.id, 'files:', order.files);
         const { data: comments } = await supabase
           .from('custom_ad_order_comments')
           .select('*')
@@ -195,11 +198,13 @@ export class CustomAdsService {
         
         return {
           ...order,
-          comments: comments || []
+          comments: comments || [],
+          files: order.files || []
         };
       })
     );
 
+    console.log('Final orders with comments:', ordersWithComments);
     return ordersWithComments;
   }
 
@@ -226,7 +231,8 @@ export class CustomAdsService {
     
     return {
       ...data,
-      comments: comments || []
+      comments: comments || [],
+      files: data.files || []
     };
   }
 

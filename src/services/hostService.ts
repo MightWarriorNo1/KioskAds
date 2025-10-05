@@ -344,16 +344,32 @@ export class HostService {
         throw new Error('You do not have permission to assign ads to this kiosk');
       }
 
-      // Validate that the ad belongs to the host
+      // Validate that the ad belongs to the host and check if it's already approved
       const { data: adOwnership, error: adError } = await supabase
         .from('host_ads')
-        .select('id')
+        .select('id, status')
         .eq('id', assignmentData.adId)
         .eq('host_id', assignmentData.hostId)
         .single();
 
       if (adError || !adOwnership) {
         throw new Error('You do not have permission to assign this ad');
+      }
+
+      // Check if the ad is already approved and automatically assigned
+      if (adOwnership.status === 'active') {
+        // Check if there are existing active assignments for this ad
+        const { data: existingAssignments, error: existingError } = await supabase
+          .from('host_ad_assignments')
+          .select('id, status')
+          .eq('ad_id', assignmentData.adId)
+          .eq('status', 'active');
+
+        if (existingError) throw existingError;
+
+        if (existingAssignments && existingAssignments.length > 0) {
+          throw new Error('This ad has already been approved and automatically assigned to your kiosks. You cannot manually assign it again.');
+        }
       }
 
       const { data, error } = await supabase

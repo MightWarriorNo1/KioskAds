@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   DollarSign, 
   TrendingUp, 
@@ -8,7 +8,13 @@ import {
   Download,
   BarChart3,
   PieChart,
-  Activity
+  Activity,
+  Filter,
+  Search,
+  Eye,
+  EyeOff,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { useNotification } from '../../contexts/NotificationContext';
 import Card from '../ui/Card';
@@ -52,14 +58,72 @@ interface DateRange {
   end: string;
 }
 
+interface Transaction {
+  id: string;
+  type: 'campaign' | 'custom_ad';
+  amount: number;
+  date: string;
+  status: string;
+  client: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  campaign?: {
+    id: string;
+    name: string;
+  };
+  customAd?: {
+    id: string;
+    service_key: string;
+    details: string;
+  };
+  kiosks?: Array<{
+    id: string;
+    name: string;
+    location: string;
+  }>;
+  adType?: 'ad' | 'photo' | 'video';
+  host?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+}
+
+interface TransactionFilters {
+  transactionType: 'all' | 'campaign' | 'custom_ad';
+  adType: 'all' | 'ad' | 'photo' | 'video';
+  kioskId: string;
+  clientId: string;
+  hostId: string;
+  status: 'all' | 'succeeded' | 'pending' | 'failed';
+  searchQuery: string;
+}
+
 export default function RevenueAnalytics() {
   const [metrics, setMetrics] = useState<RevenueMetrics | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [transactionsLoading, setTransactionsLoading] = useState(false);
+  const [showTransactions, setShowTransactions] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange>({
     start: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
     end: new Date().toISOString().split('T')[0]
   });
   const [selectedPeriod, setSelectedPeriod] = useState<'7d' | '30d' | '90d' | '1y' | 'custom'>('30d');
+  const [filters, setFilters] = useState<TransactionFilters>({
+    transactionType: 'all',
+    adType: 'all',
+    kioskId: '',
+    clientId: '',
+    hostId: '',
+    status: 'all',
+    searchQuery: ''
+  });
+  const [availableKiosks, setAvailableKiosks] = useState<Array<{id: string; name: string; location: string}>>([]);
+  const [availableClients, setAvailableClients] = useState<Array<{id: string; name: string; email: string}>>([]);
+  const [availableHosts, setAvailableHosts] = useState<Array<{id: string; name: string; email: string}>>([]);
   const { addNotification } = useNotification();
 
   // Debounced effect to prevent too many API calls
@@ -70,6 +134,18 @@ export default function RevenueAnalytics() {
 
     return () => clearTimeout(timeoutId);
   }, [dateRange, selectedPeriod]);
+
+  // Load transactions when date range changes
+  useEffect(() => {
+    if (showTransactions) {
+      loadTransactions();
+    }
+  }, [dateRange, showTransactions]);
+
+  // Load filter options
+  useEffect(() => {
+    loadFilterOptions();
+  }, []);
 
   const loadRevenueMetrics = async () => {
     try {
@@ -101,6 +177,103 @@ export default function RevenueAnalytics() {
       setLoading(false);
     }
   };
+
+  const loadTransactions = async () => {
+    try {
+      setTransactionsLoading(true);
+      const data = await AdminService.getTransactions(dateRange, filters);
+      setTransactions(data);
+    } catch (error) {
+      console.error('Error loading transactions:', error);
+      addNotification('error', 'Error', 'Failed to load transactions');
+      setTransactions([]);
+    } finally {
+      setTransactionsLoading(false);
+    }
+  };
+
+  const loadFilterOptions = async () => {
+    try {
+      const [kiosks, clients, hosts] = await Promise.all([
+        AdminService.getKiosks(),
+        AdminService.getClients(),
+        AdminService.getHosts()
+      ]);
+      setAvailableKiosks(kiosks);
+      setAvailableClients(clients);
+      setAvailableHosts(hosts);
+    } catch (error) {
+      console.error('Error loading filter options:', error);
+    }
+  };
+
+  const handleFilterChange = (key: keyof TransactionFilters, value: string) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  };
+
+  const applyFilters = () => {
+    loadTransactions();
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      transactionType: 'all',
+      adType: 'all',
+      kioskId: '',
+      clientId: '',
+      hostId: '',
+      status: 'all',
+      searchQuery: ''
+    });
+  };
+
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter(transaction => {
+      // Search query filter
+      if (filters.searchQuery) {
+        const query = filters.searchQuery.toLowerCase();
+        const matchesSearch = 
+          transaction.client.name.toLowerCase().includes(query) ||
+          transaction.client.email.toLowerCase().includes(query) ||
+          transaction.campaign?.name.toLowerCase().includes(query) ||
+          transaction.customAd?.details.toLowerCase().includes(query);
+        if (!matchesSearch) return false;
+      }
+
+      // Transaction type filter
+      if (filters.transactionType !== 'all' && transaction.type !== filters.transactionType) {
+        return false;
+      }
+
+      // Ad type filter
+      if (filters.adType !== 'all' && transaction.adType !== filters.adType) {
+        return false;
+      }
+
+      // Kiosk filter
+      if (filters.kioskId && transaction.kiosks) {
+        const hasKiosk = transaction.kiosks.some(k => k.id === filters.kioskId);
+        if (!hasKiosk) return false;
+      }
+
+      // Client filter
+      if (filters.clientId && transaction.client.id !== filters.clientId) {
+        return false;
+      }
+
+      // Host filter
+      if (filters.hostId && transaction.host?.id !== filters.hostId) {
+        return false;
+      }
+
+      // Status filter
+      if (filters.status !== 'all' && transaction.status !== filters.status) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [transactions, filters]);
 
   const handlePeriodChange = (period: '7d' | '30d' | '90d' | '1y' | 'custom') => {
     // Only update if the period actually changed
@@ -141,20 +314,32 @@ export default function RevenueAnalytics() {
 
   const exportData = async () => {
     try {
-      const data = await AdminService.exportRevenueData(dateRange);
+      let data: string;
+      let filename: string;
+      
+      if (showTransactions && transactions.length > 0) {
+        // Export filtered transactions
+        data = await AdminService.exportFilteredTransactions(dateRange, filters, filteredTransactions);
+        filename = `filtered-transactions-${dateRange.start}-to-${dateRange.end}.csv`;
+      } else {
+        // Export revenue analytics
+        data = await AdminService.exportRevenueData(dateRange);
+        filename = `revenue-analytics-${dateRange.start}-to-${dateRange.end}.csv`;
+      }
+      
       const blob = new Blob([data], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `revenue-analytics-${dateRange.start}-to-${dateRange.end}.csv`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      addNotification('success', 'Success', 'Revenue data exported successfully');
+      addNotification('success', 'Success', 'Data exported successfully');
     } catch (error) {
       console.error('Error exporting data:', error);
-      addNotification('error', 'Error', 'Failed to export revenue data');
+      addNotification('error', 'Error', 'Failed to export data');
     }
   };
 
@@ -202,6 +387,15 @@ export default function RevenueAnalytics() {
         </div>
         
         <div className="flex items-center gap-3">
+          <Button
+            onClick={() => setShowTransactions(!showTransactions)}
+            variant="secondary"
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            {showTransactions ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            {showTransactions ? 'Hide Transactions' : 'View Transactions'}
+          </Button>
           <Button
             onClick={exportData}
             variant="secondary"
@@ -364,8 +558,7 @@ export default function RevenueAnalytics() {
           </div>
 
           {/* Charts Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Revenue Trend Chart */}
+          {/* <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -381,7 +574,7 @@ export default function RevenueAnalytics() {
               </div>
             </Card>
 
-            {/* Payment Methods Breakdown */}
+
             <Card className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -414,7 +607,7 @@ export default function RevenueAnalytics() {
                 ))}
               </div>
             </Card>
-          </div>
+          </div> */}
 
           {/* Top Clients Table */}
           <Card className="p-6">
@@ -514,6 +707,241 @@ export default function RevenueAnalytics() {
               </div>
             </div>
           </Card>
+
+          {/* Transactions Section */}
+          {showTransactions && (
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Transaction Details
+                </h3>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-500">
+                    {filteredTransactions.length} transactions
+                  </span>
+                </div>
+              </div>
+
+              {/* Filters */}
+              <div className="mb-6 space-y-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <Filter className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filters:</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {/* Search */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search transactions..."
+                      value={filters.searchQuery}
+                      onChange={(e) => handleFilterChange('searchQuery', e.target.value)}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    />
+                  </div>
+
+                  {/* Transaction Type */}
+                  <select
+                    value={filters.transactionType}
+                    onChange={(e) => handleFilterChange('transactionType', e.target.value)}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  >
+                    <option value="all">All Types</option>
+                    <option value="campaign">Campaigns</option>
+                    <option value="custom_ad">Custom Ads</option>
+                  </select>
+
+                  {/* Ad Type */}
+                  <select
+                    value={filters.adType}
+                    onChange={(e) => handleFilterChange('adType', e.target.value)}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  >
+                    <option value="all">All Ad Types</option>
+                    <option value="ad">Ads</option>
+                    <option value="photo">Photos</option>
+                    <option value="video">Videos</option>
+                  </select>
+
+                  {/* Status */}
+                  <select
+                    value={filters.status}
+                    onChange={(e) => handleFilterChange('status', e.target.value)}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="succeeded">Succeeded</option>
+                    <option value="pending">Pending</option>
+                    <option value="failed">Failed</option>
+                  </select>
+
+                  {/* Kiosk Filter */}
+                  <select
+                    value={filters.kioskId}
+                    onChange={(e) => handleFilterChange('kioskId', e.target.value)}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  >
+                    <option value="">All Kiosks</option>
+                    {availableKiosks.map(kiosk => (
+                      <option key={kiosk.id} value={kiosk.id}>
+                        {kiosk.name} - {kiosk.location}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Client Filter */}
+                  <select
+                    value={filters.clientId}
+                    onChange={(e) => handleFilterChange('clientId', e.target.value)}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  >
+                    <option value="">All Clients</option>
+                    {availableClients.map(client => (
+                      <option key={client.id} value={client.id}>
+                        {client.name} ({client.email})
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Host Filter */}
+                  <select
+                    value={filters.hostId}
+                    onChange={(e) => handleFilterChange('hostId', e.target.value)}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  >
+                    <option value="">All Hosts</option>
+                    {availableHosts.map(host => (
+                      <option key={host.id} value={host.id}>
+                        {host.name} ({host.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={applyFilters}
+                    variant="primary"
+                    size="sm"
+                    className="flex items-center gap-2"
+                  >
+                    Apply Filters
+                  </Button>
+                  <Button
+                    onClick={clearFilters}
+                    variant="ghost"
+                    size="sm"
+                  >
+                    Clear All
+                  </Button>
+                </div>
+              </div>
+
+              {/* Transactions Table */}
+              {transactionsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <span className="ml-2 text-gray-500">Loading transactions...</span>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead className="bg-gray-50 dark:bg-gray-800">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Date
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Type
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Client
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Campaign/Service
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Ad Type
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Amount
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Kiosks
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                      {filteredTransactions.map((transaction) => (
+                        <tr key={transaction.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                            {new Date(transaction.date).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              transaction.type === 'campaign' 
+                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                                : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                            }`}>
+                              {transaction.type === 'campaign' ? 'Campaign' : 'Custom Ad'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div>
+                              <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                {transaction.client.name}
+                              </div>
+                              <div className="text-sm text-gray-500 dark:text-gray-400">
+                                {transaction.client.email}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                            {transaction.campaign?.name || transaction.customAd?.service_key || 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {transaction.adType && (
+                              <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                                {transaction.adType}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-white">
+                            {formatCurrency(transaction.amount)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              transaction.status === 'succeeded' 
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                : transaction.status === 'pending'
+                                ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                                : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                            }`}>
+                              {transaction.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                            {transaction.kiosks?.length || 0} kiosk(s)
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  
+                  {filteredTransactions.length === 0 && (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500 dark:text-gray-400">No transactions found matching your filters.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </Card>
+          )}
         </>
       )}
     </div>

@@ -1135,6 +1135,38 @@ export interface Database {
           status?: 'active' | 'completed' | 'transferred';
         };
       };
+      payment_history: {
+        Row: {
+          id: string;
+          user_id: string;
+          campaign_id?: string;
+          amount: number;
+          status: 'succeeded' | 'pending' | 'failed' | 'refunded';
+          description?: string;
+          payment_date: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          campaign_id?: string;
+          amount: number;
+          status?: 'succeeded' | 'pending' | 'failed' | 'refunded';
+          description?: string;
+          payment_date?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          campaign_id?: string;
+          amount?: number;
+          status?: 'succeeded' | 'pending' | 'failed' | 'refunded';
+          description?: string;
+          payment_date?: string;
+          created_at?: string;
+        };
+      };
     };
     Views: {
       [_ in never]: never;
@@ -1176,3 +1208,4 @@ export type GoogleDriveConfig = Tables<'google_drive_configs'>;
 export type KioskGDriveFolder = Tables<'kiosk_gdrive_folders'>;
 export type UploadJob = Tables<'upload_jobs'>;
 export type SyncJob = Tables<'sync_jobs'>;
+export type PaymentHistory = Tables<'payment_history'>;

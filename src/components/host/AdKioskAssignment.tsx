@@ -52,9 +52,19 @@ export default function AdKioskAssignment() {
           return;
         }
         
+        // Check if this ad is already approved and auto-assigned
+        const adAssignments = assignmentsData.filter(assignment => assignment.ad_id === id);
+        const hasActiveAssignments = adAssignments.some(assignment => assignment.status === 'active');
+        
+        if (foundAd.status === 'active' && hasActiveAssignments) {
+          addNotification('error', 'Ad Already Assigned', 'This ad has been approved and automatically assigned to your kiosks. You cannot manually assign it again.');
+          navigate('/host/ads');
+          return;
+        }
+        
         setAd(foundAd);
         setKiosks(kiosksData);
-        setAssignments(assignmentsData.filter(assignment => assignment.ad_id === id));
+        setAssignments(adAssignments);
       } catch (error) {
         console.error('Error loading data:', error);
         addNotification('error', 'Error', 'Failed to load data');

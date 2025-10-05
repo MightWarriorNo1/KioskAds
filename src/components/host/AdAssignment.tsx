@@ -39,7 +39,21 @@ export default function AdAssignment() {
         ]);
 
         setAssignments(assignmentsData);
-        setAds(adsData.filter(ad => ad.status === 'active'));
+        
+        // Filter ads to only show those that can be manually assigned
+        // (exclude approved ads that are already automatically assigned)
+        const availableAds = adsData.filter(ad => {
+          if (ad.status !== 'active') return false;
+          
+          // Check if this ad already has active assignments (auto-assigned by admin)
+          const hasActiveAssignments = assignmentsData.some(assignment => 
+            assignment.ad_id === ad.id && assignment.status === 'active'
+          );
+          
+          return !hasActiveAssignments;
+        });
+        
+        setAds(availableAds);
         setKiosks(kiosksData); // HostService now filters for active kiosks
       } catch (error) {
         console.error('Error loading assignment data:', error);

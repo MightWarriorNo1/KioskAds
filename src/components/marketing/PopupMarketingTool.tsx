@@ -21,7 +21,6 @@ export default function PopupMarketingTool() {
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [dismissedId, setDismissedId] = useState<string | null>(null);
   const { addNotification } = useNotification();
 
   useEffect(() => {
@@ -37,14 +36,7 @@ export default function PopupMarketingTool() {
         const tool = popupTools[0];
         setMarketingTool(tool);
         
-        // Check if user has already dismissed this popup
-        const dismissed = localStorage.getItem(`popup_dismissed_${tool.id}`);
-        if (dismissed) {
-          setDismissedId(tool.id);
-          return;
-        }
-
-        // Show popup after delay
+        // Show popup after delay - removed localStorage check to allow popup to show on every refresh
         const delay = (tool.settings as PopupSettings)?.displayDelay || 3;
         setTimeout(() => {
           setIsVisible(true);
@@ -57,10 +49,7 @@ export default function PopupMarketingTool() {
 
   const handleClose = () => {
     setIsVisible(false);
-    if (marketingTool) {
-      localStorage.setItem(`popup_dismissed_${marketingTool.id}`, 'true');
-      setDismissedId(marketingTool.id);
-    }
+    // Removed localStorage setting to allow popup to show again on refresh
   };
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
@@ -186,7 +175,7 @@ Thank you for subscribing to our newsletter!
     }
   }, [isVisible, marketingTool]);
 
-  if (!marketingTool || dismissedId === marketingTool.id || !isVisible) {
+  if (!marketingTool || !isVisible) {
     return null;
   }
 

@@ -22,7 +22,6 @@ import {
   TrendingUp,
   FileText,
   Building2,
-  Smartphone
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import NotificationToast from '../NotificationToast';
@@ -146,14 +145,14 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                   className={`flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 group ${
                     isActive
                       ? 'bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-lg'
-                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                      : 'text-gray-700 hover:bg-black hover:text-gray-900'
                   }`}
                   onClick={() => setSidebarOpen(false)}
                 >
                   <item.icon className={`h-5 w-5 transition-transform group-hover:scale-110 ${
                     isActive ? 'text-white' : 'text-gray-500 group-hover:text-gray-700'
                   }`} />
-                  <span>{item.name}</span>
+                  <span className='text-white'>{item.name}</span>
                   {isActive && (
                     <div className="ml-auto w-2 h-2 bg-white rounded-full"></div>
                   )}
@@ -161,8 +160,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               );
             })}
           </nav>
-
-          
         </div>
       </div>
 

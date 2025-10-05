@@ -461,6 +461,20 @@ export default function AdminCampaigns() {
                             <span>{c.user.full_name} ({c.user.company_name || c.user.email}) · Role: {c.user.role ? c.user.role : 'Unknown'}</span>
                           </div>
                         )}
+                        {c.assets && c.assets.length > 0 && (
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">Assets:</span>
+                            <span className="text-sm">
+                              {c.assets.slice(0, 3).map((asset, index) => (
+                                <span key={asset.id}>
+                                  {index > 0 && ', '}
+                                  {asset.file_name}
+                                </span>
+                              ))}
+                              {c.assets.length > 3 && ` (+${c.assets.length - 3} more)`}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                     

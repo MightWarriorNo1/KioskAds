@@ -29,7 +29,7 @@ export default function ManageMyCustomAdPage() {
   const [customAds, setCustomAds] = useState<CustomAdOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAd, setSelectedAd] = useState<CustomAdOrder | null>(null);
-  const [showNotes, setShowNotes] = useState(false);
+  const [showNotes, setShowNotes] = useState(true);
   const [newNote, setNewNote] = useState('');
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [filter, setFilter] = useState<'all' | 'submitted' | 'in_review' | 'designer_assigned' | 'proofs_ready' | 'client_review' | 'approved' | 'rejected' | 'completed' | 'cancelled'>('all');
@@ -67,6 +67,7 @@ export default function ManageMyCustomAdPage() {
       console.log('Loading custom ad orders for user:', user.id);
       const ads = await CustomAdsService.getUserOrders(user.id);
       console.log('Loaded custom ad orders:', ads);
+      console.log('Files in first ad:', ads[0]?.files);
       setCustomAds(ads);
     } catch (error) {
       console.error('Error loading custom ad orders:', error);
@@ -419,9 +420,13 @@ export default function ManageMyCustomAdPage() {
                             </div>
                           </div>
                           
-                          {file.url && (
+                          {file.url ? (
                             <Button
-                              onClick={() => window.open(file.url, '_blank')}
+                              onClick={() => {
+                                console.log('View button clicked for file:', file);
+                                console.log('File URL:', file.url);
+                                window.open(file.url, '_blank');
+                              }}
                               variant="secondary"
                               size="sm"
                               className="flex items-center space-x-1"
@@ -429,6 +434,10 @@ export default function ManageMyCustomAdPage() {
                               <Eye className="w-4 h-4" />
                               <span>View</span>
                             </Button>
+                          ) : (
+                            <div className="text-xs text-red-500">
+                              No URL available
+                            </div>
                           )}
                         </div>
                       </div>

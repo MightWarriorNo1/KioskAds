@@ -192,6 +192,14 @@ export interface AdminCampaignItem {
   impressions?: number;
   clicks?: number;
   max_video_duration?: number;
+  assets?: {
+    id: string;
+    file_name: string;
+    file_path: string;
+    file_type: 'image' | 'video';
+    status: string;
+    created_at: string;
+  }[];
   user: {
     id: string;
     full_name: string;
@@ -567,8 +575,8 @@ export class AdminService {
         supabase
           .from('profiles')
           .select('id', { count: 'exact', head: true })
-          .maybeSingle()
-          .eq('role', userType === 'all' ? undefined as any : userType),
+          .eq('role', userType === 'all' ? undefined as any : userType)
+          .maybeSingle(),
         supabase
           .from('kiosks')
           .select('id', { count: 'exact', head: true })
@@ -748,9 +756,30 @@ export class AdminService {
 
       const profileById = new Map((profiles || []).map((p: any) => [p.id, p]));
 
-      // Step 3: merge into AdminCampaignItem shape
+      // Step 3: fetch assets for all campaigns
+      const campaignIds = campaigns.map((c: any) => c.id);
+      const { data: assets, error: assetsError } = await supabase
+        .from('media_assets')
+        .select('id, file_name, file_path, file_type, status, created_at, campaign_id')
+        .in('campaign_id', campaignIds)
+        .eq('status', 'approved')
+        .order('created_at', { ascending: false });
+
+      if (assetsError) throw assetsError;
+
+      // Group assets by campaign_id
+      const assetsByCampaign = new Map<string, any[]>();
+      (assets || []).forEach((asset: any) => {
+        if (!assetsByCampaign.has(asset.campaign_id)) {
+          assetsByCampaign.set(asset.campaign_id, []);
+        }
+        assetsByCampaign.get(asset.campaign_id)!.push(asset);
+      });
+
+      // Step 4: merge into AdminCampaignItem shape
       const merged: AdminCampaignItem[] = (campaigns as any[]).map((c) => {
         const user = profileById.get(c.user_id) || null;
+        const campaignAssets = assetsByCampaign.get(c.id) || [];
         return {
           id: c.id,
           user_id: c.user_id,
@@ -770,6 +799,7 @@ export class AdminService {
           impressions: c.impressions != null ? Number(c.impressions) : undefined,
           clicks: c.clicks != null ? Number(c.clicks) : undefined,
           max_video_duration: c.max_video_duration != null ? Number(c.max_video_duration) : undefined,
+          assets: campaignAssets,
           user: user
             ? {
                 id: user.id,
@@ -1022,6 +1052,14 @@ export class AdminService {
       if (action === 'approve') {
         await this.sendHostAdApprovalEmail(hostAdId);
 
+        // Automatically assign approved host ad to all host's kiosks
+        try {
+          await this.assignApprovedHostAdToHostKiosks(hostAdId);
+        } catch (err) {
+          console.error('Error assigning approved host ad to kiosks:', err);
+          // Don't throw; approval should not be blocked by assignment issues
+        }
+
         // Upload the approved host ad to all currently active kiosk assignments' Google Drive folders
         try {
           await GoogleDriveService.uploadApprovedHostAdToAssignedKiosks(hostAdId);
@@ -1034,6 +1072,63 @@ export class AdminService {
       }
     } catch (error) {
       console.error('Error reviewing host ad:', error);
+      throw error;
+    }
+  }
+
+  // Assign approved host ad to all host's kiosks automatically
+  static async assignApprovedHostAdToHostKiosks(hostAdId: string): Promise<void> {
+    try {
+      // Get the host ad and its owner
+      const { data: hostAd, error: hostAdError } = await supabase
+        .from('host_ads')
+        .select('id, host_id, name')
+        .eq('id', hostAdId)
+        .single();
+
+      if (hostAdError || !hostAd) {
+        throw new Error('Host ad not found');
+      }
+
+      // Get all active kiosks assigned to this host
+      const { data: hostKiosks, error: kiosksError } = await supabase
+        .from('host_kiosks')
+        .select('kiosk_id')
+        .eq('host_id', hostAd.host_id)
+        .eq('status', 'active');
+
+      if (kiosksError) throw kiosksError;
+
+      if (!hostKiosks || hostKiosks.length === 0) {
+        console.log(`No active kiosks found for host ${hostAd.host_id}`);
+        return;
+      }
+
+      // Create assignments for all host kiosks with a default 30-day duration
+      const now = new Date();
+      const endDate = new Date();
+      endDate.setDate(endDate.getDate() + 30); // 30 days from now
+
+      const assignments = hostKiosks.map(hostKiosk => ({
+        host_id: hostAd.host_id,
+        ad_id: hostAdId,
+        kiosk_id: hostKiosk.kiosk_id,
+        start_date: now.toISOString().split('T')[0], // Today
+        end_date: endDate.toISOString().split('T')[0], // 30 days from now
+        priority: 1,
+        status: 'active' // Directly active since admin approved it
+      }));
+
+      // Insert all assignments
+      const { error: insertError } = await supabase
+        .from('host_ad_assignments')
+        .insert(assignments);
+
+      if (insertError) throw insertError;
+
+      console.log(`Successfully assigned host ad ${hostAdId} to ${assignments.length} kiosks`);
+    } catch (error) {
+      console.error('Error assigning approved host ad to host kiosks:', error);
       throw error;
     }
   }
@@ -2747,6 +2842,311 @@ export class AdminService {
       };
     } catch (error) {
       console.error('Error fetching revenue analytics:', error);
+      throw error;
+    }
+  }
+
+  // Get transactions with filtering
+  static async getTransactions(dateRange: { start: string; end: string }, filters: {
+    transactionType: 'all' | 'campaign' | 'custom_ad';
+    adType: 'all' | 'ad' | 'photo' | 'video';
+    kioskId: string;
+    clientId: string;
+    hostId: string;
+    status: 'all' | 'succeeded' | 'pending' | 'failed';
+    searchQuery: string;
+  }): Promise<Array<{
+    id: string;
+    type: 'campaign' | 'custom_ad';
+    amount: number;
+    date: string;
+    status: string;
+    client: {
+      id: string;
+      name: string;
+      email: string;
+    };
+    campaign?: {
+      id: string;
+      name: string;
+    };
+    customAd?: {
+      id: string;
+      service_key: string;
+      details: string;
+    };
+    kiosks?: Array<{
+      id: string;
+      name: string;
+      location: string;
+    }>;
+    adType?: 'ad' | 'photo' | 'video';
+    host?: {
+      id: string;
+      name: string;
+      email: string;
+    };
+  }>> {
+    try {
+      const startDate = new Date(dateRange.start);
+      const endDate = new Date(dateRange.end);
+      
+      const transactions: any[] = [];
+
+      // Get campaign transactions from payment_history
+      if (filters.transactionType === 'all' || filters.transactionType === 'campaign') {
+        const { data: campaignPayments, error: campaignPaymentsError } = await supabase
+          .from('payment_history')
+          .select(`
+            *,
+            profiles!payment_history_user_id_fkey(id, full_name, email),
+            campaigns!payment_history_campaign_id_fkey(id, name)
+          `)
+          .gte('payment_date', startDate.toISOString())
+          .lte('payment_date', endDate.toISOString())
+          .eq('status', filters.status === 'all' ? undefined : filters.status);
+
+        if (campaignPaymentsError) throw campaignPaymentsError;
+
+        // Get kiosk information for campaigns
+        const campaignIds = campaignPayments?.map(p => p.campaign_id).filter(Boolean) || [];
+        const { data: campaignKiosks } = await supabase
+          .from('kiosk_campaigns')
+          .select(`
+            campaign_id,
+            kiosks!kiosk_campaigns_kiosk_id_fkey(id, name, city, state)
+          `)
+          .in('campaign_id', campaignIds);
+
+        campaignPayments?.forEach(payment => {
+          const kiosks = campaignKiosks
+            ?.filter(kc => kc.campaign_id === payment.campaign_id)
+            ?.map(kc => ({
+              id: kc.kiosks.id,
+              name: kc.kiosks.name,
+              location: `${kc.kiosks.city}, ${kc.kiosks.state}`
+            })) || [];
+
+          transactions.push({
+            id: payment.id,
+            type: 'campaign',
+            amount: payment.amount,
+            date: payment.payment_date,
+            status: payment.status,
+            client: {
+              id: payment.user_id,
+              name: payment.profiles?.full_name || 'Unknown',
+              email: payment.profiles?.email || 'unknown@example.com'
+            },
+            campaign: payment.campaigns ? {
+              id: payment.campaigns.id,
+              name: payment.campaigns.name
+            } : undefined,
+            kiosks,
+            adType: 'ad' // Default for campaigns
+          });
+        });
+      }
+
+      // Get custom ad transactions from custom_ad_orders
+      if (filters.transactionType === 'all' || filters.transactionType === 'custom_ad') {
+        const { data: customAdOrders, error: customAdOrdersError } = await supabase
+          .from('custom_ad_orders')
+          .select(`
+            *,
+            profiles!custom_ad_orders_user_id_fkey(id, full_name, email)
+          `)
+          .gte('created_at', startDate.toISOString())
+          .lte('created_at', endDate.toISOString())
+          .eq('payment_status', filters.status === 'all' ? undefined : filters.status);
+
+        if (customAdOrdersError) throw customAdOrdersError;
+
+        customAdOrders?.forEach(order => {
+          // Determine ad type based on files
+          let adType: 'ad' | 'photo' | 'video' = 'ad';
+          if (order.files && order.files.length > 0) {
+            const fileTypes = order.files.map((f: any) => f.type?.toLowerCase() || '');
+            if (fileTypes.some(type => type.includes('video'))) {
+              adType = 'video';
+            } else if (fileTypes.some(type => type.includes('image') || type.includes('photo'))) {
+              adType = 'photo';
+            }
+          }
+
+          transactions.push({
+            id: order.id,
+            type: 'custom_ad',
+            amount: order.total_amount,
+            date: order.created_at,
+            status: order.payment_status,
+            client: {
+              id: order.user_id,
+              name: order.profiles?.full_name || 'Unknown',
+              email: order.profiles?.email || 'unknown@example.com'
+            },
+            customAd: {
+              id: order.id,
+              service_key: order.service_key,
+              details: order.details
+            },
+            adType
+          });
+        });
+      }
+
+      return transactions;
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      throw error;
+    }
+  }
+
+  // Get kiosks for filtering
+  static async getKiosks(): Promise<Array<{id: string; name: string; location: string}>> {
+    try {
+      const { data, error } = await supabase
+        .from('kiosks')
+        .select('id, name, city, state')
+        .eq('status', 'active');
+
+      if (error) throw error;
+
+      return data?.map(kiosk => ({
+        id: kiosk.id,
+        name: kiosk.name,
+        location: `${kiosk.city}, ${kiosk.state}`
+      })) || [];
+    } catch (error) {
+      console.error('Error fetching kiosks:', error);
+      return [];
+    }
+  }
+
+  // Get clients for filtering
+  static async getClients(): Promise<Array<{id: string; name: string; email: string}>> {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .eq('role', 'client');
+
+      if (error) throw error;
+
+      return data?.map(client => ({
+        id: client.id,
+        name: client.full_name,
+        email: client.email
+      })) || [];
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+      return [];
+    }
+  }
+
+  // Get hosts for filtering
+  static async getHosts(): Promise<Array<{id: string; name: string; email: string}>> {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .eq('role', 'host');
+
+      if (error) throw error;
+
+      return data?.map(host => ({
+        id: host.id,
+        name: host.full_name,
+        email: host.email
+      })) || [];
+    } catch (error) {
+      console.error('Error fetching hosts:', error);
+      return [];
+    }
+  }
+
+  // Export filtered transactions
+  static async exportFilteredTransactions(
+    dateRange: { start: string; end: string },
+    filters: {
+      transactionType: 'all' | 'campaign' | 'custom_ad';
+      adType: 'all' | 'ad' | 'photo' | 'video';
+      kioskId: string;
+      clientId: string;
+      hostId: string;
+      status: 'all' | 'succeeded' | 'pending' | 'failed';
+      searchQuery: string;
+    },
+    transactions: Array<{
+      id: string;
+      type: 'campaign' | 'custom_ad';
+      amount: number;
+      date: string;
+      status: string;
+      client: {
+        id: string;
+        name: string;
+        email: string;
+      };
+      campaign?: {
+        id: string;
+        name: string;
+      };
+      customAd?: {
+        id: string;
+        service_key: string;
+        details: string;
+      };
+      kiosks?: Array<{
+        id: string;
+        name: string;
+        location: string;
+      }>;
+      adType?: 'ad' | 'photo' | 'video';
+      host?: {
+        id: string;
+        name: string;
+        email: string;
+      };
+    }>
+  ): Promise<string> {
+    try {
+      // Create CSV headers
+      const headers = [
+        'Date',
+        'Transaction Type',
+        'Client Name',
+        'Client Email',
+        'Campaign/Service',
+        'Ad Type',
+        'Amount',
+        'Status',
+        'Kiosks',
+        'Host'
+      ];
+
+      // Create CSV rows
+      const rows = transactions.map(transaction => [
+        new Date(transaction.date).toLocaleDateString(),
+        transaction.type === 'campaign' ? 'Campaign' : 'Custom Ad',
+        transaction.client.name,
+        transaction.client.email,
+        transaction.campaign?.name || transaction.customAd?.service_key || 'N/A',
+        transaction.adType || 'N/A',
+        transaction.amount.toString(),
+        transaction.status,
+        transaction.kiosks?.map(k => k.name).join(', ') || 'N/A',
+        transaction.host?.name || 'N/A'
+      ]);
+
+      // Combine headers and rows
+      const csvContent = [headers, ...rows]
+        .map(row => row.map(field => `"${field}"`).join(','))
+        .join('\n');
+
+      return csvContent;
+    } catch (error) {
+      console.error('Error exporting filtered transactions:', error);
       throw error;
     }
   }

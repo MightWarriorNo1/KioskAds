@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { AdminService } from '../../services/adminService';
-import { PartnersService, Partner } from '../../services/partnersService';
+import { PartnerLogosService, PartnerLogo } from '../../services/partnerLogosService';
 
 interface ProudlyPartneredWithProps {
   className?: string;
 }
 
 export default function ProudlyPartneredWith({ className = '' }: ProudlyPartneredWithProps) {
-  const [partners, setPartners] = useState<Partner[]>([]);
+  const [partnerLogos, setPartnerLogos] = useState<PartnerLogo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [partnerSettings, setPartnerSettings] = useState({
@@ -24,13 +24,13 @@ export default function ProudlyPartneredWith({ className = '' }: ProudlyPartnere
       setLoading(true);
       setError(null);
       
-      // Load both partners and settings in parallel
-      const [partnersData, settingsData] = await Promise.all([
-        PartnersService.getPartners(),
+      // Load both partner logos and settings in parallel
+      const [logosData, settingsData] = await Promise.all([
+        PartnerLogosService.getPartnerLogos(),
         AdminService.getSystemSettings()
       ]);
       
-      setPartners(partnersData);
+      setPartnerLogos(logosData);
       
       // Extract partner settings
       const partnerNameSetting = settingsData.find(s => s.key === 'partner_name_text');
@@ -48,14 +48,8 @@ export default function ProudlyPartneredWith({ className = '' }: ProudlyPartnere
     }
   };
 
-  // Filter partners that have either photo_url or logo_url for display
-  // Sort by created_at (newest first) and take only the latest 4
-  const partnersWithLogos = partners
-    .filter(partner => 
-      partner.is_active && (partner.photo_url || partner.logo_url)
-    )
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .slice(0, 4);
+  // Partner logos are already filtered and sorted by the service
+  const activePartnerLogos = partnerLogos.filter(logo => logo.is_active);
 
   if (loading) {
     return (
@@ -85,8 +79,8 @@ export default function ProudlyPartneredWith({ className = '' }: ProudlyPartnere
     );
   }
 
-  if (partnersWithLogos.length === 0) {
-    return null; // Don't show section if no partners with logos
+  if (activePartnerLogos.length === 0) {
+    return null; // Don't show section if no partner logos
   }
 
   return (
@@ -107,21 +101,21 @@ export default function ProudlyPartneredWith({ className = '' }: ProudlyPartnere
           )}
         </div>
 
-        {/* Partners Grid */}
+        {/* Partner Logos Grid */}
         <div className="flex flex-wrap justify-center items-center gap-8 md:gap-12">
-          {partnersWithLogos.map((partner) => (
+          {activePartnerLogos.map((logo) => (
             <div 
-              key={partner.id} 
+              key={logo.id} 
               className="flex flex-col items-center group hover:scale-105 transition-transform duration-300"
             >
               {/* Logo Container */}
               <div className="w-20 h-20 md:w-24 md:h-24 rounded-xl bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center p-3 mb-3 group-hover:shadow-xl transition-shadow duration-300">
                 <img
-                  src={partner.photo_url || partner.logo_url}
-                  alt={`${partner.title} logo`}
+                  src={logo.logo_url}
+                  alt={`${logo.name} logo`}
                   className="max-w-full max-h-full object-contain"
                   onError={(e) => {
-                    // Hide the partner if image fails to load
+                    // Hide the logo if image fails to load
                     const target = e.target as HTMLImageElement;
                     target.parentElement?.parentElement?.style.setProperty('display', 'none');
                   }}
@@ -130,7 +124,7 @@ export default function ProudlyPartneredWith({ className = '' }: ProudlyPartnere
               
               {/* Partner Name */}
               <h3 className="text-sm md:text-base font-medium text-black dark:text-white text-center max-w-24 md:max-w-32">
-                {partner.title}
+                {logo.name}
               </h3>
             </div>
           ))}

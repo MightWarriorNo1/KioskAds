@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, Save, X, Image as ImageIcon, Users, Settings } from 'lucide-react';
+import { Upload, Save, X, Image as ImageIcon, Users, Settings, Plus, Edit, Trash2, Eye, EyeOff } from 'lucide-react';
 import { AdminService } from '../../services/adminService';
+import { PartnerLogosService, PartnerLogo } from '../../services/partnerLogosService';
 import { useNotification } from '../../contexts/NotificationContext';
 import { supabase } from '../../lib/supabaseClient';
 
@@ -9,16 +10,34 @@ interface PartnerSettingsData {
   partnerLogoUrl: string;
 }
 
+interface PartnerLogoFormData {
+  name: string;
+  logo_url: string;
+  website_url: string;
+  is_active: boolean;
+  display_order: number;
+}
+
 export default function PartnerSettings() {
   const { addNotification } = useNotification();
   const [settings, setSettings] = useState<PartnerSettingsData>({
     partnerNameText: 'Proudly Partnered With',
     partnerLogoUrl: ''
   });
+  const [partnerLogos, setPartnerLogos] = useState<PartnerLogo[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [showLogoModal, setShowLogoModal] = useState(false);
+  const [editingLogo, setEditingLogo] = useState<PartnerLogo | null>(null);
+  const [logoFormData, setLogoFormData] = useState<PartnerLogoFormData>({
+    name: '',
+    logo_url: '',
+    website_url: '',
+    is_active: true,
+    display_order: 0
+  });
 
   useEffect(() => {
     loadSettings();
@@ -27,7 +46,10 @@ export default function PartnerSettings() {
   const loadSettings = async () => {
     try {
       setLoading(true);
-      const systemSettings = await AdminService.getSystemSettings();
+      const [systemSettings, logosData] = await Promise.all([
+        AdminService.getSystemSettings(),
+        PartnerLogosService.getAllPartnerLogos()
+      ]);
       
       const partnerNameSetting = systemSettings.find(s => s.key === 'partner_name_text');
       const partnerLogoSetting = systemSettings.find(s => s.key === 'partner_logo_url');
@@ -36,6 +58,8 @@ export default function PartnerSettings() {
         partnerNameText: partnerNameSetting?.value || 'Proudly Partnered With',
         partnerLogoUrl: partnerLogoSetting?.value || ''
       });
+      
+      setPartnerLogos(logosData);
     } catch (error) {
       console.error('Error loading partner settings:', error);
       addNotification('error', 'Error', 'Failed to load partner settings');
@@ -50,6 +74,13 @@ export default function PartnerSettings() {
       [field]: value
     }));
     setHasChanges(true);
+  };
+
+  const handleLogoInputChange = (field: keyof PartnerLogoFormData, value: string | boolean | number) => {
+    setLogoFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -101,11 +132,10 @@ export default function PartnerSettings() {
         .from('media-assets')
         .getPublicUrl(filePath);
 
-      setSettings(prev => ({
+      setLogoFormData(prev => ({
         ...prev,
-        partnerLogoUrl: publicUrl
+        logo_url: publicUrl
       }));
-      setHasChanges(true);
       
       addNotification('success', 'Success', 'Logo uploaded successfully');
     } catch (error) {
@@ -144,6 +174,83 @@ export default function PartnerSettings() {
     setHasChanges(true);
   };
 
+  const openLogoModal = (logo?: PartnerLogo) => {
+    if (logo) {
+      setEditingLogo(logo);
+      setLogoFormData({
+        name: logo.name,
+        logo_url: logo.logo_url,
+        website_url: logo.website_url || '',
+        is_active: logo.is_active,
+        display_order: logo.display_order
+      });
+    } else {
+      setEditingLogo(null);
+      setLogoFormData({
+        name: '',
+        logo_url: '',
+        website_url: '',
+        is_active: true,
+        display_order: partnerLogos.length + 1
+      });
+    }
+    setShowLogoModal(true);
+  };
+
+  const closeLogoModal = () => {
+    setShowLogoModal(false);
+    setEditingLogo(null);
+    setLogoFormData({
+      name: '',
+      logo_url: '',
+      website_url: '',
+      is_active: true,
+      display_order: 0
+    });
+  };
+
+  const handleSaveLogo = async () => {
+    try {
+      if (editingLogo) {
+        await PartnerLogosService.updatePartnerLogo(editingLogo.id, logoFormData);
+        addNotification('success', 'Success', 'Partner logo updated successfully');
+      } else {
+        await PartnerLogosService.createPartnerLogo(logoFormData);
+        addNotification('success', 'Success', 'Partner logo created successfully');
+      }
+      
+      closeLogoModal();
+      loadSettings();
+    } catch (error) {
+      console.error('Error saving partner logo:', error);
+      addNotification('error', 'Save Failed', 'Failed to save partner logo');
+    }
+  };
+
+  const handleDeleteLogo = async (logoId: string) => {
+    if (!confirm('Are you sure you want to delete this partner logo?')) return;
+    
+    try {
+      await PartnerLogosService.deletePartnerLogo(logoId);
+      addNotification('success', 'Success', 'Partner logo deleted successfully');
+      loadSettings();
+    } catch (error) {
+      console.error('Error deleting partner logo:', error);
+      addNotification('error', 'Delete Failed', 'Failed to delete partner logo');
+    }
+  };
+
+  const handleToggleLogoStatus = async (logoId: string, isActive: boolean) => {
+    try {
+      await PartnerLogosService.togglePartnerLogoStatus(logoId, isActive);
+      addNotification('success', 'Success', `Partner logo ${isActive ? 'activated' : 'deactivated'} successfully`);
+      loadSettings();
+    } catch (error) {
+      console.error('Error toggling partner logo status:', error);
+      addNotification('error', 'Update Failed', 'Failed to update partner logo status');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -154,6 +261,7 @@ export default function PartnerSettings() {
 
   return (
     <div className="space-y-6">
+      {/* Section Settings */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-center gap-3 mb-6">
           <Users className="h-6 w-6 text-primary-600" />
@@ -241,6 +349,82 @@ export default function PartnerSettings() {
         </div>
       </div>
 
+      {/* Partner Logos Management */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <Settings className="h-6 w-6 text-primary-600" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Partner Logos
+            </h3>
+          </div>
+          <button
+            onClick={() => openLogoModal()}
+            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Add Partner Logo
+          </button>
+        </div>
+
+        {partnerLogos.length === 0 ? (
+          <div className="text-center py-8">
+            <ImageIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500 dark:text-gray-400">No partner logos added yet</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500">Click "Add Partner Logo" to get started</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {partnerLogos.map((logo) => (
+              <div key={logo.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-medium text-gray-900 dark:text-white">{logo.name}</h4>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleToggleLogoStatus(logo.id, !logo.is_active)}
+                      className={`p-1 rounded ${
+                        logo.is_active 
+                          ? 'text-green-600 hover:bg-green-50' 
+                          : 'text-gray-400 hover:bg-gray-50'
+                      }`}
+                    >
+                      {logo.is_active ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                    </button>
+                    <button
+                      onClick={() => openLogoModal(logo)}
+                      className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteLogo(logo.id)}
+                      className="p-1 text-red-600 hover:bg-red-50 rounded"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="w-full h-16 bg-gray-50 dark:bg-gray-700 rounded-lg flex items-center justify-center mb-3">
+                  <img
+                    src={logo.logo_url}
+                    alt={`${logo.name} logo`}
+                    className="max-w-full max-h-full object-contain"
+                  />
+                </div>
+                
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                  <p>Order: {logo.display_order}</p>
+                  {logo.website_url && (
+                    <p className="truncate">Website: {logo.website_url}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Save Button */}
       <div className="flex justify-end">
         <button
@@ -252,6 +436,129 @@ export default function PartnerSettings() {
           {saving ? 'Saving...' : 'Save Settings'}
         </button>
       </div>
+
+      {/* Partner Logo Modal */}
+      {showLogoModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                {editingLogo ? 'Edit Partner Logo' : 'Add Partner Logo'}
+              </h3>
+              <button
+                onClick={closeLogoModal}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Partner Name *
+                </label>
+                <input
+                  type="text"
+                  value={logoFormData.name}
+                  onChange={(e) => handleLogoInputChange('name', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="Enter partner name"
+                />
+              </div>
+
+              {/* Logo Upload */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Logo *
+                </label>
+                {logoFormData.logo_url ? (
+                  <div className="mb-3">
+                    <div className="w-24 h-24 border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-700 flex items-center justify-center">
+                      <img
+                        src={logoFormData.logo_url}
+                        alt="Logo preview"
+                        className="max-w-full max-h-full object-contain"
+                      />
+                    </div>
+                  </div>
+                ) : null}
+                
+                <label className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer">
+                  <Upload className="h-4 w-4 mr-2" />
+                  {uploading ? 'Uploading...' : 'Upload Logo'}
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg"
+                    onChange={handleFileUpload}
+                    disabled={uploading}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+
+              {/* Website URL */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Website URL
+                </label>
+                <input
+                  type="url"
+                  value={logoFormData.website_url}
+                  onChange={(e) => handleLogoInputChange('website_url', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="https://example.com"
+                />
+              </div>
+
+              {/* Display Order */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Display Order
+                </label>
+                <input
+                  type="number"
+                  value={logoFormData.display_order}
+                  onChange={(e) => handleLogoInputChange('display_order', parseInt(e.target.value) || 0)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="0"
+                />
+              </div>
+
+              {/* Active Status */}
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="is_active"
+                  checked={logoFormData.is_active}
+                  onChange={(e) => handleLogoInputChange('is_active', e.target.checked)}
+                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                />
+                <label htmlFor="is_active" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                  Active (visible on website)
+                </label>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={closeLogoModal}
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveLogo}
+                disabled={!logoFormData.name || !logoFormData.logo_url}
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {editingLogo ? 'Update Logo' : 'Add Logo'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
