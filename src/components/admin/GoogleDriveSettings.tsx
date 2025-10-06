@@ -72,12 +72,13 @@ export const GoogleDriveSettings: React.FC<GoogleDriveSettingsProps> = ({
       setIsSyncing(true);
       setMessage(null);
 
-      const result = await GoogleDriveService.syncAllFolders();
+      // Use immediate sync to bypass queue and move files directly to active folder
+      const result = await GoogleDriveService.syncAllFoldersImmediate();
       
       if (result.success) {
         setMessage({ 
           type: 'success', 
-          text: `Sync completed successfully! ${result.foldersSynced} folders synced.` 
+          text: `Sync completed successfully! ${result.foldersSynced} folders synced. Files moved from scheduled to active folders.` 
         });
       } else {
         setMessage({ 

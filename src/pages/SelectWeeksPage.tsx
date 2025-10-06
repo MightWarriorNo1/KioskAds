@@ -58,11 +58,11 @@ export default function SelectWeeksPage() {
     return `${year}-${month}-${day}`;
   };
   
-  // Check if a date is in the past
+  // Check if a date is in the past or today (only allow selection from tomorrow)
   const isPastDate = (d: Date) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return d < today;
+    return d <= today;
   };
 
   // Check if a date is blocked due to previous selections (weekly)
@@ -269,7 +269,7 @@ export default function SelectWeeksPage() {
         )}
         
         <div className="rounded border border-gray-200 dark:border-gray-700 p-4 text-sm text-gray-600 dark:text-gray-300 mb-6">
-          Weekly Selection — Select up to 4 weeks (Monday to Sunday) for your campaign. All future dates are available for selection.
+          Weekly Selection — Select up to 4 weeks (Monday to Sunday) for your campaign. Selection starts from tomorrow onwards.
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 mb-6 md:mb-8">
@@ -409,7 +409,7 @@ export default function SelectWeeksPage() {
                 </div>
                 <div className="flex items-center space-x-2">
                   <span className="inline-block w-3 h-3 md:w-4 md:h-4 bg-gray-100 dark:bg-gray-800 rounded border"/>
-                  <span>Past Dates</span>
+                  <span>Past & Today</span>
                 </div>
               </div>
             </div>
@@ -569,7 +569,7 @@ export default function SelectWeeksPage() {
             </div>
 
             <div className="rounded border border-gray-200 dark:border-gray-700 p-4 text-sm text-gray-600 dark:text-gray-300 mb-6">
-              Subscription Selection — Select any future date to start your subscription. The next 30 days will be blocked to prevent conflicts.
+              Subscription Selection — Select any date from tomorrow onwards to start your subscription. The next 30 days will be blocked to prevent conflicts.
             </div>
 
                          <div className="mb-3 text-sm font-semibold flex items-center space-x-2">
@@ -636,7 +636,7 @@ export default function SelectWeeksPage() {
                  </div>
                  <div className="flex items-center space-x-2">
                    <span className="inline-block w-4 h-4 bg-gray-100 dark:bg-gray-800 rounded border"/>
-                   <span>Past Dates</span>
+                   <span>Past & Today</span>
                  </div>
                </div>
              </div>

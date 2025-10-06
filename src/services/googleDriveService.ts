@@ -30,7 +30,7 @@ export interface UploadJobData {
   media_asset_id: string;
   scheduled_time: string;
   upload_type?: 'scheduled' | 'immediate' | 'sync';
-  folder_type?: 'active' | 'archive';
+  folder_type?: 'scheduled' | 'active' | 'archive';
 }
 
 export interface SyncJobData {
@@ -171,6 +171,7 @@ export class GoogleDriveService {
         kioskName: r.kioskName,
         activeFolderId: r.activeFolderId,
         archiveFolderId: r.archiveFolderId,
+        scheduledFolderId: r.scheduledFolderId,
         status: (r.status || 'ready') as 'ready' | 'pending' | 'error',
         folderPath: r.folderPath
       }));
@@ -179,6 +180,65 @@ export class GoogleDriveService {
     } catch (error) {
       console.error('Error creating kiosk folders:', error);
       return [];
+    }
+  }
+
+  // Ensure scheduled folders exist for all kiosks
+  static async ensureScheduledFoldersExist(): Promise<void> {
+    try {
+      console.log('Ensuring scheduled folders exist for all kiosks...');
+      
+      // Get all kiosks with their Google Drive folder mappings
+      const { data: kioskFolders, error: foldersError } = await supabase
+        .from('kiosk_gdrive_folders')
+        .select(`
+          *,
+          kiosks!kiosk_id(name, location),
+          google_drive_configs!gdrive_config_id(name, is_active)
+        `)
+        .eq('google_drive_configs.is_active', true);
+
+      if (foldersError) throw foldersError;
+
+      if (!kioskFolders || kioskFolders.length === 0) {
+        console.log('No kiosk folders found');
+        return;
+      }
+
+      // Check which kiosks are missing scheduled folders
+      const kiosksNeedingScheduledFolders = kioskFolders.filter(folder => !folder.scheduled_folder_id);
+      
+      if (kiosksNeedingScheduledFolders.length === 0) {
+        console.log('All kiosks already have scheduled folders');
+        return;
+      }
+
+      console.log(`Found ${kiosksNeedingScheduledFolders.length} kiosks missing scheduled folders`);
+
+      // Create scheduled folders for kiosks that don't have them
+      for (const folderMapping of kiosksNeedingScheduledFolders) {
+        try {
+          const kiosk = { id: folderMapping.kiosk_id, name: folderMapping.kiosks?.name || 'Unknown' };
+          const results = await this.createKioskFolders(folderMapping.gdrive_config_id, [kiosk]);
+          
+          if (results.length > 0 && results[0].scheduledFolderId) {
+            // Update the folder mapping with the scheduled folder ID
+            await supabase
+              .from('kiosk_gdrive_folders')
+              .update({ 
+                scheduled_folder_id: results[0].scheduledFolderId,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', folderMapping.id);
+            
+            console.log(`Created scheduled folder for kiosk: ${kiosk.name}`);
+          }
+        } catch (error) {
+          console.error(`Error creating scheduled folder for kiosk ${folderMapping.kiosks?.name}:`, error);
+        }
+      }
+    } catch (error) {
+      console.error('Error ensuring scheduled folders exist:', error);
     }
   }
 
@@ -191,7 +251,7 @@ export class GoogleDriveService {
           ...jobData,
           status: 'pending',
           upload_type: jobData.upload_type || 'scheduled',
-          folder_type: jobData.folder_type || 'active'
+          folder_type: jobData.folder_type || 'scheduled'
         })
         .select('id')
         .single();
@@ -524,33 +584,46 @@ export class GoogleDriveService {
     filesActivated: number;
   }> {
     try {
-      // Get active campaigns for this kiosk
-      const { data: activeCampaigns } = await supabase
+      const now = new Date();
+      
+      // Get all campaigns for this kiosk (regardless of status)
+      const { data: allCampaigns } = await supabase
         .from('campaigns')
         .select(`
           id,
           status,
+          start_date,
           end_date,
           selected_kiosk_ids
         `)
-        .contains('selected_kiosk_ids', [kioskId])
-        .in('status', ['active', 'pending']);
+        .contains('selected_kiosk_ids', [kioskId]);
 
-      // Get expired campaigns for this kiosk
-      const { data: expiredCampaigns } = await supabase
-        .from('campaigns')
-        .select(`
-          id,
-          status,
-          end_date,
-          selected_kiosk_ids
-        `)
-        .contains('selected_kiosk_ids', [kioskId])
-        .in('status', ['completed', 'paused']);
+      // Filter campaigns based on actual dates and status
+      const activeCampaignIds: string[] = [];
+      const expiredCampaignIds: string[] = [];
 
-      // Get media assets for active campaigns
-      const activeCampaignIds = activeCampaigns?.map(c => c.id) || [];
-      const expiredCampaignIds = expiredCampaigns?.map(c => c.id) || [];
+      for (const campaign of allCampaigns || []) {
+        const startDate = new Date(campaign.start_date);
+        const endDate = campaign.end_date ? new Date(campaign.end_date) : null;
+        
+        // Campaign should be active if:
+        // 1. Status is 'active', 'pending', or 'approved' AND
+        // 2. Start date has passed AND
+        // 3. End date hasn't passed (or no end date)
+        if (['active', 'pending', 'approved'].includes(campaign.status) && 
+            startDate <= now && 
+            (!endDate || endDate >= now)) {
+          activeCampaignIds.push(campaign.id);
+        }
+        
+        // Campaign should be archived if:
+        // 1. Status is 'completed' or 'paused' OR
+        // 2. End date has passed
+        if (['completed', 'paused'].includes(campaign.status) || 
+            (endDate && endDate < now)) {
+          expiredCampaignIds.push(campaign.id);
+        }
+      }
 
       let filesActivated = 0;
       let filesArchived = 0;
@@ -618,15 +691,23 @@ export class GoogleDriveService {
     try {
       console.log(`Moving asset ${assetId} from folder ${fromFolderId} to ${toFolderId}`);
       
-      // First, we need to find the Google Drive file ID for this asset
-      // This would typically be stored in the database when the file is uploaded
-      const { data: asset } = await supabase
-        .from('media_assets')
+      // Find the Google Drive file ID from the upload_jobs table
+      const { data: uploadJob, error: uploadJobError } = await supabase
+        .from('upload_jobs')
         .select('gdrive_file_id')
-        .eq('id', assetId)
-        .single();
+        .eq('media_asset_id', assetId)
+        .eq('status', 'completed')
+        .not('gdrive_file_id', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      if (!asset?.gdrive_file_id) {
+      if (uploadJobError) {
+        console.error(`Error fetching upload job for asset ${assetId}:`, uploadJobError);
+        return;
+      }
+
+      if (!uploadJob?.gdrive_file_id) {
         console.warn(`No Google Drive file ID found for asset ${assetId}, skipping move operation`);
         return;
       }
@@ -634,7 +715,7 @@ export class GoogleDriveService {
       // Move the file using real Google Drive API
       await GoogleDriveApiService.moveFile(
         config,
-        asset.gdrive_file_id,
+        uploadJob.gdrive_file_id,
         fromFolderId,
         toFolderId
       );
@@ -1063,6 +1144,90 @@ export class GoogleDriveService {
     }
   }
 
+  // Sync all folders for all kiosks (immediate - bypasses queue)
+  static async syncAllFoldersImmediate(): Promise<{
+    success: boolean;
+    message: string;
+    foldersSynced: number;
+    errors: string[];
+  }> {
+    try {
+      console.log('Starting immediate sync all folders process...');
+      
+      // First, ensure scheduled folders exist
+      await this.ensureScheduledFoldersExist();
+      
+      // Get all kiosks with their Google Drive folder mappings
+      const { data: kioskFolders, error: foldersError } = await supabase
+        .from('kiosk_gdrive_folders')
+        .select(`
+          *,
+          kiosks!kiosk_id(name, location),
+          google_drive_configs!gdrive_config_id(name, is_active)
+        `)
+        .eq('google_drive_configs.is_active', true);
+
+      if (foldersError) throw foldersError;
+
+      if (!kioskFolders || kioskFolders.length === 0) {
+        return {
+          success: false,
+          message: 'No Google Drive folders found to sync',
+          foldersSynced: 0,
+          errors: []
+        };
+      }
+
+      const errors: string[] = [];
+      let foldersSynced = 0;
+
+      // Process each kiosk folder
+      for (const folderMapping of kioskFolders) {
+        try {
+          console.log(`Immediate syncing folders for kiosk: ${folderMapping.kiosks?.name || 'Unknown'}`);
+          
+          // Get active Google Drive config
+          const gdriveConfig = await this.getGoogleDriveConfig(folderMapping.gdrive_config_id);
+          if (!gdriveConfig) {
+            throw new Error('No active Google Drive configuration found');
+          }
+
+          // Sync files for this kiosk immediately
+          const syncResult = await this.syncKioskFiles(
+            folderMapping.kiosk_id,
+            folderMapping,
+            gdriveConfig
+          );
+
+          foldersSynced++;
+          console.log(`Successfully synced kiosk ${folderMapping.kiosks?.name || 'Unknown'}: ${syncResult.filesSynced} files synced`);
+        } catch (error) {
+          const errorMessage = `Failed to sync kiosk ${folderMapping.kiosks?.name || 'Unknown'}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+          console.error(errorMessage);
+          errors.push(errorMessage);
+        }
+      }
+
+      const success = errors.length === 0;
+      return {
+        success,
+        message: success 
+          ? `Successfully synced ${foldersSynced} folders` 
+          : `Synced ${foldersSynced} folders with ${errors.length} errors`,
+        foldersSynced,
+        errors
+      };
+    } catch (error) {
+      console.error('Error in immediate sync all folders:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        foldersSynced: 0,
+        errors: [error instanceof Error ? error.message : 'Unknown error']
+      };
+    }
+  }
+
   // Sync all folders for all kiosks
   static async syncAllFolders(): Promise<{
     success: boolean;
@@ -1072,6 +1237,9 @@ export class GoogleDriveService {
   }> {
     try {
       console.log('Starting sync all folders process...');
+      
+      // First, ensure scheduled folders exist
+      await this.ensureScheduledFoldersExist();
       
       // Get all kiosks with their Google Drive folder mappings
       const { data: kioskFolders, error: foldersError } = await supabase
@@ -1299,7 +1467,7 @@ export class GoogleDriveService {
               media_asset_id: asset.id,
               scheduled_time: nextUpload.toISOString(),
               upload_type: 'scheduled',
-              folder_type: 'active'
+              folder_type: 'scheduled'
             });
           }
         }

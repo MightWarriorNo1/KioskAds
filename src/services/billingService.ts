@@ -25,10 +25,12 @@ export interface Subscription {
 export interface PaymentHistory {
   id: string;
   user_id: string;
-  campaign_id: string;
+  campaign_id?: string;
+  custom_ad_order_id?: string;
+  payment_type: 'campaign' | 'custom_ad';
   amount: number;
   status: 'succeeded' | 'pending' | 'failed' | 'refunded';
-  description: string;
+  description?: string;
   payment_date: string;
   created_at: string;
 }
@@ -93,7 +95,7 @@ export class BillingService {
       // Check and update campaign statuses
       for (const campaign of allCampaigns || []) {
         // Check if campaign should be activated (start date reached)
-        if (campaign.status === 'pending' && new Date(campaign.start_date) <= new Date()) {
+        if ((campaign.status === 'pending' || campaign.status === 'approved') && new Date(campaign.start_date) <= new Date()) {
           await this.updateCampaignStatus(campaign.id, 'active');
         }
         // Check if campaign should be completed (end date passed)
@@ -134,7 +136,7 @@ export class BillingService {
       // Check and update campaign statuses
       for (const campaign of allCampaigns || []) {
         // Check if campaign should be activated (start date reached)
-        if (campaign.status === 'pending' && new Date(campaign.start_date) <= new Date()) {
+        if ((campaign.status === 'pending' || campaign.status === 'approved') && new Date(campaign.start_date) <= new Date()) {
           await this.updateCampaignStatus(campaign.id, 'active');
         }
         // Check if campaign should be completed (end date passed)
@@ -294,7 +296,9 @@ export class BillingService {
 
   static async createPaymentRecord(paymentData: {
     user_id: string;
-    campaign_id: string;
+    campaign_id?: string;
+    custom_ad_order_id?: string;
+    payment_type: 'campaign' | 'custom_ad';
     amount: number;
     status: 'succeeded' | 'pending' | 'failed';
     description?: string;
@@ -305,6 +309,8 @@ export class BillingService {
         .insert([{
           user_id: paymentData.user_id,
           campaign_id: paymentData.campaign_id,
+          custom_ad_order_id: paymentData.custom_ad_order_id,
+          payment_type: paymentData.payment_type,
           amount: paymentData.amount,
           status: paymentData.status,
           description: paymentData.description,
@@ -319,6 +325,8 @@ export class BillingService {
         id: data.id,
         user_id: data.user_id,
         campaign_id: data.campaign_id,
+        custom_ad_order_id: data.custom_ad_order_id,
+        payment_type: data.payment_type,
         amount: data.amount,
         status: data.status,
         description: data.description,

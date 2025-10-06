@@ -80,7 +80,7 @@ export class CampaignService {
 
       for (const campaign of data || []) {
         // Check if campaign should be activated (start date reached)
-        if (campaign.status === 'pending' && new Date(campaign.start_date) <= new Date()) {
+        if ((campaign.status === 'pending' || campaign.status === 'approved') && new Date(campaign.start_date) <= new Date()) {
           campaignsToUpdate.push(campaign.id);
           await this.updateCampaignStatus(campaign.id, 'active');
         }

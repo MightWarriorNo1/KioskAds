@@ -1264,7 +1264,9 @@ export class AdminService {
   // Approve or reject campaign
   static async reviewCampaign(campaignId: string, action: 'approve' | 'reject', rejectionReason?: string): Promise<void> {
     try {
-      const status = action === 'approve' ? 'active' : 'rejected';
+      // For approval, set status to 'approved' instead of 'active'
+      // Campaign will become 'active' when start_date is reached
+      const status = action === 'approve' ? 'approved' : 'rejected';
       
       const { error, data } = await supabase
         .from('campaigns')
@@ -1273,7 +1275,7 @@ export class AdminService {
           updated_at: new Date().toISOString()
         })
         .eq('id', campaignId)
-        .select('id, selected_kiosk_ids')
+        .select('id, selected_kiosk_ids, start_date')
         .maybeSingle();
 
       if (error) throw error;
@@ -1291,9 +1293,12 @@ export class AdminService {
       if (action === 'approve') {
         await this.sendCampaignApprovalEmail(campaignId);
 
-        // Schedule immediate Google Drive uploads for all approved campaign assets to each kiosk folder
+        // Schedule Google Drive uploads for all approved campaign assets to scheduled folder
         try {
-          // First, mark linked media assets as approved so scheduling can pick them up
+          // First, ensure scheduled folders exist for all kiosks
+          await GoogleDriveService.ensureScheduledFoldersExist();
+
+          // Mark linked media assets as approved so scheduling can pick them up
           await supabase
             .from('media_assets')
             .update({ status: 'approved', updated_at: new Date().toISOString() })
@@ -1302,7 +1307,8 @@ export class AdminService {
 
           const kioskIds: string[] = Array.isArray(data.selected_kiosk_ids) ? data.selected_kiosk_ids : [];
           if (kioskIds.length > 0) {
-            const jobIds = await GoogleDriveService.scheduleImmediateUpload(campaignId, kioskIds, 'immediate');
+            // Upload to scheduled folder - assets will be moved to active when campaign starts
+            const jobIds = await GoogleDriveService.scheduleImmediateUpload(campaignId, kioskIds, 'scheduled');
 
             // Trigger the edge function to process the pending upload jobs right away
             try {
@@ -2606,7 +2612,7 @@ export class AdminService {
     }
   }
 
-  // Revenue Analytics Methods
+  // Revenue Analytics Methods - now loads all data from payment_history table
   static async getRevenueAnalytics(dateRange: { start: string; end: string }): Promise<{
     totalRevenue: number;
     monthlyRevenue: number;
@@ -2642,7 +2648,7 @@ export class AdminService {
       const startDate = new Date(dateRange.start);
       const endDate = new Date(dateRange.end);
       
-      // Get payment history for the date range - use separate queries to avoid join issues
+      // Get payment history for the date range - now includes both campaign and custom ad payments
       const { data: paymentsOnly, error: paymentsOnlyError } = await supabase
         .from('payment_history')
         .select('*')
@@ -2847,14 +2853,14 @@ export class AdminService {
     }
   }
 
-  // Get transactions with filtering
+  // Get transactions with filtering - now loads all data from payment_history table
   static async getTransactions(dateRange: { start: string; end: string }, filters: {
     transactionType: 'all' | 'campaign' | 'custom_ad';
     adType: 'all' | 'ad' | 'photo' | 'video';
     kioskId: string;
     clientId: string;
     hostId: string;
-    status: 'all' | 'succeeded' | 'pending' | 'failed';
+    status: 'all' | 'succeeded' | 'completed' | 'pending' | 'in_progress' | 'failed' | 'cancelled';
     searchQuery: string;
   }): Promise<Array<{
     id: string;
@@ -2892,139 +2898,175 @@ export class AdminService {
       const startDate = new Date(dateRange.start);
       const endDate = new Date(dateRange.end);
       
-      const transactions: any[] = [];
+      // Build query for payment_history table
+      let query = supabase
+        .from('payment_history')
+        .select('*')
+        .gte('payment_date', startDate.toISOString())
+        .lte('payment_date', endDate.toISOString());
 
-      // Get campaign transactions from payment_history
-      if (filters.transactionType === 'all' || filters.transactionType === 'campaign') {
-        // Get payment history first
-        const { data: paymentHistory, error: paymentHistoryError } = await supabase
-          .from('payment_history')
-          .select('*')
-          .gte('payment_date', startDate.toISOString())
-          .lte('payment_date', endDate.toISOString())
-          .eq('status', filters.status === 'all' ? undefined : filters.status);
+      // Apply status filter
+      if (filters.status !== 'all') {
+        const statusMap = {
+          'succeeded': 'succeeded',
+          'completed': 'succeeded',
+          'pending': 'pending',
+          'in_progress': 'pending',
+          'failed': 'failed',
+          'cancelled': 'failed'
+        };
+        query = query.eq('status', statusMap[filters.status] || filters.status);
+      }
 
-        if (paymentHistoryError) throw paymentHistoryError;
+      // Apply transaction type filter
+      if (filters.transactionType !== 'all') {
+        query = query.eq('payment_type', filters.transactionType);
+      }
 
-        // Get user profiles separately
-        const userIds = [...new Set(paymentHistory?.map(p => p.user_id) || [])];
-        const { data: profiles, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id, full_name, email')
-          .in('id', userIds);
+      const { data: paymentHistory, error: paymentHistoryError } = await query;
 
-        if (profilesError) throw profilesError;
+      if (paymentHistoryError) throw paymentHistoryError;
 
-        // Get campaigns separately
-        const campaignIds = [...new Set(paymentHistory?.map(p => p.campaign_id).filter(Boolean) || [])];
-        const { data: campaigns, error: campaignsError } = await supabase
+      if (!paymentHistory || paymentHistory.length === 0) {
+        return [];
+      }
+
+      // Get user profiles separately
+      const userIds = [...new Set(paymentHistory.map(p => p.user_id))];
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      // Get campaigns for campaign payments
+      const campaignIds = [...new Set(paymentHistory
+        .filter(p => p.payment_type === 'campaign' && p.campaign_id)
+        .map(p => p.campaign_id))];
+      
+      let campaigns: any[] = [];
+      if (campaignIds.length > 0) {
+        const { data: campaignsData, error: campaignsError } = await supabase
           .from('campaigns')
           .select('id, name')
           .in('id', campaignIds);
-
+        
         if (campaignsError) throw campaignsError;
+        campaigns = campaignsData || [];
+      }
 
-        // Combine the data
-        const campaignPayments = paymentHistory?.map(payment => ({
-          ...payment,
-          profiles: profiles?.find(p => p.id === payment.user_id),
-          campaigns: campaigns?.find(c => c.id === payment.campaign_id)
-        })) || [];
+      // Get custom ad orders for custom ad payments
+      const customAdOrderIds = [...new Set(paymentHistory
+        .filter(p => p.payment_type === 'custom_ad' && p.custom_ad_order_id)
+        .map(p => p.custom_ad_order_id))];
+      
+      let customAdOrders: any[] = [];
+      if (customAdOrderIds.length > 0) {
+        const { data: customAdOrdersData, error: customAdOrdersError } = await supabase
+          .from('custom_ad_orders')
+          .select('id, service_key, details, files')
+          .in('id', customAdOrderIds);
+        
+        if (customAdOrdersError) throw customAdOrdersError;
+        customAdOrders = customAdOrdersData || [];
+      }
 
-        // Get kiosk information for campaigns
-        const kioskCampaignIds = campaignPayments?.map(p => p.campaign_id).filter(Boolean) || [];
-        const { data: campaignKiosks } = await supabase
+      // Get kiosk information for campaigns
+      let campaignKiosks: any[] = [];
+      let kiosks: any[] = [];
+      if (campaignIds.length > 0) {
+        const { data: campaignKiosksData } = await supabase
           .from('kiosk_campaigns')
           .select('campaign_id, kiosk_id')
-          .in('campaign_id', kioskCampaignIds);
+          .in('campaign_id', campaignIds);
+        
+        campaignKiosks = campaignKiosksData || [];
+        
+        const kioskIds = [...new Set(campaignKiosks.map(kc => kc.kiosk_id))];
+        if (kioskIds.length > 0) {
+          const { data: kiosksData } = await supabase
+            .from('kiosks')
+            .select('id, name, city, state')
+            .in('id', kioskIds);
+          
+          kiosks = kiosksData || [];
+        }
+      }
 
-        // Get kiosk details separately
-        const kioskIds = [...new Set(campaignKiosks?.map(kc => kc.kiosk_id) || [])];
-        const { data: kiosks } = await supabase
-          .from('kiosks')
-          .select('id, name, city, state')
-          .in('id', kioskIds);
-
-        campaignPayments?.forEach(payment => {
+      // Transform payment history to transactions
+      const transactions = paymentHistory.map(payment => {
+        const profile = profiles?.find(p => p.id === payment.user_id);
+        
+        if (payment.payment_type === 'campaign') {
+          const campaign = campaigns.find(c => c.id === payment.campaign_id);
           const paymentKiosks = campaignKiosks
-            ?.filter(kc => kc.campaign_id === payment.campaign_id)
-            ?.map(kc => {
-              const kiosk = kiosks?.find(k => k.id === kc.kiosk_id);
+            .filter(kc => kc.campaign_id === payment.campaign_id)
+            .map(kc => {
+              const kiosk = kiosks.find(k => k.id === kc.kiosk_id);
               return kiosk ? {
                 id: kiosk.id,
                 name: kiosk.name,
                 location: `${kiosk.city}, ${kiosk.state}`
               } : null;
             })
-            ?.filter(Boolean) || [];
+            .filter((k): k is { id: string; name: string; location: string } => k !== null);
 
-          transactions.push({
+          return {
             id: payment.id,
-            type: 'campaign',
+            type: 'campaign' as const,
             amount: payment.amount,
             date: payment.payment_date,
             status: payment.status,
             client: {
               id: payment.user_id,
-              name: payment.profiles?.full_name || 'Unknown',
-              email: payment.profiles?.email || 'unknown@example.com'
+              name: profile?.full_name || 'Unknown',
+              email: profile?.email || 'unknown@example.com'
             },
-            campaign: payment.campaigns ? {
-              id: payment.campaigns.id,
-              name: payment.campaigns.name
+            campaign: campaign ? {
+              id: campaign.id,
+              name: campaign.name
             } : undefined,
             kiosks: paymentKiosks,
-            adType: 'ad' // Default for campaigns
-          });
-        });
-      }
-
-      // Get custom ad transactions from custom_ad_orders
-      if (filters.transactionType === 'all' || filters.transactionType === 'custom_ad') {
-        const { data: customAdOrders, error: customAdOrdersError } = await supabase
-          .from('custom_ad_orders')
-          .select(`
-            *,
-            profiles!custom_ad_orders_user_id_fkey(id, full_name, email)
-          `)
-          .gte('created_at', startDate.toISOString())
-          .lte('created_at', endDate.toISOString())
-          .eq('payment_status', filters.status === 'all' ? undefined : filters.status);
-
-        if (customAdOrdersError) throw customAdOrdersError;
-
-        customAdOrders?.forEach(order => {
+            adType: 'ad' as const
+          };
+        } else {
+          // Custom ad payment
+          const customAdOrder = customAdOrders.find(o => o.id === payment.custom_ad_order_id);
+          
           // Determine ad type based on files
           let adType: 'ad' | 'photo' | 'video' = 'ad';
-          if (order.files && order.files.length > 0) {
-            const fileTypes = order.files.map((f: any) => f.type?.toLowerCase() || '');
-            if (fileTypes.some(type => type.includes('video'))) {
+          if (customAdOrder?.files && customAdOrder.files.length > 0) {
+            const fileTypes = customAdOrder.files.map((f: any) => f.type?.toLowerCase() || '');
+            if (fileTypes.some((type: string) => type.includes('video'))) {
               adType = 'video';
-            } else if (fileTypes.some(type => type.includes('image') || type.includes('photo'))) {
+            } else if (fileTypes.some((type: string) => type.includes('image') || type.includes('photo'))) {
               adType = 'photo';
             }
           }
 
-          transactions.push({
-            id: order.id,
-            type: 'custom_ad',
-            amount: order.total_amount,
-            date: order.created_at,
-            status: order.payment_status,
+          return {
+            id: payment.id,
+            type: 'custom_ad' as const,
+            amount: payment.amount,
+            date: payment.payment_date,
+            status: payment.status === 'succeeded' ? 'completed' : 
+                    payment.status === 'pending' ? 'in_progress' : 
+                    payment.status,
             client: {
-              id: order.user_id,
-              name: order.profiles?.full_name || 'Unknown',
-              email: order.profiles?.email || 'unknown@example.com'
+              id: payment.user_id,
+              name: profile?.full_name || 'Unknown',
+              email: profile?.email || 'unknown@example.com'
             },
-            customAd: {
-              id: order.id,
-              service_key: order.service_key,
-              details: order.details
-            },
+            customAd: customAdOrder ? {
+              id: customAdOrder.id,
+              service_key: customAdOrder.service_key,
+              details: customAdOrder.details
+            } : undefined,
             adType
-          });
-        });
-      }
+          };
+        }
+      });
 
       return transactions;
     } catch (error) {
@@ -3105,7 +3147,7 @@ export class AdminService {
       kioskId: string;
       clientId: string;
       hostId: string;
-      status: 'all' | 'succeeded' | 'pending' | 'failed';
+      status: 'all' | 'succeeded' | 'completed' | 'pending' | 'in_progress' | 'failed' | 'cancelled';
       searchQuery: string;
     },
     transactions: Array<{

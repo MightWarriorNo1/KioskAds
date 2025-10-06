@@ -157,6 +157,28 @@ export const GoogleDriveConfiguration: React.FC<GoogleDriveConfigurationProps> =
     }
   };
 
+  const handleCreateScheduledFolders = async () => {
+    try {
+      setIsLoading(true);
+      await GoogleDriveService.ensureScheduledFoldersExist();
+      await loadFolderStatus();
+      setSyncResult({
+        success: true,
+        message: 'Scheduled folders created successfully',
+        foldersSynced: 0
+      });
+    } catch (error) {
+      console.error('Error creating scheduled folders:', error);
+      setSyncResult({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to create scheduled folders',
+        foldersSynced: 0
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleCancel = () => {
     setIsEditing(false);
     setFormData({
@@ -174,7 +196,8 @@ export const GoogleDriveConfiguration: React.FC<GoogleDriveConfigurationProps> =
       setIsSyncing(true);
       setSyncResult(null);
 
-      const result = await GoogleDriveService.syncAllFolders();
+      // Use immediate sync to bypass queue and move files directly to active folder
+      const result = await GoogleDriveService.syncAllFoldersImmediate();
       setSyncResult({
         success: result.success,
         message: result.message,
@@ -403,6 +426,13 @@ export const GoogleDriveConfiguration: React.FC<GoogleDriveConfigurationProps> =
                 className="px-3 py-1 text-sm text-white bg-green-600 dark:bg-green-400 rounded-md hover:bg-green-700 transition-colors disabled:opacity-50"
               >
                 {isLoading ? 'Creating...' : 'Create All Folders'}
+              </button>
+              <button
+                onClick={handleCreateScheduledFolders}
+                disabled={isLoading}
+                className="px-3 py-1 text-sm text-white bg-orange-600 dark:bg-orange-400 rounded-md hover:bg-orange-700 transition-colors disabled:opacity-50"
+              >
+                {isLoading ? 'Creating...' : 'Create Scheduled Folders'}
               </button>
               <button
                 onClick={handleSyncAllNow}

@@ -85,6 +85,14 @@ interface Transaction {
     name: string;
     email: string;
   };
+  // Additional fields for better filtering
+  service?: {
+    id: string;
+    name: string;
+    category: string;
+  };
+  workflow_status?: string;
+  payment_status?: string;
 }
 
 interface TransactionFilters {
@@ -93,7 +101,7 @@ interface TransactionFilters {
   kioskId: string;
   clientId: string;
   hostId: string;
-  status: 'all' | 'succeeded' | 'pending' | 'failed';
+  status: 'all' | 'succeeded' | 'completed' | 'pending' | 'in_progress' | 'failed' | 'cancelled';
   searchQuery: string;
 }
 
@@ -380,7 +388,7 @@ export default function RevenueAnalytics() {
             Revenue Analytics
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Comprehensive revenue performance and Stripe analytics
+            All sales data including Campaigns and Custom Ad orders from Stripe
           </p>
         </div>
         
@@ -719,15 +727,15 @@ export default function RevenueAnalytics() {
                     />
                   </div>
 
-                  {/* Transaction Type */}
+                  {/* Transaction Type - Primary Filter */}
                   <select
                     value={filters.transactionType}
                     onChange={(e) => handleFilterChange('transactionType', e.target.value)}
-                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-medium"
                   >
-                    <option value="all">All Types</option>
-                    <option value="campaign">Campaigns</option>
-                    <option value="custom_ad">Custom Ads</option>
+                    <option value="all">All Sales (Campaigns + Custom Ads)</option>
+                    <option value="campaign">Campaign Sales Only</option>
+                    <option value="custom_ad">Custom Ad Orders Only</option>
                   </select>
 
                   {/* Ad Type */}
@@ -750,8 +758,11 @@ export default function RevenueAnalytics() {
                   >
                     <option value="all">All Status</option>
                     <option value="succeeded">Succeeded</option>
+                    <option value="completed">Completed</option>
                     <option value="pending">Pending</option>
+                    <option value="in_progress">In Progress</option>
                     <option value="failed">Failed</option>
+                    <option value="cancelled">Cancelled</option>
                   </select>
 
                   {/* Kiosk Filter */}
@@ -837,7 +848,7 @@ export default function RevenueAnalytics() {
                           Client
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Campaign/Service
+                          Campaign/Service Details
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Ad Type
@@ -878,8 +889,26 @@ export default function RevenueAnalytics() {
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                            {transaction.campaign?.name || transaction.customAd?.service_key || 'N/A'}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {transaction.type === 'campaign' ? (
+                              <div>
+                                <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                  {transaction.campaign?.name || 'N/A'}
+                                </div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  Campaign
+                                </div>
+                              </div>
+                            ) : (
+                              <div>
+                                <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                  {transaction.customAd?.service_key || 'N/A'}
+                                </div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-xs">
+                                  {transaction.customAd?.details?.substring(0, 50)}...
+                                </div>
+                              </div>
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             {transaction.adType && (
@@ -893,13 +922,15 @@ export default function RevenueAnalytics() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              transaction.status === 'succeeded' 
+                              transaction.status === 'succeeded' || transaction.status === 'completed'
                                 ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                : transaction.status === 'pending'
+                                : transaction.status === 'pending' || transaction.status === 'in_progress'
                                 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                                : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                                : transaction.status === 'failed' || transaction.status === 'cancelled'
+                                ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                                : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
                             }`}>
-                              {transaction.status}
+                              {transaction.status.replace('_', ' ')}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">

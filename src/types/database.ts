@@ -45,7 +45,7 @@ export interface Database {
           user_id: string;
           name: string;
           description?: string;
-          status: 'draft' | 'pending' | 'active' | 'paused' | 'completed' | 'rejected';
+          status: 'draft' | 'pending' | 'approved' | 'active' | 'paused' | 'completed' | 'rejected';
           start_date: string;
           end_date: string;
           budget: number;
@@ -1140,6 +1140,8 @@ export interface Database {
           id: string;
           user_id: string;
           campaign_id?: string;
+          custom_ad_order_id?: string;
+          payment_type: 'campaign' | 'custom_ad';
           amount: number;
           status: 'succeeded' | 'pending' | 'failed' | 'refunded';
           description?: string;
@@ -1150,6 +1152,8 @@ export interface Database {
           id?: string;
           user_id: string;
           campaign_id?: string;
+          custom_ad_order_id?: string;
+          payment_type?: 'campaign' | 'custom_ad';
           amount: number;
           status?: 'succeeded' | 'pending' | 'failed' | 'refunded';
           description?: string;
@@ -1160,6 +1164,8 @@ export interface Database {
           id?: string;
           user_id?: string;
           campaign_id?: string;
+          custom_ad_order_id?: string;
+          payment_type?: 'campaign' | 'custom_ad';
           amount?: number;
           status?: 'succeeded' | 'pending' | 'failed' | 'refunded';
           description?: string;
