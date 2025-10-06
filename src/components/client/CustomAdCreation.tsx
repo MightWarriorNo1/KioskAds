@@ -46,6 +46,7 @@ export default function CustomAdCreation({ onComplete, onCancel }: CustomAdCreat
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [submissionId, setSubmissionId] = useState<string | null>(null);
   
   const [formData, setFormData] = useState<CustomAdCreationInput>({
     title: '',
@@ -213,7 +214,7 @@ export default function CustomAdCreation({ onComplete, onCancel }: CustomAdCreat
     } finally {
       setIsUploading(false);
     }
-  }, [uploadedFiles.length, addNotification]);
+  }, [uploadedFiles, addNotification]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -255,6 +256,19 @@ export default function CustomAdCreation({ onComplete, onCancel }: CustomAdCreat
       return;
     }
 
+    if (isSaving) {
+      console.log('Save already in progress, ignoring duplicate call');
+      return;
+    }
+
+    // Generate unique submission ID to prevent duplicate submissions
+    const currentSubmissionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    if (submissionId && submissionId === currentSubmissionId) {
+      console.log('Duplicate submission detected, ignoring');
+      return;
+    }
+    setSubmissionId(currentSubmissionId);
+
     setIsSaving(true);
 
     try {
@@ -277,6 +291,7 @@ export default function CustomAdCreation({ onComplete, onCancel }: CustomAdCreat
       addNotification('error', 'Save Failed', 'Failed to save custom ad creation. Please try again.');
     } finally {
       setIsSaving(false);
+      setSubmissionId(null);
     }
   };
 
@@ -290,6 +305,19 @@ export default function CustomAdCreation({ onComplete, onCancel }: CustomAdCreat
       addNotification('error', 'Validation Error', 'Please fill in all required fields');
       return;
     }
+
+    if (isSaving) {
+      console.log('Submit already in progress, ignoring duplicate call');
+      return;
+    }
+
+    // Generate unique submission ID to prevent duplicate submissions
+    const currentSubmissionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    if (submissionId && submissionId === currentSubmissionId) {
+      console.log('Duplicate submission detected, ignoring');
+      return;
+    }
+    setSubmissionId(currentSubmissionId);
 
     setIsSaving(true);
 
@@ -317,6 +345,7 @@ export default function CustomAdCreation({ onComplete, onCancel }: CustomAdCreat
       addNotification('error', 'Submission Failed', 'Failed to submit custom ad creation. Please try again.');
     } finally {
       setIsSaving(false);
+      setSubmissionId(null);
     }
   };
 

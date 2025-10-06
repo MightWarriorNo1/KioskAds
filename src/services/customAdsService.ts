@@ -115,59 +115,218 @@ export interface WorkflowStep {
 }
 
 export class CustomAdsService {
+  // Generate a hash for file uniqueness
+  private static async generateFileHash(file: File): Promise<string> {
+    try {
+      // Check if file is a valid File object
+      if (!file || typeof file.arrayBuffer !== 'function') {
+        console.error('Invalid file object:', file);
+        // Fallback to using file name and size for uniqueness
+        return `${file?.name || 'unknown'}-${file?.size || 0}`.replace(/[^a-zA-Z0-9]/g, '').substring(0, 8);
+      }
+
+      const buffer = await file.arrayBuffer();
+      const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 8);
+    } catch (error) {
+      console.error('Error generating file hash:', error);
+      // Fallback to using file name and size for uniqueness
+      return `${file?.name || 'unknown'}-${file?.size || 0}`.replace(/[^a-zA-Z0-9]/g, '').substring(0, 8);
+    }
+  }
+
+  // Validate file before upload
+  private static validateFile(file: File): boolean {
+    // Check file size (minimum 1KB, maximum 100MB)
+    if (file.size < 1024) {
+      console.error(`File too small: ${file.name} (${file.size} bytes)`);
+      return false;
+    }
+    if (file.size > 100 * 1024 * 1024) {
+      console.error(`File too large: ${file.name} (${file.size} bytes)`);
+      return false;
+    }
+
+    // Check file type
+    const allowedTypes = [
+      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+      'video/mp4', 'video/avi', 'video/mov', 'video/wmv',
+      'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain'
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      console.error(`Invalid file type: ${file.name} (${file.type})`);
+      return false;
+    }
+
+    // Check file name
+    if (!file.name || file.name.trim().length === 0) {
+      console.error(`Invalid file name: ${file.name}`);
+      return false;
+    }
+
+    return true;
+  }
+
   static async uploadFiles(userId: string, files: File[]): Promise<UploadedFileSummary[]> {
     if (!files || files.length === 0) return [];
+    
     const uploaded: UploadedFileSummary[] = [];
+    const processedFiles = new Set<string>(); // Track processed files in this session
+    
     for (const file of files) {
-      const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2)}-${file.name}`;
-      const { error } = await supabase.storage.from('custom-ad-uploads').upload(path, file, {
-        cacheControl: '3600',
-        upsert: false,
-        contentType: file.type,
-      });
-      if (error) throw error;
-      const { data: pubUrl } = supabase.storage.from('custom-ad-uploads').getPublicUrl(path);
-      uploaded.push({ name: file.name, url: pubUrl.publicUrl, size: file.size, type: file.type });
+      // Validate that file is a proper File object
+      if (!file || !(file instanceof File)) {
+        console.error('Invalid file object:', file);
+        continue;
+      }
+
+      // Create a unique key for this file in this session
+      const fileKey = `${file.name}-${file.size}-${file.type}`;
+      
+      // Skip if we've already processed this file in this session
+      if (processedFiles.has(fileKey)) {
+        console.log(`File already processed in this session: ${file.name}, skipping`);
+        continue;
+      }
+      processedFiles.add(fileKey);
+
+      // Validate file before upload
+      if (!this.validateFile(file)) {
+        console.error(`Invalid file: ${file.name}, skipping`);
+        continue;
+      }
+
+      try {
+        // Generate unique filename with better uniqueness
+        const fileExt = file.name.split('.').pop();
+        const timestamp = Date.now();
+        const randomId = Math.random().toString(36).slice(2, 9);
+        const fileHash = await this.generateFileHash(file);
+        const path = `${userId}/${timestamp}-${randomId}-${fileHash}.${fileExt}`;
+
+        // Upload to storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('custom-ad-uploads')
+          .upload(path, file, {
+            cacheControl: '3600',
+            upsert: false,
+            contentType: file.type,
+          });
+
+        if (uploadError) {
+          console.error(`Storage upload error for file: ${file.name}`, uploadError);
+          throw new Error(`Failed to upload ${file.name}: ${uploadError.message}`);
+        }
+
+        // Get public URL
+        const { data: pubUrl } = supabase.storage
+          .from('custom-ad-uploads')
+          .getPublicUrl(path);
+
+        // Verify the uploaded file is accessible
+        try {
+          const response = await fetch(pubUrl.publicUrl, { method: 'HEAD' });
+          if (!response.ok) {
+            throw new Error(`Uploaded file is not accessible: ${response.status}`);
+          }
+        } catch (urlError) {
+          console.error(`URL verification failed for ${file.name}:`, urlError);
+          // Clean up the uploaded file
+          await supabase.storage.from('custom-ad-uploads').remove([path]);
+          throw new Error(`Uploaded file is not accessible: ${urlError}`);
+        }
+
+        uploaded.push({ 
+          name: file.name, 
+          url: pubUrl.publicUrl, 
+          size: file.size, 
+          type: file.type 
+        });
+      } catch (error) {
+        console.error(`Error uploading file ${file.name}:`, error);
+        throw new Error(`Failed to upload ${file.name}: ${error.message}`);
+      }
     }
     return uploaded;
   }
 
   static async createOrder(input: CustomAdOrderInput): Promise<string> {
-    const uploaded = await this.uploadFiles(input.userId, input.files);
-    const payload: Inserts<'custom_ad_orders'> = {
-      user_id: input.userId,
-      service_key: input.serviceKey,
-      first_name: input.firstName,
-      last_name: input.lastName,
-      email: input.email,
-      phone: input.phone,
-      address: input.address,
-      details: input.details,
-      files: uploaded,
-      total_amount: Number(input.totalAmount.toFixed(2)),
-      payment_status: 'succeeded',
-    };
-
-    const { data, error } = await supabase
-      .from('custom_ad_orders')
-      .insert(payload)
-      .select('id')
-      .single();
-
-    if (error) throw error;
-
-    // Send email notification for order submitted
     try {
-      const order = await this.getOrder(data.id as string);
-      if (order) {
-        await CustomAdEmailService.sendOrderSubmittedNotification(order);
+      // Validate input files
+      if (!input.files || !Array.isArray(input.files) || input.files.length === 0) {
+        throw new Error('No files provided for upload');
       }
-    } catch (emailError) {
-      console.error('Error sending order submitted email:', emailError);
-      // Don't throw error - order creation should succeed even if email fails
-    }
 
-    return data.id as string;
+      // Validate that all files are proper File objects
+      for (let i = 0; i < input.files.length; i++) {
+        const file = input.files[i];
+        if (!file || !(file instanceof File)) {
+          throw new Error(`Invalid file at index ${i}: not a proper File object`);
+        }
+      }
+
+      // Upload files with validation
+      const uploaded = await this.uploadFiles(input.userId, input.files);
+      
+      // Validate that all files were uploaded successfully
+      if (uploaded.length !== input.files.length) {
+        throw new Error(`Only ${uploaded.length} out of ${input.files.length} files were uploaded successfully`);
+      }
+
+      const payload: Inserts<'custom_ad_orders'> = {
+        user_id: input.userId,
+        service_key: input.serviceKey,
+        first_name: input.firstName,
+        last_name: input.lastName,
+        email: input.email,
+        phone: input.phone,
+        address: input.address,
+        details: input.details,
+        files: uploaded,
+        total_amount: Number(input.totalAmount.toFixed(2)),
+        payment_status: 'succeeded',
+      };
+
+      const { data, error } = await supabase
+        .from('custom_ad_orders')
+        .insert(payload)
+        .select('id')
+        .single();
+
+      if (error) {
+        // If database insert fails, clean up uploaded files
+        for (const file of uploaded) {
+          try {
+            const fileName = file.url.split('/').pop();
+            if (fileName) {
+              await supabase.storage.from('custom-ad-uploads').remove([`${input.userId}/${fileName}`]);
+            }
+          } catch (cleanupError) {
+            console.error('Error cleaning up file:', cleanupError);
+          }
+        }
+        throw error;
+      }
+
+      // Send email notification for order submitted
+      try {
+        const order = await this.getOrder(data.id as string);
+        if (order) {
+          await CustomAdEmailService.sendOrderSubmittedNotification(order);
+        }
+      } catch (emailError) {
+        console.error('Error sending order submitted email:', emailError);
+        // Don't throw error - order creation should succeed even if email fails
+      }
+
+      return data.id as string;
+    } catch (error) {
+      console.error('Error creating custom ad order:', error);
+      throw error;
+    }
   }
 
   // Get orders for a user (client view)
@@ -489,6 +648,171 @@ export class CustomAdsService {
       .eq('id', notificationId);
 
     if (error) throw error;
+  }
+
+  // Approve order (client function)
+  static async approveOrder(orderId: string, clientFeedback?: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('custom_ad_orders')
+        .update({
+          workflow_status: 'approved',
+          client_notes: clientFeedback,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', orderId);
+
+      if (error) throw error;
+
+      // Add comment if feedback provided
+      if (clientFeedback) {
+        await this.addComment(orderId, clientFeedback, 'system', 'approval');
+      }
+
+      // Send email notification for order approved
+      try {
+        const order = await this.getOrder(orderId);
+        if (order) {
+          await CustomAdEmailService.sendOrderApprovedNotification(order);
+        }
+      } catch (emailError) {
+        console.error('Error sending order approved email:', emailError);
+        // Don't throw error - order approval should succeed even if email fails
+      }
+    } catch (error) {
+      console.error('Error approving order:', error);
+      throw error;
+    }
+  }
+
+  // Request changes for order (client function)
+  static async requestChanges(orderId: string, changeRequest: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('custom_ad_orders')
+        .update({
+          workflow_status: 'designer_assigned', // Move back to designer for changes
+          client_notes: changeRequest,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', orderId);
+
+      if (error) throw error;
+
+      // Add comment for change request
+      await this.addComment(orderId, changeRequest, 'system', 'revision_requested');
+
+      // Send email notification for change request
+      try {
+        const order = await this.getOrder(orderId);
+        if (order) {
+          await CustomAdEmailService.sendRevisionRequestedNotification(order);
+        }
+      } catch (emailError) {
+        console.error('Error sending revision requested email:', emailError);
+        // Don't throw error - change request should succeed even if email fails
+      }
+    } catch (error) {
+      console.error('Error requesting changes:', error);
+      throw error;
+    }
+  }
+
+  // Clean up corrupted files from custom ad orders (admin function)
+  static async cleanupCorruptedFiles(): Promise<{
+    cleaned: number;
+    errors: string[];
+  }> {
+    try {
+      const errors: string[] = [];
+      let cleaned = 0;
+
+      // Get all custom ad orders with files
+      const { data: orders, error: ordersError } = await supabase
+        .from('custom_ad_orders')
+        .select('id, files')
+        .not('files', 'is', null);
+
+      if (ordersError) {
+        throw new Error(`Failed to get custom ad orders: ${ordersError.message}`);
+      }
+
+      if (!orders || orders.length === 0) {
+        return { cleaned: 0, errors: [] };
+      }
+
+      for (const order of orders) {
+        if (!order.files || !Array.isArray(order.files)) continue;
+
+        const validFiles = [];
+        const filesToRemove = [];
+
+        for (const file of order.files) {
+          try {
+            // Check if file is accessible and valid
+            const response = await fetch(file.url, { method: 'HEAD' });
+            if (response.ok) {
+              // Check content type and size
+              const contentType = response.headers.get('content-type');
+              const contentLength = response.headers.get('content-length');
+              
+              // Skip files that are too small (likely corrupted)
+              if (contentLength && parseInt(contentLength) < 1024) {
+                console.log(`Skipping corrupted file: ${file.name} (${contentLength} bytes)`);
+                filesToRemove.push(file);
+                continue;
+              }
+
+              // Skip files with invalid content types
+              if (contentType && contentType.includes('application/json')) {
+                console.log(`Skipping JSON file: ${file.name} (${contentType})`);
+                filesToRemove.push(file);
+                continue;
+              }
+
+              validFiles.push(file);
+            } else {
+              console.log(`Skipping inaccessible file: ${file.name}`);
+              filesToRemove.push(file);
+            }
+          } catch (error) {
+            console.log(`Skipping file with error: ${file.name}`, error);
+            filesToRemove.push(file);
+          }
+        }
+
+        // Update order if files were removed
+        if (filesToRemove.length > 0) {
+          try {
+            await supabase
+              .from('custom_ad_orders')
+              .update({ files: validFiles })
+              .eq('id', order.id);
+
+            // Remove files from storage
+            for (const file of filesToRemove) {
+              try {
+                const fileName = file.url.split('/').pop();
+                if (fileName) {
+                  await supabase.storage.from('custom-ad-uploads').remove([fileName]);
+                }
+              } catch (removeError) {
+                console.error(`Error removing file ${file.name}:`, removeError);
+              }
+            }
+
+            cleaned += filesToRemove.length;
+          } catch (updateError) {
+            errors.push(`Failed to update order ${order.id}: ${updateError}`);
+          }
+        }
+      }
+
+      return { cleaned, errors };
+    } catch (error) {
+      console.error('Error cleaning up corrupted files:', error);
+      throw error;
+    }
   }
 
   // Get workflow steps for an order

@@ -6,6 +6,11 @@ interface AnnouncementSettings {
   backgroundColor?: string;
   textColor?: string;
   padding?: number;
+  horizontalPadding?: number;
+  marginTop?: number;
+  marginBottom?: number;
+  marginLeft?: number;
+  marginRight?: number;
   fontSize?: number;
   emailInputBackgroundColor?: string;
   emailInputTextColor?: string;
@@ -47,6 +52,11 @@ export default function AnnouncementBar() {
   const backgroundColor = settings.backgroundColor || 'rgb(var(--primary))';
   const textColor = settings.textColor || 'white';
   const padding = settings.padding || 8;
+  const horizontalPadding = settings.horizontalPadding || 16;
+  const marginTop = settings.marginTop || 0;
+  const marginBottom = settings.marginBottom || 0;
+  const marginLeft = settings.marginLeft || 0;
+  const marginRight = settings.marginRight || 0;
   const fontSize = settings.fontSize || 14;
   const emailInputBackgroundColor = settings.emailInputBackgroundColor || 'white';
   const emailInputTextColor = settings.emailInputTextColor || 'black';
@@ -77,11 +87,18 @@ export default function AnnouncementBar() {
         zIndex: 50,
         backgroundColor,
         color: textColor,
-        padding: `${padding}px 0`
+        padding: `${padding}px 0`,
+        marginTop: `${marginTop}px`,
+        marginBottom: `${marginBottom}px`,
+        marginLeft: `${marginLeft}px`,
+        marginRight: `${marginRight}px`
       }}
       className="w-full"
     >
-      <div className="mx-auto max-w-7xl px-4 flex items-center justify-center relative">
+      <div 
+        className="mx-auto max-w-7xl flex items-center justify-center relative"
+        style={{ paddingLeft: `${horizontalPadding}px`, paddingRight: `${horizontalPadding}px` }}
+      >
         {/* Dismiss button positioned absolutely on the right */}
         <button
           onClick={() => setDismissedId(activeBar.id)}

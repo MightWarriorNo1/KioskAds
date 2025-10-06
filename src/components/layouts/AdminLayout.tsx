@@ -10,7 +10,6 @@ import {
   Menu, 
   LogOut,
   User,
-  Settings,
   Target,
   Package,
   Megaphone,
@@ -152,7 +151,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                   <item.icon className={`h-5 w-5 transition-transform group-hover:scale-110 ${
                     isActive ? 'text-white' : 'text-gray-500 group-hover:text-gray-700'
                   }`} />
-                  <span className='text-white'>{item.name}</span>
+                  <span className='text-dark dark:text-white'>{item.name}</span>
                   {isActive && (
                     <div className="ml-auto w-2 h-2 bg-white rounded-full"></div>
                   )}

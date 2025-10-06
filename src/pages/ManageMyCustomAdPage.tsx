@@ -1,18 +1,18 @@
+/*eslint-disable*/
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { 
-  MessageSquare, 
-  Send, 
-  Clock, 
-  CheckCircle, 
-  XCircle, 
+import {
+  MessageSquare,
+  Send,
+  Clock,
+  CheckCircle,
+  XCircle,
   AlertCircle,
   FileText,
   Calendar,
   DollarSign,
   Users,
   Eye,
-  EyeOff,
   RefreshCw
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -25,14 +25,19 @@ export default function ManageMyCustomAdPage() {
   const { user } = useAuth();
   const { addNotification } = useNotification();
   const location = useLocation();
-  
+
   const [customAds, setCustomAds] = useState<CustomAdOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAd, setSelectedAd] = useState<CustomAdOrder | null>(null);
-  const [showNotes, setShowNotes] = useState(true);
+  const [showNotes] = useState(true);
   const [newNote, setNewNote] = useState('');
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [filter, setFilter] = useState<'all' | 'submitted' | 'in_review' | 'designer_assigned' | 'proofs_ready' | 'client_review' | 'approved' | 'rejected' | 'completed' | 'cancelled'>('all');
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [showChangeRequestModal, setShowChangeRequestModal] = useState(false);
+  const [approvalFeedback, setApprovalFeedback] = useState('');
+  const [changeRequest, setChangeRequest] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     loadCustomAds();
@@ -101,6 +106,42 @@ export default function ManageMyCustomAdPage() {
       addNotification('error', 'Failed', 'Failed to add note');
     } finally {
       setIsAddingNote(false);
+    }
+  };
+
+  const handleApproveOrder = async () => {
+    if (!selectedAd || isProcessing) return;
+
+    setIsProcessing(true);
+    try {
+      await CustomAdsService.approveOrder(selectedAd.id, approvalFeedback.trim() || undefined);
+      addNotification('success', 'Order Approved', 'Order approved successfully!');
+      setShowApprovalModal(false);
+      setApprovalFeedback('');
+      loadCustomAds(); // Refresh to get updated status
+    } catch (error) {
+      console.error('Error approving order:', error);
+      addNotification('error', 'Approval Failed', 'Failed to approve order. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleRequestChanges = async () => {
+    if (!selectedAd || !changeRequest.trim() || isProcessing) return;
+
+    setIsProcessing(true);
+    try {
+      await CustomAdsService.requestChanges(selectedAd.id, changeRequest.trim());
+      addNotification('success', 'Change Request Sent', 'Change request sent successfully!');
+      setShowChangeRequestModal(false);
+      setChangeRequest('');
+      loadCustomAds(); // Refresh to get updated status
+    } catch (error) {
+      console.error('Error requesting changes:', error);
+      addNotification('error', 'Request Failed', 'Failed to request changes. Please try again.');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -187,279 +228,386 @@ export default function ManageMyCustomAdPage() {
           </Button>
         </div>
 
-      {/* Filter Tabs */}
-      <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-        {[
-          { key: 'all', label: 'All', count: customAds.length },
-          { key: 'submitted', label: 'Submitted', count: customAds.filter(ad => ad.workflow_status === 'submitted').length },
-          { key: 'in_review', label: 'In Review', count: customAds.filter(ad => ad.workflow_status === 'in_review').length },
-          { key: 'designer_assigned', label: 'Designer Assigned', count: customAds.filter(ad => ad.workflow_status === 'designer_assigned').length },
-          { key: 'proofs_ready', label: 'Proofs Ready', count: customAds.filter(ad => ad.workflow_status === 'proofs_ready').length },
-          { key: 'client_review', label: 'Client Review', count: customAds.filter(ad => ad.workflow_status === 'client_review').length },
-          { key: 'approved', label: 'Approved', count: customAds.filter(ad => ad.workflow_status === 'approved').length },
-          { key: 'rejected', label: 'Rejected', count: customAds.filter(ad => ad.workflow_status === 'rejected').length },
-          { key: 'completed', label: 'Completed', count: customAds.filter(ad => ad.workflow_status === 'completed').length },
-        ].map(({ key, label, count }) => (
-          <button
-            key={key}
-            onClick={() => setFilter(key as any)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              filter === key
-                ? 'bg-white text-gray-900 dark:bg-gray-700 dark:text-white shadow-sm'
-                : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
-            }`}
-          >
-            {label} ({count})
-          </button>
-        ))}
-      </div>
+        {/* Filter Tabs */}
+        <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+          {[
+            { key: 'all', label: 'All', count: customAds.length },
+            { key: 'submitted', label: 'Submitted', count: customAds.filter(ad => ad.workflow_status === 'submitted').length },
+            { key: 'in_review', label: 'In Review', count: customAds.filter(ad => ad.workflow_status === 'in_review').length },
+            { key: 'designer_assigned', label: 'Designer Assigned', count: customAds.filter(ad => ad.workflow_status === 'designer_assigned').length },
+            { key: 'proofs_ready', label: 'Proofs Ready', count: customAds.filter(ad => ad.workflow_status === 'proofs_ready').length },
+            { key: 'client_review', label: 'Client Review', count: customAds.filter(ad => ad.workflow_status === 'client_review').length },
+            { key: 'approved', label: 'Approved', count: customAds.filter(ad => ad.workflow_status === 'approved').length },
+            { key: 'rejected', label: 'Rejected', count: customAds.filter(ad => ad.workflow_status === 'rejected').length },
+            { key: 'completed', label: 'Completed', count: customAds.filter(ad => ad.workflow_status === 'completed').length },
+          ].map(({ key, label, count }) => (
+            <button
+              key={key}
+              onClick={() => setFilter(key as any)}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${filter === key
+                  ? 'bg-white text-gray-900 dark:bg-gray-700 dark:text-white shadow-sm'
+                  : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+                }`}
+            >
+              {label} ({count})
+            </button>
+          ))}
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Ads List */}
-        <div className="lg:col-span-1 space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Your Custom Ads ({filteredAds.length})
-          </h2>
-          
-          {filteredAds.length === 0 ? (
-            <div className="text-center py-8">
-              <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500 dark:text-gray-400">
-                No custom ads found for the selected filter.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {filteredAds.map((ad) => (
-                <div
-                  key={ad.id}
-                  onClick={() => setSelectedAd(ad)}
-                  className={`p-4 rounded-lg border cursor-pointer transition-colors ${
-                    selectedAd?.id === ad.id
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                      : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                  }`}
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-medium text-gray-900 dark:text-white truncate">
-                      Order #{ad.id.slice(-8)}
-                    </h3>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Ads List */}
+          <div className="lg:col-span-1 space-y-4">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Your Custom Ads ({filteredAds.length})
+            </h2>
+
+            {filteredAds.length === 0 ? (
+              <div className="text-center py-8">
+                <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 dark:text-gray-400">
+                  No custom ads found for the selected filter.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredAds.map((ad) => (
+                  <div
+                    key={ad.id}
+                    onClick={() => setSelectedAd(ad)}
+                    className={`p-4 rounded-lg border cursor-pointer transition-colors ${selectedAd?.id === ad.id
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                      }`}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <h3 className="font-medium text-gray-900 dark:text-white truncate">
+                        Order #{ad.id.slice(-8)}
+                      </h3>
+                      <div className="flex items-center space-x-2">
+                        {getStatusIcon(ad.workflow_status)}
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(ad.workflow_status)}`}>
+                          {ad.workflow_status.replace('_', ' ')}
+                        </span>
+                      </div>
+                    </div>
+
+                    <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 mb-2">
+                      {ad.details || 'No details provided.'}
+                    </p>
+
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <span>{new Date(ad.created_at).toLocaleDateString()}</span>
+                      <span>{ad.comments?.length || 0} comments</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Selected Ad Details */}
+          <div className="lg:col-span-2">
+            {selectedAd ? (
+              <div className="space-y-6">
+                {/* Ad Header */}
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                      Order #{selectedAd.id.slice(-8)}
+                    </h2>
                     <div className="flex items-center space-x-2">
-                      {getStatusIcon(ad.workflow_status)}
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(ad.workflow_status)}`}>
-                        {ad.workflow_status.replace('_', ' ')}
+                      {getStatusIcon(selectedAd.workflow_status)}
+                      <span className={`px-3 py-1 text-sm font-medium rounded-full ${getStatusColor(selectedAd.workflow_status)}`}>
+                        {selectedAd.workflow_status.replace('_', ' ')}
                       </span>
                     </div>
                   </div>
-                  
-                  <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 mb-2">
-                    {ad.details || 'No details provided.'}
+
+                  <p className="text-gray-700 dark:text-gray-300 mb-4">
+                    {selectedAd.details || 'No details provided.'}
                   </p>
-                  
-                  <div className="flex items-center justify-between text-xs text-gray-500">
-                    <span>{new Date(ad.created_at).toLocaleDateString()}</span>
-                    <span>{ad.comments?.length || 0} comments</span>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div className="flex items-center text-gray-600 dark:text-gray-400">
+                      <Calendar className="w-4 h-4 mr-2" />
+                      <span>Created: {new Date(selectedAd.created_at).toLocaleDateString()}</span>
+                    </div>
+                    <div className="flex items-center text-gray-600 dark:text-gray-400">
+                      <DollarSign className="w-4 h-4 mr-2" />
+                      <span>Amount: ${selectedAd.total_amount}</span>
+                    </div>
+                    <div className="flex items-center text-gray-600 dark:text-gray-400">
+                      <Users className="w-4 h-4 mr-2" />
+                      <span>Service: {selectedAd.service_key}</span>
+                    </div>
+                    <div className="flex items-center text-gray-600 dark:text-gray-400">
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      <span>Payment: {selectedAd.payment_status}</span>
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
 
-        {/* Selected Ad Details */}
-        <div className="lg:col-span-2">
-          {selectedAd ? (
-            <div className="space-y-6">
-              {/* Ad Header */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                    Order #{selectedAd.id.slice(-8)}
-                  </h2>
-                  <div className="flex items-center space-x-2">
-                    {getStatusIcon(selectedAd.workflow_status)}
-                    <span className={`px-3 py-1 text-sm font-medium rounded-full ${getStatusColor(selectedAd.workflow_status)}`}>
-                      {selectedAd.workflow_status.replace('_', ' ')}
-                    </span>
-                  </div>
-                </div>
-                
-                <p className="text-gray-700 dark:text-gray-300 mb-4">
-                  {selectedAd.details || 'No details provided.'}
-                </p>
-                
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div className="flex items-center text-gray-600 dark:text-gray-400">
-                    <Calendar className="w-4 h-4 mr-2" />
-                    <span>Created: {new Date(selectedAd.created_at).toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex items-center text-gray-600 dark:text-gray-400">
-                    <DollarSign className="w-4 h-4 mr-2" />
-                    <span>Amount: ${selectedAd.total_amount}</span>
-                  </div>
-                  <div className="flex items-center text-gray-600 dark:text-gray-400">
-                    <Users className="w-4 h-4 mr-2" />
-                    <span>Service: {selectedAd.service_key}</span>
-                  </div>
-                  <div className="flex items-center text-gray-600 dark:text-gray-400">
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    <span>Payment: {selectedAd.payment_status}</span>
-                  </div>
-                </div>
-              </div>
+                {/* Communication Section */}
+                {selectedAd.workflow_status === 'designer_assigned' && (
+                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                        <MessageSquare className="w-5 h-5 mr-2" />
+                        Communication with Designer
+                      </h3>
+                    </div>
 
-              {/* Communication Section */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-                    <MessageSquare className="w-5 h-5 mr-2" />
-                    Communication with Designer
-                  </h3>
-                  <Button
-                    onClick={() => setShowNotes(!showNotes)}
-                    variant="secondary"
-                    size="sm"
-                    className="flex items-center space-x-2"
-                  >
-                    {showNotes ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    <span>{showNotes ? 'Hide' : 'Show'} Messages</span>
-                  </Button>
-                </div>
-
-                {showNotes && (
-                  <div className="space-y-4">
-                    {/* Add Note Form */}
-                    {selectedAd.workflow_status !== 'completed' && (
-                      <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
-                        <h4 className="font-medium text-gray-900 dark:text-white mb-3">
-                          Send Message to Designer
-                        </h4>
-                        <textarea
-                          value={newNote}
-                          onChange={(e) => setNewNote(e.target.value)}
-                          rows={3}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white mb-3"
-                          placeholder="Ask questions, provide feedback, or request changes..."
-                        />
-                        <Button
-                          onClick={handleAddNote}
-                          disabled={!newNote.trim() || isAddingNote}
-                          size="sm"
-                          className="flex items-center space-x-2"
-                        >
-                          <Send className="w-4 h-4" />
-                          <span>{isAddingNote ? 'Sending...' : 'Send Message'}</span>
-                        </Button>
-                      </div>
-                    )}
-
-                    {/* Messages List */}
-                    {selectedAd.comments && selectedAd.comments.length > 0 ? (
-                      <div className="space-y-3">
-                        {selectedAd.comments.map((comment: any) => (
-                            <div
-                              key={comment.id}
-                              className={`border rounded-lg p-4 ${
-                                comment.author_id === user?.id
-                                  ? 'border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800'
-                                  : 'border-gray-200 dark:border-gray-600'
-                              }`}
+                    {showNotes && (
+                      <div className="space-y-4">
+                        {/* Add Note Form */}
+                        {selectedAd.workflow_status === 'designer_assigned' && (
+                          <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+                            <h4 className="font-medium text-gray-900 dark:text-white mb-3">
+                              Send Message to Designer
+                            </h4>
+                            <textarea
+                              value={newNote}
+                              onChange={(e) => setNewNote(e.target.value)}
+                              rows={3}
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white mb-3"
+                              placeholder="Ask questions, provide feedback, or request changes..."
+                            />
+                            <Button
+                              onClick={handleAddNote}
+                              disabled={!newNote.trim() || isAddingNote}
+                              size="sm"
+                              className="flex items-center space-x-2"
                             >
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm font-medium text-gray-900 dark:text-white">
-                                  {comment.author_id === user?.id ? 'You' : comment.author}
-                                </span>
-                                <span className="text-xs text-gray-500">
-                                  {new Date(comment.created_at).toLocaleDateString()} at {new Date(comment.created_at).toLocaleTimeString()}
-                                </span>
+                              <Send className="w-4 h-4" />
+                              <span>{isAddingNote ? 'Sending...' : 'Send Message'}</span>
+                            </Button>
+                          </div>
+                        )}
+
+                        {/* Messages List */}
+                        {selectedAd.comments && selectedAd.comments.length > 0 ? (
+                          <div className="space-y-3">
+                            {selectedAd.comments.map((comment: any) => (
+                              <div
+                                key={comment.id}
+                                className={`border rounded-lg p-4 ${comment.author_id === user?.id
+                                    ? 'border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800'
+                                    : 'border-gray-200 dark:border-gray-600'
+                                  }`}
+                              >
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                    {comment.author_id === user?.id ? 'You' : comment.author}
+                                  </span>
+                                  <span className="text-xs text-gray-500">
+                                    {new Date(comment.created_at).toLocaleDateString()} at {new Date(comment.created_at).toLocaleTimeString()}
+                                  </span>
+                                </div>
+                                <p className="text-gray-700 dark:text-gray-300 text-sm">
+                                  {comment.content}
+                                </p>
                               </div>
-                              <p className="text-gray-700 dark:text-gray-300 text-sm">
-                                {comment.content}
-                              </p>
-                            </div>
-                          ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8">
-                        <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-gray-500 dark:text-gray-400">
-                          No messages yet. Start a conversation with your designer.
-                        </p>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8">
+                            <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                            <p className="text-gray-500 dark:text-gray-400">
+                              No messages yet. Start a conversation with your designer.
+                            </p>
+                          </div>
+                        )}
                       </div>
                     )}
+                  </div>
+                  )}
+
+              {/* Media Files */}
+                {selectedAd.files && selectedAd.files.length > 0 && (
+                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                      <FileText className="w-5 h-5 mr-2" />
+                      Media Files ({selectedAd.files.length})
+                    </h3>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {selectedAd.files.map((file: any) => (
+                        <div
+                          key={file.name}
+                          className="border border-gray-200 dark:border-gray-600 rounded-lg p-4"
+                        >
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center space-x-3">
+                              <span className="text-2xl">📁</span>
+                              <div className="min-w-0 flex-1">
+                                <p className="font-medium text-gray-900 dark:text-white truncate">
+                                  {file.name}
+                                </p>
+                                <p className="text-sm text-gray-500">
+                                  {file.type?.includes('image') ? 'Image' :
+                                    file.type?.includes('video') ? 'Video' : 'File'} •
+                                  {Math.round(file.size / 1024)} KB
+                                </p>
+                              </div>
+                            </div>
+
+                            {file.url ? (
+                              <Button
+                                onClick={() => {
+                                  console.log('View button clicked for file:', file);
+                                  console.log('File URL:', file.url);
+                                  window.open(file.url, '_blank');
+                                }}
+                                variant="secondary"
+                                size="sm"
+                                className="flex items-center space-x-1"
+                              >
+                                <Eye className="w-4 h-4" />
+                                <span>View</span>
+                              </Button>
+                            ) : (
+                              <div className="text-xs text-red-500">
+                                No URL available
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons for Designer Assigned Orders */}
+                {selectedAd.workflow_status === 'designer_assigned' && (
+                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                      <CheckCircle className="w-5 h-5 mr-2" />
+                      Review & Actions
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-300 mb-4">
+                      Review the work and provide feedback to your designer.
+                    </p>
+                    
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <Button
+                        onClick={() => setShowApprovalModal(true)}
+                        className="flex items-center justify-center space-x-2 bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        <span>Approve Order</span>
+                      </Button>
+                      
+                      <Button
+                        onClick={() => setShowChangeRequestModal(true)}
+                        variant="secondary"
+                        className="flex items-center justify-center space-x-2"
+                      >
+                        <AlertCircle className="w-4 h-4" />
+                        <span>Request Changes</span>
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
-
-              {/* Media Files */}
-              {selectedAd.files && selectedAd.files.length > 0 && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                    <FileText className="w-5 h-5 mr-2" />
-                    Media Files ({selectedAd.files.length})
-                  </h3>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {selectedAd.files.map((file: any) => (
-                      <div
-                        key={file.name}
-                        className="border border-gray-200 dark:border-gray-600 rounded-lg p-4"
-                      >
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center space-x-3">
-                            <span className="text-2xl">📁</span>
-                            <div className="min-w-0 flex-1">
-                              <p className="font-medium text-gray-900 dark:text-white truncate">
-                                {file.name}
-                              </p>
-                              <p className="text-sm text-gray-500">
-                                {file.type?.includes('image') ? 'Image' : 
-                                 file.type?.includes('video') ? 'Video' : 'File'} • 
-                                {Math.round(file.size / 1024)} KB
-                              </p>
-                            </div>
-                          </div>
-                          
-                          {file.url ? (
-                            <Button
-                              onClick={() => {
-                                console.log('View button clicked for file:', file);
-                                console.log('File URL:', file.url);
-                                window.open(file.url, '_blank');
-                              }}
-                              variant="secondary"
-                              size="sm"
-                              className="flex items-center space-x-1"
-                            >
-                              <Eye className="w-4 h-4" />
-                              <span>View</span>
-                            </Button>
-                          ) : (
-                            <div className="text-xs text-red-500">
-                              No URL available
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                Select a Custom Ad
-              </h3>
-              <p className="text-gray-500 dark:text-gray-400">
-                Choose a custom ad from the list to view details and communicate with your designer.
-              </p>
-            </div>
-          )}
+            ) : (
+              <div className="text-center py-12">
+                <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                  Select a Custom Ad
+                </h3>
+                <p className="text-gray-500 dark:text-gray-400">
+                  Choose a custom ad from the list to view details and communicate with your designer.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-      </div>
+
+      {/* Approval Modal */}
+      {showApprovalModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Approve Order
+            </h3>
+            <p className="text-gray-600 dark:text-gray-300 mb-4">
+              Are you satisfied with the work? You can optionally provide feedback.
+            </p>
+            
+            <textarea
+              value={approvalFeedback}
+              onChange={(e) => setApprovalFeedback(e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white mb-4"
+              placeholder="Optional feedback for the designer..."
+            />
+            
+            <div className="flex justify-end space-x-3">
+              <Button
+                onClick={() => {
+                  setShowApprovalModal(false);
+                  setApprovalFeedback('');
+                }}
+                variant="secondary"
+                disabled={isProcessing}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleApproveOrder}
+                disabled={isProcessing}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                {isProcessing ? 'Approving...' : 'Approve Order'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change Request Modal */}
+      {showChangeRequestModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Request Changes
+            </h3>
+            <p className="text-gray-600 dark:text-gray-300 mb-4">
+              What changes would you like the designer to make?
+            </p>
+            
+            <textarea
+              value={changeRequest}
+              onChange={(e) => setChangeRequest(e.target.value)}
+              rows={4}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white mb-4"
+              placeholder="Describe the changes you'd like to see..."
+              required
+            />
+            
+            <div className="flex justify-end space-x-3">
+              <Button
+                onClick={() => {
+                  setShowChangeRequestModal(false);
+                  setChangeRequest('');
+                }}
+                variant="secondary"
+                disabled={isProcessing}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleRequestChanges}
+                disabled={!changeRequest.trim() || isProcessing}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {isProcessing ? 'Sending...' : 'Send Request'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

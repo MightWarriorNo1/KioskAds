@@ -6,15 +6,11 @@ import {
   CreditCard, 
   Calendar,
   Download,
-  BarChart3,
-  PieChart,
   Activity,
   Filter,
   Search,
   Eye,
   EyeOff,
-  ChevronDown,
-  ChevronUp
 } from 'lucide-react';
 import { useNotification } from '../../contexts/NotificationContext';
 import Card from '../ui/Card';
@@ -108,10 +104,10 @@ export default function RevenueAnalytics() {
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [showTransactions, setShowTransactions] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange>({
-    start: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+    start: new Date(2020, 0, 1).toISOString().split('T')[0], // January 1, 2020 for "all" period
     end: new Date().toISOString().split('T')[0]
   });
-  const [selectedPeriod, setSelectedPeriod] = useState<'7d' | '30d' | '90d' | '1y' | 'custom'>('30d');
+  const [selectedPeriod, setSelectedPeriod] = useState<'7d' | '30d' | '90d' | '1y' | 'all'>('all');
   const [filters, setFilters] = useState<TransactionFilters>({
     transactionType: 'all',
     adType: 'all',
@@ -275,40 +271,42 @@ export default function RevenueAnalytics() {
     });
   }, [transactions, filters]);
 
-  const handlePeriodChange = (period: '7d' | '30d' | '90d' | '1y' | 'custom') => {
+  const handlePeriodChange = (period: '7d' | '30d' | '90d' | '1y' | 'all') => {
     // Only update if the period actually changed
     if (selectedPeriod === period) return;
     
     setSelectedPeriod(period);
     
-    if (period !== 'custom') {
-      const end = new Date();
-      const start = new Date();
-      
-      switch (period) {
-        case '7d':
-          start.setDate(start.getDate() - 7);
-          break;
-        case '30d':
-          start.setDate(start.getDate() - 30);
-          break;
-        case '90d':
-          start.setDate(start.getDate() - 90);
-          break;
-        case '1y':
-          start.setFullYear(start.getFullYear() - 1);
-          break;
-      }
-      
-      const newDateRange = {
-        start: start.toISOString().split('T')[0],
-        end: end.toISOString().split('T')[0]
-      };
-      
-      // Only update date range if it actually changed
-      if (newDateRange.start !== dateRange.start || newDateRange.end !== dateRange.end) {
-        setDateRange(newDateRange);
-      }
+    const end = new Date();
+    const start = new Date();
+    
+    switch (period) {
+      case '7d':
+        start.setDate(start.getDate() - 7);
+        break;
+      case '30d':
+        start.setDate(start.getDate() - 30);
+        break;
+      case '90d':
+        start.setDate(start.getDate() - 90);
+        break;
+      case '1y':
+        start.setFullYear(start.getFullYear() - 1);
+        break;
+      case 'all':
+        // Set start date to a very early date to get all data
+        start.setFullYear(2020, 0, 1); // January 1, 2020
+        break;
+    }
+    
+    const newDateRange = {
+      start: start.toISOString().split('T')[0],
+      end: end.toISOString().split('T')[0]
+    };
+    
+    // Only update date range if it actually changed
+    if (newDateRange.start !== dateRange.start || newDateRange.end !== dateRange.end) {
+      setDateRange(newDateRange);
     }
   };
 
@@ -419,7 +417,7 @@ export default function RevenueAnalytics() {
           </div>
           
           <div className="flex flex-wrap gap-2">
-            {(['7d', '30d', '90d', '1y', 'custom'] as const).map((period) => (
+            {(['7d', '30d', '90d', '1y', 'all'] as const).map((period) => (
               <Button
                 key={period}
                 onClick={() => handlePeriodChange(period)}
@@ -434,34 +432,13 @@ export default function RevenueAnalytics() {
                 {period === '7d' ? '7 Days' : 
                  period === '30d' ? '30 Days' :
                  period === '90d' ? '90 Days' :
-                 period === '1y' ? '1 Year' : 'Custom'}
+                 period === '1y' ? '1 Year' : 
+                 period === 'all' ? 'All' : 'Custom'}
               </Button>
             ))}
           </div>
           
-          {selectedPeriod === 'custom' && (
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={dateRange.start}
-                onChange={(e) => {
-                  const newStart = e.target.value;
-                  setDateRange(prev => ({ ...prev, start: newStart }));
-                }}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              />
-              <span className="text-gray-500 dark:text-gray-400">to</span>
-              <input
-                type="date"
-                value={dateRange.end}
-                onChange={(e) => {
-                  const newEnd = e.target.value;
-                  setDateRange(prev => ({ ...prev, end: newEnd }));
-                }}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              />
-            </div>
-          )}
+          
         </div>
       </Card>
 

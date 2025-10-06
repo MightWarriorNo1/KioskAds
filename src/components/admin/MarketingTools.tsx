@@ -749,7 +749,7 @@ export default function MarketingTools() {
 
                   <div className="grid md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Padding (px)</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Vertical Padding (px)</label>
                       <input
                         type="number"
                         value={(formData.settings as any).padding || 12}
@@ -759,8 +759,24 @@ export default function MarketingTools() {
                         max="50"
                         placeholder="12"
                       />
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Vertical padding for banner background</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Top and bottom padding for banner background</p>
                     </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Horizontal Padding (px)</label>
+                      <input
+                        type="number"
+                        value={(formData.settings as any).horizontalPadding || 16}
+                        onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), horizontalPadding: Number(e.target.value) } }))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        min="0"
+                        max="50"
+                        placeholder="16"
+                      />
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Left and right padding for banner content</p>
+                    </div>
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Font Size (px)</label>
                       <input
@@ -773,6 +789,61 @@ export default function MarketingTools() {
                         placeholder="14"
                       />
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Text size for banner content</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Margin Top (px)</label>
+                      <input
+                        type="number"
+                        value={(formData.settings as any).marginTop || 0}
+                        onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), marginTop: Number(e.target.value) } }))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        min="0"
+                        max="100"
+                        placeholder="0"
+                      />
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Top margin from page edge</p>
+                    </div>
+                  </div>
+
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Margin Bottom (px)</label>
+                      <input
+                        type="number"
+                        value={(formData.settings as any).marginBottom || 0}
+                        onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), marginBottom: Number(e.target.value) } }))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        min="0"
+                        max="100"
+                        placeholder="0"
+                      />
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Bottom margin from content</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Margin Left (px)</label>
+                      <input
+                        type="number"
+                        value={(formData.settings as any).marginLeft || 0}
+                        onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), marginLeft: Number(e.target.value) } }))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        min="0"
+                        max="100"
+                        placeholder="0"
+                      />
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Left margin from page edge</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Margin Right (px)</label>
+                      <input
+                        type="number"
+                        value={(formData.settings as any).marginRight || 0}
+                        onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), marginRight: Number(e.target.value) } }))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        min="0"
+                        max="100"
+                        placeholder="0"
+                      />
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Right margin from page edge</p>
                     </div>
                   </div>
 

@@ -127,7 +127,7 @@ export default function RecentSalesNotification({}: RecentSalesNotificationProps
       const salesData: SaleNotification[] = recentSales.map(sale => ({
         id: sale.id,
         customerName: formatUserName(sale.user.full_name),
-        location: sale.user.company_name || 'Unknown Location',
+        location: sale.user.company_name || '',
         amount: sale.amount,
         timeAgo: formatTimeAgo(sale.payment_date),
         campaignName: formatCampaignName(sale.campaign.name),
@@ -280,7 +280,7 @@ export default function RecentSalesNotification({}: RecentSalesNotificationProps
           <div className="flex-1 min-w-0">
             <div className="flex items-center space-x-2 mb-1">
               <span className="text-sm font-medium">
-                  {sale.customerName} from {sale.location}
+                  {sale.customerName}{sale.location ? ` from ${sale.location}` : ''}
               </span>
             </div>
             <div className="text-sm text-gray-600 mb-1">

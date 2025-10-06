@@ -38,6 +38,14 @@ export interface UploadedFileInfo {
 }
 
 export class CustomAdCreationService {
+  // Generate a hash for file uniqueness
+  private static async generateFileHash(file: File): Promise<string> {
+    const buffer = await file.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 8);
+  }
+
   // Create a new custom ad creation request
   static async createCustomAdCreation(
     userId: string,
@@ -78,7 +86,17 @@ export class CustomAdCreationService {
       // Upload files if provided
       if (input.files && input.files.length > 0) {
         console.log('Uploading media files:', input.files.length, 'files');
-        await this.uploadMediaFiles(data.id, input.files);
+        try {
+          await this.uploadMediaFiles(data.id, input.files);
+        } catch (uploadError) {
+          console.error('Error uploading files, cleaning up custom ad creation:', uploadError);
+          // If file upload fails, clean up the custom ad creation record
+          await supabase
+            .from('custom_ad_creations')
+            .delete()
+            .eq('id', data.id);
+          throw new Error(`Failed to upload files: ${uploadError.message}`);
+        }
       }
 
       return data;
@@ -105,78 +123,137 @@ export class CustomAdCreationService {
       }
 
       const uploadedFiles: CustomAdMediaFile[] = [];
+      const uploadedFileNames: string[] = []; // Track uploaded files for cleanup
+      const processedFiles = new Set<string>(); // Track processed files in this session
 
       // Upload each valid file
       for (const file of validation.validFiles) {
+        // Create a unique key for this file in this session
+        const fileKey = `${file.name}-${file.size}-${file.type}`;
+        
+        // Skip if we've already processed this file in this session
+        if (processedFiles.has(fileKey)) {
+          console.log(`File already processed in this session: ${file.name}, skipping`);
+          continue;
+        }
+        processedFiles.add(fileKey);
         const fileValidation = await validateCustomAdFile(file);
         
-        // Generate unique filename
+        // Generate unique filename with better uniqueness
         const fileExt = file.name.split('.').pop();
-        const fileName = `${customAdCreationId}/${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+        const timestamp = Date.now();
+        const randomId = Math.random().toString(36).substr(2, 9);
+        const fileHash = await this.generateFileHash(file);
+        const fileName = `${customAdCreationId}/${timestamp}-${randomId}-${fileHash}.${fileExt}`;
 
-        // Upload to storage
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('custom-ad-media')
-          .upload(fileName, file, {
-            cacheControl: '3600',
-            upsert: false,
-            contentType: file.type
+        try {
+          
+          // Check if file with same hash already exists for this custom ad creation
+          const { data: existingFiles } = await supabase
+            .from('custom_ad_media_files')
+            .select('file_path, metadata, original_name')
+            .eq('custom_ad_creation_id', customAdCreationId);
+
+          const existingFile = existingFiles?.find(f => {
+            // Check by file hash if available
+            if (f.metadata && typeof f.metadata === 'object' && 'fileHash' in f.metadata) {
+              return f.metadata.fileHash === fileHash;
+            }
+            // Fallback: check by original name and size
+            return f.original_name === file.name;
           });
 
-        if (uploadError) {
-          console.error('Storage upload error for file:', file.name, uploadError);
-          continue; // Skip this file and continue with others
+          if (existingFile) {
+            console.log(`File with same content already exists: ${file.name}, skipping upload`);
+            continue;
+          }
+
+          // Upload to storage
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('custom-ad-media')
+            .upload(fileName, file, {
+              cacheControl: '3600',
+              upsert: false,
+              contentType: file.type
+            });
+
+          if (uploadError) {
+            console.error('Storage upload error for file:', file.name, uploadError);
+            throw new Error(`Failed to upload ${file.name}: ${uploadError.message}`);
+          }
+
+          // Get public URL
+          const { data: urlData } = supabase.storage
+            .from('custom-ad-media')
+            .getPublicUrl(fileName);
+
+          // Calculate aspect ratio if dimensions are available
+          let aspectRatio: string | undefined;
+          if (fileValidation.dimensions) {
+            aspectRatio = getAspectRatio(
+              fileValidation.dimensions.width,
+              fileValidation.dimensions.height
+            );
+          }
+
+          // Create database record
+          const mediaFileData: Inserts<'custom_ad_media_files'> = {
+            custom_ad_creation_id: customAdCreationId,
+            file_name: fileName,
+            original_name: file.name,
+            file_path: fileName,
+            file_size: file.size,
+            file_type: fileValidation.fileType,
+            mime_type: file.type,
+            dimensions: fileValidation.dimensions,
+            duration: fileValidation.duration,
+            aspect_ratio: aspectRatio,
+            file_category: fileValidation.fileType,
+            storage_bucket: 'custom-ad-media',
+            public_url: urlData.publicUrl,
+            metadata: {
+              originalName: file.name,
+              uploadedAt: new Date().toISOString(),
+              validation: fileValidation,
+              fileHash: fileHash
+            },
+            processing_status: 'completed'
+          };
+
+          const { data: dbData, error: dbError } = await supabase
+            .from('custom_ad_media_files')
+            .insert(mediaFileData)
+            .select()
+            .single();
+
+          if (dbError) {
+            console.error('Database error for file:', file.name, dbError);
+            // Clean up uploaded file from storage if database insert fails
+            await supabase.storage
+              .from('custom-ad-media')
+              .remove([fileName]);
+            throw new Error(`Failed to save file record for ${file.name}: ${dbError.message}`);
+          }
+
+          uploadedFiles.push(dbData);
+          uploadedFileNames.push(fileName);
+        } catch (fileError) {
+          console.error('Error processing file:', file.name, fileError);
+          // If this is not the last file, continue with others
+          if (validation.validFiles.indexOf(file) < validation.validFiles.length - 1) {
+            continue;
+          } else {
+            // If this is the last file and there are other files that succeeded, 
+            // we should still return the successful uploads
+            if (uploadedFiles.length > 0) {
+              console.warn(`Some files uploaded successfully, but ${file.name} failed:`, fileError);
+              break;
+            } else {
+              // If no files succeeded, throw the error
+              throw fileError;
+            }
+          }
         }
-
-        // Get public URL
-        const { data: urlData } = supabase.storage
-          .from('custom-ad-media')
-          .getPublicUrl(fileName);
-
-        // Calculate aspect ratio if dimensions are available
-        let aspectRatio: string | undefined;
-        if (fileValidation.dimensions) {
-          aspectRatio = getAspectRatio(
-            fileValidation.dimensions.width,
-            fileValidation.dimensions.height
-          );
-        }
-
-        // Create database record
-        const mediaFileData: Inserts<'custom_ad_media_files'> = {
-          custom_ad_creation_id: customAdCreationId,
-          file_name: fileName,
-          original_name: file.name,
-          file_path: fileName,
-          file_size: file.size,
-          file_type: fileValidation.fileType,
-          mime_type: file.type,
-          dimensions: fileValidation.dimensions,
-          duration: fileValidation.duration,
-          aspect_ratio: aspectRatio,
-          file_category: fileValidation.fileType,
-          storage_bucket: 'custom-ad-media',
-          public_url: urlData.publicUrl,
-          metadata: {
-            originalName: file.name,
-            uploadedAt: new Date().toISOString(),
-            validation: fileValidation
-          },
-          processing_status: 'completed'
-        };
-
-        const { data: dbData, error: dbError } = await supabase
-          .from('custom_ad_media_files')
-          .insert(mediaFileData)
-          .select()
-          .single();
-
-        if (dbError) {
-          console.error('Database error for file:', file.name, dbError);
-          continue; // Skip this file and continue with others
-        }
-
-        uploadedFiles.push(dbData);
       }
 
       return uploadedFiles;
@@ -506,6 +583,228 @@ export class CustomAdCreationService {
       return data;
     } catch (error) {
       console.error('Error updating custom ad creation status:', error);
+      throw error;
+    }
+  }
+
+  // Clean up orphaned files in storage (admin function)
+  static async cleanupOrphanedFiles(): Promise<{ cleaned: number; errors: string[] }> {
+    try {
+      const errors: string[] = [];
+      let cleaned = 0;
+
+      // Get all files in storage
+      const { data: storageFiles, error: listError } = await supabase.storage
+        .from('custom-ad-media')
+        .list('', { limit: 1000, sortBy: { column: 'created_at', order: 'desc' } });
+
+      if (listError) {
+        throw new Error(`Failed to list storage files: ${listError.message}`);
+      }
+
+      if (!storageFiles || storageFiles.length === 0) {
+        return { cleaned: 0, errors: [] };
+      }
+
+      // Get all file paths from database
+      const { data: dbFiles, error: dbError } = await supabase
+        .from('custom_ad_media_files')
+        .select('file_path');
+
+      if (dbError) {
+        throw new Error(`Failed to get database files: ${dbError.message}`);
+      }
+
+      const dbFilePaths = new Set(dbFiles?.map(f => f.file_path) || []);
+
+      // Find orphaned files
+      const orphanedFiles: string[] = [];
+      for (const storageFile of storageFiles) {
+        if (storageFile.name && !dbFilePaths.has(storageFile.name)) {
+          orphanedFiles.push(storageFile.name);
+        }
+      }
+
+      // Remove orphaned files
+      if (orphanedFiles.length > 0) {
+        const { error: removeError } = await supabase.storage
+          .from('custom-ad-media')
+          .remove(orphanedFiles);
+
+        if (removeError) {
+          errors.push(`Failed to remove orphaned files: ${removeError.message}`);
+        } else {
+          cleaned = orphanedFiles.length;
+        }
+      }
+
+      return { cleaned, errors };
+    } catch (error) {
+      console.error('Error cleaning up orphaned files:', error);
+      throw error;
+    }
+  }
+
+  // Validate file integrity (admin function)
+  static async validateFileIntegrity(customAdCreationId: string): Promise<{
+    valid: boolean;
+    issues: string[];
+  }> {
+    try {
+      const issues: string[] = [];
+
+      // Get all media files for this custom ad creation
+      const { data: mediaFiles, error: dbError } = await supabase
+        .from('custom_ad_media_files')
+        .select('*')
+        .eq('custom_ad_creation_id', customAdCreationId);
+
+      if (dbError) {
+        throw new Error(`Failed to get media files: ${dbError.message}`);
+      }
+
+      if (!mediaFiles || mediaFiles.length === 0) {
+        return { valid: true, issues: [] };
+      }
+
+      // Check each file
+      for (const mediaFile of mediaFiles) {
+        // Check if file exists in storage
+        const { data: fileData, error: fileError } = await supabase.storage
+          .from('custom-ad-media')
+          .download(mediaFile.file_path);
+
+        if (fileError || !fileData) {
+          issues.push(`File not found in storage: ${mediaFile.original_name} (${mediaFile.file_path})`);
+        }
+
+        // Check if public URL is accessible
+        try {
+          const response = await fetch(mediaFile.public_url, { method: 'HEAD' });
+          if (!response.ok) {
+            issues.push(`Public URL not accessible: ${mediaFile.original_name} (${mediaFile.public_url})`);
+          }
+        } catch (urlError) {
+          issues.push(`Public URL error: ${mediaFile.original_name} - ${urlError}`);
+        }
+      }
+
+      return {
+        valid: issues.length === 0,
+        issues
+      };
+    } catch (error) {
+      console.error('Error validating file integrity:', error);
+      throw error;
+    }
+  }
+
+  // Clean up duplicate files for a custom ad creation (admin function)
+  static async cleanupDuplicateFiles(customAdCreationId: string): Promise<{
+    removed: number;
+    errors: string[];
+  }> {
+    try {
+      const errors: string[] = [];
+      let removed = 0;
+
+      // Get all media files for this custom ad creation
+      const { data: mediaFiles, error: dbError } = await supabase
+        .from('custom_ad_media_files')
+        .select('*')
+        .eq('custom_ad_creation_id', customAdCreationId);
+
+      if (dbError) {
+        throw new Error(`Failed to get media files: ${dbError.message}`);
+      }
+
+      if (!mediaFiles || mediaFiles.length === 0) {
+        return { removed: 0, errors: [] };
+      }
+
+      // Group files by original name and file hash
+      const fileGroups = new Map<string, typeof mediaFiles>();
+      for (const file of mediaFiles) {
+        const key = `${file.original_name}-${file.metadata?.fileHash || 'no-hash'}`;
+        if (!fileGroups.has(key)) {
+          fileGroups.set(key, []);
+        }
+        fileGroups.get(key)!.push(file);
+      }
+
+      // Remove duplicates (keep the first one, remove the rest)
+      for (const [key, files] of fileGroups) {
+        if (files.length > 1) {
+          // Sort by created_at to keep the oldest one
+          files.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+          
+          // Remove all but the first one
+          const filesToRemove = files.slice(1);
+          
+          for (const fileToRemove of filesToRemove) {
+            try {
+              // Remove from storage
+              await supabase.storage
+                .from('custom-ad-media')
+                .remove([fileToRemove.file_path]);
+
+              // Remove from database
+              await supabase
+                .from('custom_ad_media_files')
+                .delete()
+                .eq('id', fileToRemove.id);
+
+              removed++;
+            } catch (removeError) {
+              errors.push(`Failed to remove duplicate file ${fileToRemove.original_name}: ${removeError}`);
+            }
+          }
+        }
+      }
+
+      return { removed, errors };
+    } catch (error) {
+      console.error('Error cleaning up duplicate files:', error);
+      throw error;
+    }
+  }
+
+  // Clean up all duplicate files across all custom ad creations (admin function)
+  static async cleanupAllDuplicateFiles(): Promise<{
+    removed: number;
+    errors: string[];
+  }> {
+    try {
+      const errors: string[] = [];
+      let removed = 0;
+
+      // Get all custom ad creations
+      const { data: creations, error: creationsError } = await supabase
+        .from('custom_ad_creations')
+        .select('id');
+
+      if (creationsError) {
+        throw new Error(`Failed to get custom ad creations: ${creationsError.message}`);
+      }
+
+      if (!creations || creations.length === 0) {
+        return { removed: 0, errors: [] };
+      }
+
+      // Clean up duplicates for each creation
+      for (const creation of creations) {
+        try {
+          const result = await this.cleanupDuplicateFiles(creation.id);
+          removed += result.removed;
+          errors.push(...result.errors);
+        } catch (creationError) {
+          errors.push(`Failed to clean up creation ${creation.id}: ${creationError}`);
+        }
+      }
+
+      return { removed, errors };
+    } catch (error) {
+      console.error('Error cleaning up all duplicate files:', error);
       throw error;
     }
   }

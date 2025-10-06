@@ -445,22 +445,13 @@ export default function CustomAdsPage() {
     
     if (!validateForm()) return;
 
-
     setIsUploading(true);
     
     try {
       if (!selectedService || !user) throw new Error('No service selected or user not authenticated');
       
-      // Upload files if any
-      const uploadedFiles: any[] = [];
-      for (const file of formData.files) {
-        const uploadedFile = await CustomAdsService.uploadFiles(user.id, [file]);
-        uploadedFiles.push(...uploadedFile);
-      }
-
-      setFormData(prev => ({ ...prev, files: uploadedFiles }));
-
-      // Load payment methods and show payment method selection
+      // Don't upload files here - let createOrder handle it
+      // Just load payment methods and show payment method selection
       await loadPaymentMethods();
       setPaymentStep('method');
     } catch (error) {
