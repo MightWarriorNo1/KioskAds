@@ -61,58 +61,62 @@ export default function BannerMarketing({ className = '' }: BannerMarketingProps
         padding: `${settings?.padding || 12}px 0`,
       }}
     >
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="flex items-center justify-center relative">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between relative min-h-[44px]">
           {/* Close button positioned absolutely on the right */}
           <button
             onClick={handleClose}
-            className="absolute right-0 text-white hover:text-white hover:bg-white hover:bg-opacity-20 rounded-md p-1 transition-colors"
+            className="absolute right-0 top-1/2 -translate-y-1/2 text-white hover:text-white hover:bg-white hover:bg-opacity-20 rounded-md p-1 transition-colors flex-shrink-0 z-10"
           >
             <X className="w-4 h-4" />
           </button>
           
-          {/* Centered content */}
-          <div className="flex items-center space-x-4">
-            <div>
+          {/* Main content area with proper mobile handling */}
+          <div className="flex-1 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 pr-8 sm:pr-12">
+            {/* Text content */}
+            <div className="flex-1 min-w-0">
               <p 
-                className="font-medium text-center"
+                className="font-medium text-center sm:text-left"
                 style={{ fontSize: `${settings?.fontSize || 14}px` }}
               >
                 {marketingTool.content}
               </p>
             </div>
             
-            {settings?.cta?.label && !settings?.collectEmail && (
-              <button
-                onClick={handleCtaClick}
-                className="px-4 py-1.5 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-md font-medium transition-colors"
-                style={{ fontSize: `${settings?.fontSize || 14}px` }}
-              >
-                {settings.cta.label}
-              </button>
-            )}
-
-            {settings?.collectEmail && (
-              <div className="flex items-center space-x-2">
-                <input
-                  type="email"
-                  placeholder="Enter your email"
-                  className="px-3 py-1.5 rounded-md border-0 focus:ring-2 focus:ring-white focus:ring-opacity-50"
-                  style={{ 
-                    backgroundColor: settings?.emailInputBackgroundColor || 'rgba(255, 255, 255, 0.2)',
-                    color: settings?.emailInputTextColor || settings?.textColor || '#ffffff',
-                    fontSize: `${settings?.fontSize || 14}px`,
-                    '::placeholder': { color: 'rgba(255, 255, 255, 0.7)' }
-                  }}
-                />
-                <button 
-                  className="px-4 py-1.5 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-md font-medium transition-colors"
+            {/* CTA or Email form */}
+            <div className="flex-shrink-0">
+              {settings?.cta?.label && !settings?.collectEmail && (
+                <button
+                  onClick={handleCtaClick}
+                  className="px-4 py-1.5 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-md font-medium transition-colors whitespace-nowrap"
                   style={{ fontSize: `${settings?.fontSize || 14}px` }}
                 >
-                  Subscribe
+                  {settings.cta.label}
                 </button>
-              </div>
-            )}
+              )}
+
+              {settings?.collectEmail && (
+                <div className="flex flex-col sm:flex-row items-center gap-2">
+                  <input
+                    type="email"
+                    placeholder="Enter your email"
+                    className="px-3 py-1.5 rounded-md border-0 focus:ring-2 focus:ring-white focus:ring-opacity-50 w-full sm:w-auto min-w-[200px]"
+                    style={{ 
+                      backgroundColor: settings?.emailInputBackgroundColor || 'rgba(255, 255, 255, 0.2)',
+                      color: settings?.emailInputTextColor || settings?.textColor || '#ffffff',
+                      fontSize: `${settings?.fontSize || 14}px`,
+                      '::placeholder': { color: 'rgba(255, 255, 255, 0.7)' }
+                    }}
+                  />
+                  <button 
+                    className="px-4 py-1.5 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-md font-medium transition-colors whitespace-nowrap"
+                    style={{ fontSize: `${settings?.fontSize || 14}px` }}
+                  >
+                    Subscribe
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

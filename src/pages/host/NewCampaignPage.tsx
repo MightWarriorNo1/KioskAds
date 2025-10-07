@@ -79,7 +79,7 @@ export default function HostNewCampaignPage() {
 
               <button 
                 onClick={handleCreateCustomAd}
-                className="w-full bg-orange-500 hover:bg-orange-600 text-white py-4 sm:py-5 rounded-lg font-bold text-sm sm:text-base uppercase transition-colors flex items-center justify-center"
+                className="w-full bg-purple-500 hover:bg-purple-600 text-white py-4 sm:py-5 rounded-lg font-bold text-sm sm:text-base uppercase transition-colors flex items-center justify-center"
               >
                 CLICK HERE TO Create Custom Ad
               </button>

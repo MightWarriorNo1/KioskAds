@@ -20,6 +20,7 @@ import { useNotification } from '../contexts/NotificationContext';
 import { CustomAdsService, CustomAdOrder } from '../services/customAdsService';
 import Button from '../components/ui/Button';
 import DashboardLayout from '../components/layouts/DashboardLayout';
+import ModalFileUpload from '../components/shared/ModalFileUpload';
 
 export default function ManageMyCustomAdPage() {
   const { user } = useAuth();
@@ -38,6 +39,14 @@ export default function ManageMyCustomAdPage() {
   const [approvalFeedback, setApprovalFeedback] = useState('');
   const [changeRequest, setChangeRequest] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<Array<{
+    id: string;
+    file: File;
+    preview?: string;
+    name: string;
+    size: number;
+    type: string;
+  }>>([]);
 
   useEffect(() => {
     loadCustomAds();
@@ -132,10 +141,12 @@ export default function ManageMyCustomAdPage() {
 
     setIsProcessing(true);
     try {
-      await CustomAdsService.requestChanges(selectedAd.id, changeRequest.trim());
+      const filesToUpload = attachedFiles.map(f => f.file);
+      await CustomAdsService.requestChanges(selectedAd.id, changeRequest.trim(), filesToUpload);
       addNotification('success', 'Change Request Sent', 'Change request sent successfully!');
       setShowChangeRequestModal(false);
       setChangeRequest('');
+      setAttachedFiles([]);
       loadCustomAds(); // Refresh to get updated status
     } catch (error) {
       console.error('Error requesting changes:', error);
@@ -569,7 +580,7 @@ export default function ManageMyCustomAdPage() {
       {/* Change Request Modal */}
       {showChangeRequestModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               Request Changes
             </h3>
@@ -585,12 +596,24 @@ export default function ManageMyCustomAdPage() {
               placeholder="Describe the changes you'd like to see..."
               required
             />
+
+            {/* File Upload Component */}
+            <div className="mb-4">
+              <ModalFileUpload
+                files={attachedFiles}
+                onFilesChange={setAttachedFiles}
+                maxFiles={5}
+                maxFileSize={100}
+                className="mb-4"
+              />
+            </div>
             
             <div className="flex justify-end space-x-3">
               <Button
                 onClick={() => {
                   setShowChangeRequestModal(false);
                   setChangeRequest('');
+                  setAttachedFiles([]);
                 }}
                 variant="secondary"
                 disabled={isProcessing}

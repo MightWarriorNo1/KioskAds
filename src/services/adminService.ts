@@ -292,6 +292,16 @@ export class AdminService {
           // Don't throw here, just log the error - the invitation record is still created
         } else if (emailResult?.success) {
           console.log('Invitation email sent successfully');
+          
+          // Also try to process the email queue immediately if Gmail is configured locally
+          try {
+            const { GmailService } = await import('./gmailService');
+            if (GmailService.isConfigured()) {
+              await GmailService.processEmailQueue();
+            }
+          } catch (gmailError) {
+            console.warn('Could not process email queue locally:', gmailError);
+          }
         }
       } catch (emailError) {
         console.error('Error calling invitation email function:', emailError);
@@ -1861,18 +1871,23 @@ export class AdminService {
     }
   }
 
-  // Update system setting
+  // Update system setting (upsert - insert if not exists, update if exists)
   static async updateSystemSetting(key: string, value: any): Promise<void> {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('system_settings')
-        .update({ 
+        .upsert({ 
+          key,
           value,
           updated_at: new Date().toISOString()
-        })
-        .eq('key', key);
+        }, {
+          onConflict: 'key'
+        });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
 
       await this.logAdminAction('update_system_setting', 'system_setting', null, {
         key,
@@ -5068,6 +5083,22 @@ export class AdminService {
       return true;
     } catch (error) {
       console.error('Error queueing email:', error);
+      return false;
+    }
+  }
+
+  // Manually process email queue
+  static async processEmailQueue(): Promise<boolean> {
+    try {
+      const { data, error } = await supabase.functions.invoke('email-queue-processor');
+      if (error) {
+        console.error('Error processing email queue:', error);
+        return false;
+      }
+      console.log('Email queue processed:', data);
+      return true;
+    } catch (error) {
+      console.error('Error processing email queue:', error);
       return false;
     }
   }

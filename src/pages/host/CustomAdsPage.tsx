@@ -290,14 +290,15 @@ export default function HostCustomAdsPage() {
     try {
       if (!selectedService || !user) throw new Error('No service selected or user not authenticated');
       
-      // Upload files if any
+      // Upload files if any (but keep original File objects for createOrder)
       const uploadedFiles: any[] = [];
       for (const file of formData.files) {
         const uploadedFile = await CustomAdsService.uploadFiles(user.id, [file]);
         uploadedFiles.push(...uploadedFile);
       }
 
-      setFormData(prev => ({ ...prev, files: uploadedFiles }));
+      // Don't overwrite formData.files - keep the original File objects
+      // The uploadedFiles are just for reference, createOrder needs the original Files
 
       // Load payment methods and show payment method selection
       await loadPaymentMethods();
@@ -314,9 +315,71 @@ export default function HostCustomAdsPage() {
   };
 
   const handleAddNewMethod = async () => {
-    // This would open a modal to add a new payment method
-    // For now, we'll just show an alert
-    alert('Add new payment method functionality would be implemented here');
+    if (!selectedService || !user) return;
+    
+    setSelectedPaymentMethodId(null);
+    setIsUploading(true);
+    setPaymentMessage(null);
+
+    try {
+      const intent = await BillingService.createPaymentIntent({
+        amount: Math.round(selectedService.price * 100),
+        currency: 'usd',
+        metadata: {
+          serviceId: selectedService.id,
+          email: formData.email,
+        },
+        setupForFutureUse: true, // Setup for future use when adding new method
+      });
+
+      if (!intent?.clientSecret) {
+        setPaymentMessage('Unable to start payment. Please try again.');
+        return;
+      }
+
+      setClientSecret(intent.clientSecret);
+      setPaymentStep('pay');
+    } catch (error) {
+      console.error('Error creating payment intent:', error);
+      setPaymentMessage('Error creating payment intent. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handlePaymentWithSavedMethod = async () => {
+    if (!selectedService || !user || !selectedPaymentMethodId) return;
+
+    setIsUploading(true);
+    setPaymentMessage(null);
+
+    try {
+      const selectedMethod = paymentMethods.find(m => m.id === selectedPaymentMethodId);
+      if (!selectedMethod) throw new Error('Selected payment method not found');
+
+      const intent = await BillingService.createPaymentIntentWithPaymentMethod({
+        amount: selectedService.price,
+        currency: 'usd',
+        paymentMethodId: selectedMethod.stripe_payment_method_id,
+        metadata: {
+          serviceId: selectedService.id,
+          email: formData.email,
+        },
+      });
+
+      if (!intent?.clientSecret) {
+        setPaymentMessage('Unable to process payment. Please try again.');
+        return;
+      }
+
+      setClientSecret(intent.clientSecret);
+      setPaymentStep('pay');
+    } catch (error) {
+      console.error('Error processing payment:', error);
+      setPaymentMessage('Error processing payment. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const loadPaymentMethods = async () => {
@@ -372,24 +435,16 @@ export default function HostCustomAdsPage() {
       
       // Create the order
       const order = await CustomAdsService.createOrder({
-        user_id: user.id,
-        service_key: selectedService.id,
-        first_name: formData.firstName,
-        last_name: formData.lastName,
+        userId: user.id,
+        serviceKey: selectedService.id,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
         email: formData.email,
         phone: formData.phone,
         address: formData.address,
         details: formData.details,
-        files: formData.files.map(f => ({
-          name: f.name,
-          url: '', // Will be set after upload
-          size: f.size,
-          type: f.type
-        })),
-        total_amount: selectedService.price,
-        payment_status: 'succeeded',
-        workflow_status: 'submitted',
-        priority: 'normal'
+        files: formData.files, // Pass the actual File objects
+        totalAmount: selectedService.price
       });
 
       setSubmittedOrderId(order.id);
@@ -1052,9 +1107,11 @@ export default function HostCustomAdsPage() {
                 <PaymentMethodSelector
                   paymentMethods={paymentMethods}
                   selectedMethodId={selectedPaymentMethodId}
-                  onSelectMethod={handlePaymentMethodSelect}
+                  onMethodSelect={handlePaymentMethodSelect}
                   onAddNewMethod={handleAddNewMethod}
-                  isLoading={isLoadingPaymentMethods}
+                  onPayWithSavedMethod={handlePaymentWithSavedMethod}
+                  amount={selectedService.price}
+                  isProcessing={isUploading}
                 />
                 <div className="flex justify-end space-x-4">
                   <Button
@@ -1062,12 +1119,6 @@ export default function HostCustomAdsPage() {
                     onClick={() => setPaymentStep('form')}
                   >
                     Back
-                  </Button>
-                  <Button
-                    onClick={handlePayment}
-                    disabled={!selectedPaymentMethodId || isUploading}
-                  >
-                    {isUploading ? 'Processing...' : 'Pay Now'}
                   </Button>
                 </div>
               </div>
@@ -1182,6 +1233,7 @@ function PaymentForm({ onSuccess }: { onSuccess: () => void }) {
       confirmParams: {
         return_url: window.location.origin + '/host/custom-ads',
       },
+      redirect: 'if_required',
     });
 
     if (error) {

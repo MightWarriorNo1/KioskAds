@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { 
   MessageSquare, 
@@ -11,7 +11,6 @@ import {
   Calendar,
   DollarSign,
   Eye,
-  EyeOff,
   RefreshCw,
   Users
 } from 'lucide-react';
@@ -19,6 +18,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../contexts/NotificationContext';
 import { CustomAdsService, CustomAdOrder } from '../../services/customAdsService';
 import Button from '../../components/ui/Button';
+import ModalFileUpload from '../../components/shared/ModalFileUpload';
 
 export default function HostManageMyCustomAdPage() {
   const { user } = useAuth();
@@ -28,35 +28,25 @@ export default function HostManageMyCustomAdPage() {
   const [customAds, setCustomAds] = useState<CustomAdOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAd, setSelectedAd] = useState<CustomAdOrder | null>(null);
-  const [showNotes, setShowNotes] = useState(false);
+  const [showNotes] = useState(true);
   const [newNote, setNewNote] = useState('');
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [filter, setFilter] = useState<'all' | 'submitted' | 'in_review' | 'designer_assigned' | 'proofs_ready' | 'client_review' | 'approved' | 'rejected' | 'completed' | 'cancelled'>('all');
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [showChangeRequestModal, setShowChangeRequestModal] = useState(false);
+  const [approvalFeedback, setApprovalFeedback] = useState('');
+  const [changeRequest, setChangeRequest] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<Array<{
+    id: string;
+    file: File;
+    preview?: string;
+    name: string;
+    size: number;
+    type: string;
+  }>>([]);
 
-  useEffect(() => {
-    loadCustomAds();
-  }, [user?.id]);
-
-  // Refresh data when page becomes visible (user navigates back)
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden && user?.id) {
-        loadCustomAds();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [user?.id]);
-
-  // Refresh data when location changes (user navigates to this page)
-  useEffect(() => {
-    if (location.pathname === '/manage-custom-ads' && user?.id) {
-      loadCustomAds();
-    }
-  }, [location.pathname, user?.id]);
-
-  const loadCustomAds = async () => {
+  const loadCustomAds = useCallback(async () => {
     try {
       setLoading(true);
       if (!user?.id) {
@@ -73,7 +63,30 @@ export default function HostManageMyCustomAdPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id, addNotification]);
+
+  useEffect(() => {
+    loadCustomAds();
+  }, [loadCustomAds]);
+
+  // Refresh data when page becomes visible (user navigates back)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && user?.id) {
+        loadCustomAds();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [user?.id, loadCustomAds]);
+
+  // Refresh data when location changes (user navigates to this page)
+  useEffect(() => {
+    if (location.pathname === '/manage-custom-ads' && user?.id) {
+      loadCustomAds();
+    }
+  }, [location.pathname, user?.id, loadCustomAds]);
 
   const handleAddNote = async () => {
     if (!selectedAd || !newNote.trim() || !user?.id) return;
@@ -99,6 +112,44 @@ export default function HostManageMyCustomAdPage() {
       addNotification('error', 'Failed', 'Failed to add note');
     } finally {
       setIsAddingNote(false);
+    }
+  };
+
+  const handleApproveOrder = async () => {
+    if (!selectedAd || isProcessing) return;
+
+    setIsProcessing(true);
+    try {
+      await CustomAdsService.approveOrder(selectedAd.id, approvalFeedback.trim() || undefined);
+      addNotification('success', 'Order Approved', 'Order approved successfully!');
+      setShowApprovalModal(false);
+      setApprovalFeedback('');
+      loadCustomAds(); // Refresh to get updated status
+    } catch (error) {
+      console.error('Error approving order:', error);
+      addNotification('error', 'Approval Failed', 'Failed to approve order. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleRequestChanges = async () => {
+    if (!selectedAd || !changeRequest.trim() || isProcessing) return;
+
+    setIsProcessing(true);
+    try {
+      const filesToUpload = attachedFiles.map(f => f.file);
+      await CustomAdsService.requestChanges(selectedAd.id, changeRequest.trim(), filesToUpload);
+      addNotification('success', 'Change Request Sent', 'Change request sent successfully!');
+      setShowChangeRequestModal(false);
+      setChangeRequest('');
+      setAttachedFiles([]);
+      loadCustomAds(); // Refresh to get updated status
+    } catch (error) {
+      console.error('Error requesting changes:', error);
+      addNotification('error', 'Request Failed', 'Failed to request changes. Please try again.');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -199,7 +250,7 @@ export default function HostManageMyCustomAdPage() {
         ].map(({ key, label, count }) => (
           <button
             key={key}
-            onClick={() => setFilter(key as any)}
+            onClick={() => setFilter(key as typeof filter)}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
               filter === key
                 ? 'bg-white text-gray-900 dark:bg-gray-700 dark:text-white shadow-sm'
@@ -312,15 +363,6 @@ export default function HostManageMyCustomAdPage() {
                     <MessageSquare className="w-5 h-5 mr-2" />
                     Communication with Designer
                   </h3>
-                  <Button
-                    onClick={() => setShowNotes(!showNotes)}
-                    variant="secondary"
-                    size="sm"
-                    className="flex items-center space-x-2"
-                  >
-                    {showNotes ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    <span>{showNotes ? 'Hide' : 'Show'} Messages</span>
-                  </Button>
                 </div>
 
                 {showNotes && (
@@ -353,18 +395,18 @@ export default function HostManageMyCustomAdPage() {
                     {/* Messages List */}
                     {selectedAd.comments && selectedAd.comments.length > 0 ? (
                       <div className="space-y-3">
-                        {selectedAd.comments.map((comment: any) => (
+                        {selectedAd.comments.map((comment) => (
                             <div
                               key={comment.id}
                               className={`border rounded-lg p-4 ${
-                                comment.author_id === user?.id
+                                comment.author === user?.id
                                   ? 'border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800'
                                   : 'border-gray-200 dark:border-gray-600'
                               }`}
                             >
                               <div className="flex items-center justify-between mb-2">
                                 <span className="text-sm font-medium text-gray-900 dark:text-white">
-                                  {comment.author_id === user?.id ? 'You' : comment.author}
+                                  {comment.author === user?.id ? 'You' : comment.author}
                                 </span>
                                 <span className="text-xs text-gray-500">
                                   {new Date(comment.created_at).toLocaleDateString()} at {new Date(comment.created_at).toLocaleTimeString()}
@@ -397,7 +439,7 @@ export default function HostManageMyCustomAdPage() {
                   </h3>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {selectedAd.files.map((file: any) => (
+                    {selectedAd.files.map((file) => (
                       <div
                         key={file.name}
                         className="border border-gray-200 dark:border-gray-600 rounded-lg p-4"
@@ -434,6 +476,38 @@ export default function HostManageMyCustomAdPage() {
                   </div>
                 </div>
               )}
+
+              {/* Action Buttons for Designer Assigned Orders */}
+              {selectedAd.workflow_status === 'designer_assigned' && (
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <CheckCircle className="w-5 h-5 mr-2" />
+                    Review & Actions
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-300 mb-4">
+                    Review the work and provide feedback to your designer.
+                  </p>
+                  
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Button
+                      onClick={() => setShowApprovalModal(true)}
+                      className="flex items-center justify-center space-x-2 bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      <span>Approve Order</span>
+                    </Button>
+                    
+                    <Button
+                      onClick={() => setShowChangeRequestModal(true)}
+                      variant="secondary"
+                      className="flex items-center justify-center space-x-2"
+                    >
+                      <AlertCircle className="w-4 h-4" />
+                      <span>Request Changes</span>
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="text-center py-12">
@@ -448,6 +522,103 @@ export default function HostManageMyCustomAdPage() {
           )}
         </div>
       </div>
+
+      {/* Approval Modal */}
+      {showApprovalModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Approve Order
+            </h3>
+            <p className="text-gray-600 dark:text-gray-300 mb-4">
+              Are you satisfied with the work? You can optionally provide feedback.
+            </p>
+            
+            <textarea
+              value={approvalFeedback}
+              onChange={(e) => setApprovalFeedback(e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white mb-4"
+              placeholder="Optional feedback for the designer..."
+            />
+            
+            <div className="flex justify-end space-x-3">
+              <Button
+                onClick={() => {
+                  setShowApprovalModal(false);
+                  setApprovalFeedback('');
+                }}
+                variant="secondary"
+                disabled={isProcessing}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleApproveOrder}
+                disabled={isProcessing}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                {isProcessing ? 'Approving...' : 'Approve Order'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change Request Modal */}
+      {showChangeRequestModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Request Changes
+            </h3>
+            <p className="text-gray-600 dark:text-gray-300 mb-4">
+              What changes would you like the designer to make?
+            </p>
+            
+            <textarea
+              value={changeRequest}
+              onChange={(e) => setChangeRequest(e.target.value)}
+              rows={4}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white mb-4"
+              placeholder="Describe the changes you'd like to see..."
+              required
+            />
+
+            {/* File Upload Component */}
+            <div className="mb-4">
+              <ModalFileUpload
+                files={attachedFiles}
+                onFilesChange={setAttachedFiles}
+                maxFiles={5}
+                maxFileSize={100}
+                className="mb-4"
+              />
+            </div>
+            
+            <div className="flex justify-end space-x-3">
+              <Button
+                onClick={() => {
+                  setShowChangeRequestModal(false);
+                  setChangeRequest('');
+                  setAttachedFiles([]);
+                }}
+                variant="secondary"
+                disabled={isProcessing}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleRequestChanges}
+                disabled={!changeRequest.trim() || isProcessing}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {isProcessing ? 'Sending...' : 'Send Request'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Upload, Save, X, Image as ImageIcon, Users, Settings, Plus, Edit, Trash2, Eye, EyeOff } from 'lucide-react';
 import { AdminService } from '../../services/adminService';
 import { PartnerLogosService, PartnerLogo } from '../../services/partnerLogosService';
@@ -8,6 +8,7 @@ import { supabase } from '../../lib/supabaseClient';
 interface PartnerSettingsData {
   partnerNameText: string;
   partnerLogoUrl: string;
+  logoBackgroundColor: string;
 }
 
 interface PartnerLogoFormData {
@@ -22,7 +23,8 @@ export default function PartnerSettings() {
   const { addNotification } = useNotification();
   const [settings, setSettings] = useState<PartnerSettingsData>({
     partnerNameText: 'Proudly Partnered With',
-    partnerLogoUrl: ''
+    partnerLogoUrl: '',
+    logoBackgroundColor: '#ffffff'
   });
   const [partnerLogos, setPartnerLogos] = useState<PartnerLogo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,11 +41,7 @@ export default function PartnerSettings() {
     display_order: 0
   });
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     try {
       setLoading(true);
       const [systemSettings, logosData] = await Promise.all([
@@ -53,11 +51,33 @@ export default function PartnerSettings() {
       
       const partnerNameSetting = systemSettings.find(s => s.key === 'partner_name_text');
       const partnerLogoSetting = systemSettings.find(s => s.key === 'partner_logo_url');
+      const logoBackgroundColorSetting = systemSettings.find(s => s.key === 'partner_logo_background_color');
       
-      setSettings({
-        partnerNameText: partnerNameSetting?.value || 'Proudly Partnered With',
-        partnerLogoUrl: partnerLogoSetting?.value || ''
-      });
+      // Handle different value formats (string, JSON string, or direct value)
+      const getStringValue = (value: unknown, defaultValue: string): string => {
+        if (typeof value === 'string') {
+          // If it's a JSON string, parse it
+          if (value.startsWith('"') && value.endsWith('"')) {
+            try {
+              return JSON.parse(value);
+            } catch {
+              return value;
+            }
+          }
+          return value;
+        }
+        return defaultValue;
+      };
+
+      const loadedSettings = {
+        partnerNameText: getStringValue(partnerNameSetting?.value, 'Proudly Partnered With'),
+        partnerLogoUrl: getStringValue(partnerLogoSetting?.value, ''),
+        logoBackgroundColor: getStringValue(logoBackgroundColorSetting?.value, '#ffffff')
+      };
+
+
+      setSettings(loadedSettings);
+      
       
       setPartnerLogos(logosData);
     } catch (error) {
@@ -66,7 +86,11 @@ export default function PartnerSettings() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [addNotification]);
+
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
 
   const handleInputChange = (field: keyof PartnerSettingsData, value: string) => {
     setSettings(prev => ({
@@ -108,7 +132,7 @@ export default function PartnerSettings() {
       const filePath = `partner-logos/${fileName}`;
 
       // Upload to Supabase Storage
-      const { data, error } = await supabase.storage
+      const { error } = await supabase.storage
         .from('media-assets')
         .upload(filePath, file, {
           cacheControl: '3600',
@@ -150,13 +174,18 @@ export default function PartnerSettings() {
     try {
       setSaving(true);
       
-      // Save both settings
+
+      // Save all settings
       await Promise.all([
         AdminService.updateSystemSetting('partner_name_text', settings.partnerNameText),
-        AdminService.updateSystemSetting('partner_logo_url', settings.partnerLogoUrl)
+        AdminService.updateSystemSetting('partner_logo_url', settings.partnerLogoUrl),
+        AdminService.updateSystemSetting('partner_logo_background_color', settings.logoBackgroundColor)
       ]);
-
       setHasChanges(false);
+      
+      // Trigger refresh on homepage
+      localStorage.setItem('partner_settings_updated', Date.now().toString());
+      
       addNotification('success', 'Success', 'Partner settings saved successfully');
     } catch (error) {
       console.error('Error saving partner settings:', error);
@@ -345,6 +374,31 @@ export default function PartnerSettings() {
                 Recommended: Transparent PNG, max 5MB. The logo will be displayed in the partner section.
               </p>
             </div>
+          </div>
+
+          {/* Logo Background Color */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Logo Background Color
+            </label>
+            <div className="flex items-center gap-4">
+              <input
+                type="color"
+                value={settings.logoBackgroundColor}
+                onChange={(e) => handleInputChange('logoBackgroundColor', e.target.value)}
+                className="w-12 h-10 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer"
+              />
+              <input
+                type="text"
+                value={settings.logoBackgroundColor}
+                onChange={(e) => handleInputChange('logoBackgroundColor', e.target.value)}
+                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
+                placeholder="#ffffff"
+              />
+            </div>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Choose the background color for partner logos in the "Proudly Partnered With" section.
+            </p>
           </div>
         </div>
       </div>

@@ -96,66 +96,72 @@ export default function AnnouncementBar() {
       className="w-full"
     >
       <div 
-        className="mx-auto max-w-7xl flex items-center justify-center relative"
+        className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"
         style={{ paddingLeft: `${horizontalPadding}px`, paddingRight: `${horizontalPadding}px` }}
       >
-        {/* Dismiss button positioned absolutely on the right */}
-        <button
-          onClick={() => setDismissedId(activeBar.id)}
-          className="absolute right-0 text-sm opacity-80 hover:opacity-100"
-          style={{ color: textColor }}
-          aria-label="Dismiss announcement"
-        >
-          ✕
-        </button>
-        
-        {/* Centered content */}
-        <div className="flex items-center gap-3">
-          <div 
-            className="font-medium text-center"
-            style={{ fontSize: `${fontSize}px` }}
+        <div className="flex items-center justify-between relative min-h-[44px]">
+          {/* Dismiss button positioned absolutely on the right */}
+          <button
+            onClick={() => setDismissedId(activeBar.id)}
+            className="absolute right-0 top-1/2 -translate-y-1/2 text-sm opacity-80 hover:opacity-100 flex-shrink-0 z-10"
+            style={{ color: textColor }}
+            aria-label="Dismiss announcement"
           >
-            {activeBar.title ? (
-              <span className="mr-2">{activeBar.title}</span>
-            ) : null}
-            <span>{activeBar.content}</span>
-          </div>
+            ✕
+          </button>
           
-          {cta && cta.label && cta.href && !collectEmail && (
-            <a
-              href={cta.href}
-              className="font-semibold underline underline-offset-2"
-              style={{ color: textColor, fontSize: `${fontSize}px` }}
+          {/* Main content area with proper mobile handling */}
+          <div className="flex-1 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 pr-8 sm:pr-12">
+            {/* Text content */}
+            <div 
+              className="font-medium text-center sm:text-left flex-1 min-w-0"
+              style={{ fontSize: `${fontSize}px` }}
             >
-              {cta.label}
-            </a>
-          )}
-          
-          {collectEmail && (
-            <form onSubmit={handleSubmitEmail} className="flex items-center gap-2">
-              <input
-                type="email"
-                placeholder="Enter your email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="rounded px-2 py-1"
-                style={{ 
-                  backgroundColor: emailInputBackgroundColor,
-                  color: emailInputTextColor,
-                  fontSize: `${fontSize}px`
-                }}
-                required
-              />
-              <button
-                type="submit"
-                disabled={submitting}
-                className="rounded bg-white/20 px-3 py-1 font-semibold"
-                style={{ color: textColor, fontSize: `${fontSize}px` }}
-              >
-                {submitting ? 'Sending...' : 'Submit'}
-              </button>
-            </form>
-          )}
+              {activeBar.title ? (
+                <span className="block sm:inline mr-0 sm:mr-2">{activeBar.title}</span>
+              ) : null}
+              <span className="block sm:inline">{activeBar.content}</span>
+            </div>
+            
+            {/* CTA or Email form */}
+            <div className="flex-shrink-0">
+              {cta && cta.label && cta.href && !collectEmail && (
+                <a
+                  href={cta.href}
+                  className="font-semibold underline underline-offset-2 whitespace-nowrap"
+                  style={{ color: textColor, fontSize: `${fontSize}px` }}
+                >
+                  {cta.label}
+                </a>
+              )}
+              
+              {collectEmail && (
+                <form onSubmit={handleSubmitEmail} className="flex flex-col sm:flex-row items-center gap-2">
+                  <input
+                    type="email"
+                    placeholder="Enter your email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="rounded px-2 py-1 w-full sm:w-auto min-w-[200px]"
+                    style={{ 
+                      backgroundColor: emailInputBackgroundColor,
+                      color: emailInputTextColor,
+                      fontSize: `${fontSize}px`
+                    }}
+                    required
+                  />
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="rounded bg-white/20 px-3 py-1 font-semibold whitespace-nowrap"
+                    style={{ color: textColor, fontSize: `${fontSize}px` }}
+                  >
+                    {submitting ? 'Sending...' : 'Submit'}
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

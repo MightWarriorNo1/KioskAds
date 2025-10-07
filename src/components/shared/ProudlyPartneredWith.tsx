@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AdminService } from '../../services/adminService';
 import { PartnerLogosService, PartnerLogo } from '../../services/partnerLogosService';
 
@@ -12,14 +12,11 @@ export default function ProudlyPartneredWith({ className = '' }: ProudlyPartnere
   const [error, setError] = useState<string | null>(null);
   const [partnerSettings, setPartnerSettings] = useState({
     partnerNameText: 'Proudly Partnered With',
-    partnerLogoUrl: ''
+    partnerLogoUrl: '',
+    logoBackgroundColor: '#ffffff'
   });
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -35,21 +32,92 @@ export default function ProudlyPartneredWith({ className = '' }: ProudlyPartnere
       // Extract partner settings
       const partnerNameSetting = settingsData.find(s => s.key === 'partner_name_text');
       const partnerLogoSetting = settingsData.find(s => s.key === 'partner_logo_url');
+      const logoBackgroundColorSetting = settingsData.find(s => s.key === 'partner_logo_background_color');
       
-      setPartnerSettings({
-        partnerNameText: partnerNameSetting?.value || 'Proudly Partnered With',
-        partnerLogoUrl: partnerLogoSetting?.value || ''
+      // Handle different value formats (string, JSON string, or direct value)
+      const getStringValue = (value: unknown, defaultValue: string): string => {
+        if (typeof value === 'string') {
+          // If it's a JSON string, parse it
+          if (value.startsWith('"') && value.endsWith('"')) {
+            try {
+              return JSON.parse(value);
+            } catch {
+              return value;
+            }
+          }
+          return value;
+        }
+        return defaultValue;
+      };
+
+      const rawBackgroundColor = getStringValue(logoBackgroundColorSetting?.value, '#ffffff');
+      // Ensure the color is valid
+      const validBackgroundColor = rawBackgroundColor && rawBackgroundColor.startsWith('#') 
+        ? rawBackgroundColor 
+        : '#ffffff';
+
+      const partnerSettingsData = {
+        partnerNameText: getStringValue(partnerNameSetting?.value, 'Proudly Partnered With'),
+        partnerLogoUrl: getStringValue(partnerLogoSetting?.value, ''),
+        logoBackgroundColor: validBackgroundColor
+      };
+      
+      
+      console.log('ProudlyPartneredWith - Loaded settings:', {
+        partnerNameSetting: partnerNameSetting?.value,
+        partnerLogoSetting: partnerLogoSetting?.value,
+        logoBackgroundColorSetting: logoBackgroundColorSetting?.value,
+        processedColor: partnerSettingsData.logoBackgroundColor
       });
+      setPartnerSettings(partnerSettingsData);
     } catch (err) {
       console.error('Error loading data:', err);
       setError('Failed to load data');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Refresh data when page becomes visible (user switches back to tab)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadData();
+      }
+    };
+
+    const handleFocus = () => {
+      loadData();
+    };
+
+    // Listen for storage changes (when admin panel updates settings)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'partner_settings_updated') {
+        loadData();
+        // Clear the trigger
+        localStorage.removeItem('partner_settings_updated');
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [loadData]);
 
   // Partner logos are already filtered and sorted by the service
   const activePartnerLogos = partnerLogos.filter(logo => logo.is_active);
+  
+  
 
   if (loading) {
     return (
@@ -109,7 +177,16 @@ export default function ProudlyPartneredWith({ className = '' }: ProudlyPartnere
               className="flex flex-col items-center group hover:scale-105 transition-transform duration-300"
             >
               {/* Logo Container */}
-              <div className="w-20 h-20 md:w-24 md:h-24 rounded-xl bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center p-3 mb-3 group-hover:shadow-xl transition-shadow duration-300">
+              <div 
+                className="w-20 h-20 md:w-24 md:h-24 rounded-xl shadow-lg border-2 border-gray-300 dark:border-gray-600 flex items-center justify-center p-3 mb-3 group-hover:shadow-xl transition-all duration-300"
+                style={{ 
+                  backgroundColor: partnerSettings.logoBackgroundColor,
+                  background: partnerSettings.logoBackgroundColor,
+                  borderColor: partnerSettings.logoBackgroundColor === '#ffffff' ? '#d1d5db' : partnerSettings.logoBackgroundColor
+                }}
+                data-bg-color={partnerSettings.logoBackgroundColor}
+                title={`Background color: ${partnerSettings.logoBackgroundColor}`}
+              >
                 <img
                   src={logo.logo_url}
                   alt={`${logo.name} logo`}

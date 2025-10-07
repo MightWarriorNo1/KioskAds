@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Upload, Download } from 'lucide-react';
+import { Upload, Download, Bug } from 'lucide-react';
 import { AdminService, InvitationItem } from '../../../services/adminService';
 
 export default function Invitations() {
@@ -13,6 +13,8 @@ export default function Invitations() {
   const [items, setItems] = useState<InvitationItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [showDebug, setShowDebug] = useState(false);
 
   // Clear messages after timeout
   const clearMessages = () => {
@@ -101,6 +103,41 @@ export default function Invitations() {
     } catch (err: any) {
       console.error('Error cancelling pending invitations:', err);
       setError(err.message || 'Failed to cancel pending invitations');
+      clearMessages();
+    }
+  };
+
+  const onDebugEmail = async () => {
+    try {
+      const queueStatus = await EmailDebugHelper.checkEmailQueue();
+      const gmailConfig = await EmailDebugHelper.checkGmailConfig();
+      const recentInvitations = await EmailDebugHelper.getRecentInvitations();
+      
+      setDebugInfo({
+        queueStatus,
+        gmailConfig,
+        recentInvitations
+      });
+      setShowDebug(true);
+    } catch (err: any) {
+      console.error('Error getting debug info:', err);
+      setError('Failed to get debug information');
+      clearMessages();
+    }
+  };
+
+  const onProcessEmailQueue = async () => {
+    try {
+      const success = await AdminService.processEmailQueue();
+      if (success) {
+        setSuccess('Email queue processed successfully');
+      } else {
+        setError('Failed to process email queue');
+      }
+      clearMessages();
+    } catch (err: any) {
+      console.error('Error processing email queue:', err);
+      setError('Failed to process email queue');
       clearMessages();
     }
   };
@@ -290,6 +327,8 @@ export default function Invitations() {
           </table>
         </div>
       </div>
+
+      
     </div>
   );
 }

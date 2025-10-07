@@ -396,7 +396,13 @@ export class CustomAdsService {
   }
 
   // Add comment to custom ad order (for clients/hosts)
-  static async addComment(orderId: string, content: string, userId: string): Promise<void> {
+  static async addComment(
+    orderId: string, 
+    content: string, 
+    userId: string, 
+    commentType?: string,
+    attachedFiles?: Array<{ name: string; url: string; size: number; type: string }>
+  ): Promise<void> {
     try {
       // Get user profile for author name
       const { data: profile } = await supabase
@@ -411,7 +417,9 @@ export class CustomAdsService {
           order_id: orderId,
           content,
           author: profile?.full_name || 'Client',
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          comment_type: commentType,
+          attached_files: attachedFiles || null
         });
 
       if (error) throw error;
@@ -686,8 +694,37 @@ export class CustomAdsService {
   }
 
   // Request changes for order (client function)
-  static async requestChanges(orderId: string, changeRequest: string): Promise<void> {
+  static async requestChanges(orderId: string, changeRequest: string, attachedFiles?: File[]): Promise<void> {
     try {
+      let uploadedFiles: Array<{ name: string; url: string; size: number; type: string }> = [];
+
+      // Upload attached files if provided
+      if (attachedFiles && attachedFiles.length > 0) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) throw new Error('User not authenticated');
+
+          for (const file of attachedFiles) {
+            const path = `${user.id}/${orderId}/change-request/${Date.now()}-${Math.random().toString(36).slice(2)}-${file.name}`;
+            const { error: uploadError } = await supabase.storage
+              .from('custom-ad-uploads')
+              .upload(path, file, {
+                cacheControl: '3600',
+                upsert: false,
+                contentType: file.type,
+              });
+            if (uploadError) throw uploadError;
+            const { data: pubUrl } = supabase.storage
+              .from('custom-ad-uploads')
+              .getPublicUrl(path);
+            uploadedFiles.push({ name: file.name, url: pubUrl.publicUrl, size: file.size, type: file.type });
+          }
+        } catch (uploadError) {
+          console.error('Error uploading change request files:', uploadError);
+          throw new Error('Failed to upload attached files');
+        }
+      }
+
       const { error } = await supabase
         .from('custom_ad_orders')
         .update({
@@ -699,8 +736,12 @@ export class CustomAdsService {
 
       if (error) throw error;
 
-      // Add comment for change request
-      await this.addComment(orderId, changeRequest, 'system', 'revision_requested');
+      // Add comment for change request with file attachments
+      const commentContent = uploadedFiles.length > 0 
+        ? `${changeRequest}\n\nAttached files: ${uploadedFiles.map(f => f.name).join(', ')}`
+        : changeRequest;
+      
+      await this.addComment(orderId, commentContent, 'system', 'revision_requested', uploadedFiles);
 
       // Send email notification for change request
       try {
