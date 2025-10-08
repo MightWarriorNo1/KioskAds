@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MapPin, AlertTriangle } from 'lucide-react';
 import SiteHeader from '../components/layouts/SiteHeader';
 import LeafletMap from '../components/MapContainer';
 import { LatLngTuple } from 'leaflet';
+import { KioskService, Kiosk } from '../services/kioskService';
 
 interface KioskCardProps {
   name: string;
@@ -68,45 +69,97 @@ function KioskCard({ name, city, price, originalPrice, traffic, hasWarning }: Ki
 function KiosksPage() {
   const [mapCenter] = useState<LatLngTuple>([33.5689, -117.1865]); // Murrieta, CA area
   const [mapZoom] = useState(11);
+  const [kiosks, setKiosks] = useState<Kiosk[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const kioskData = [
-    {
-      name: "Local Fitness Center",
-      city: "Murrieta",
-      price: "$50/week",
-      originalPrice: "$80/week",
-      traffic: "Medium Traffic" as const,
-      hasWarning: true,
-      position: [33.5689, -117.1865] as LatLngTuple
-    },
-    {
-      name: "Mulligans Family Fun Center",
-      city: "Murrieta", 
-      price: "$90/week",
-      originalPrice: "$120/week",
-      traffic: "High Traffic" as const,
-      hasWarning: false,
-      position: [33.5689, -117.1865] as LatLngTuple
-    },
-    {
-      name: "UFC Gym",
-      city: "Wildomar",
-      price: "$50/week", 
-      originalPrice: "$80/week",
-      traffic: "Medium Traffic" as const,
-      hasWarning: true,
-      position: [33.5989, -117.2800] as LatLngTuple
-    },
-    {
-      name: "Temecula Sports Lounge",
-      city: "Temecula",
-      price: "$40/week",
-      originalPrice: "$80/week", 
-      traffic: "Low Traffic" as const,
-      hasWarning: false,
-      position: [33.4936, -117.1484] as LatLngTuple
-    }
-  ];
+  // Fetch kiosks from database
+  useEffect(() => {
+    const fetchKiosks = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const kioskData = await KioskService.getActiveKiosks();
+        setKiosks(kioskData);
+      } catch (err) {
+        console.error('Error fetching kiosks:', err);
+        setError('Failed to load kiosk data. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchKiosks();
+  }, []);
+
+  // Transform kiosk data for display
+  const kioskData = kiosks.map(kiosk => {
+    const getTrafficLevel = (level: string): 'Low Traffic' | 'Medium Traffic' | 'High Traffic' => {
+      switch (level) {
+        case 'low':
+          return 'Low Traffic';
+        case 'medium':
+          return 'Medium Traffic';
+        case 'high':
+          return 'High Traffic';
+        default:
+          return 'Low Traffic';
+      }
+    };
+
+    return {
+      name: kiosk.name,
+      city: kiosk.city,
+      price: `$${kiosk.price}/week`,
+      originalPrice: kiosk.base_rate > kiosk.price ? `$${kiosk.base_rate}/week` : undefined,
+      traffic: getTrafficLevel(kiosk.traffic_level),
+      hasWarning: kiosk.status === 'maintenance' || (kiosk.content_restrictions && kiosk.content_restrictions.length > 0),
+      position: [kiosk.coordinates.lat, kiosk.coordinates.lng] as LatLngTuple
+    };
+  });
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[rgb(var(--bg))] dark:bg-gradient-to-br dark:from-slate-900 dark:via-blue-900 dark:to-slate-800">
+        <SiteHeader />
+        <main className="max-w-7xl mx-auto px-6 py-8">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600 dark:text-gray-400">Loading kiosk locations...</p>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[rgb(var(--bg))] dark:bg-gradient-to-br dark:from-slate-900 dark:via-blue-900 dark:to-slate-800">
+        <SiteHeader />
+        <main className="max-w-7xl mx-auto px-6 py-8">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="text-red-500 mb-4">
+                <AlertTriangle className="h-12 w-12 mx-auto" />
+              </div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Error Loading Kiosks</h2>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
+              <button 
+                onClick={() => window.location.reload()} 
+                className="btn-primary px-4 py-2 text-sm"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[rgb(var(--bg))] dark:bg-gradient-to-br dark:from-slate-900 dark:via-blue-900 dark:to-slate-800">
@@ -140,19 +193,31 @@ function KiosksPage() {
           <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Available Kiosks</h2>
         </div>
         
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {kioskData.map((kiosk, index) => (
-            <KioskCard
-              key={index}
-              name={kiosk.name}
-              city={kiosk.city}
-              price={kiosk.price}
-              originalPrice={kiosk.originalPrice}
-              traffic={kiosk.traffic}
-              hasWarning={kiosk.hasWarning}
-            />
-          ))}
-        </div>
+        {kioskData.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-gray-400 mb-4">
+              <MapPin className="h-12 w-12 mx-auto" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No Kiosks Available</h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              There are currently no kiosks available for advertising. Please check back later.
+            </p>
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            {kioskData.map((kiosk, index) => (
+              <KioskCard
+                key={index}
+                name={kiosk.name}
+                city={kiosk.city}
+                price={kiosk.price}
+                originalPrice={kiosk.originalPrice}
+                traffic={kiosk.traffic}
+                hasWarning={kiosk.hasWarning}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Call to Action */}
         <div className="flex justify-center">

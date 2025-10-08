@@ -13,6 +13,7 @@ export default function SignUp() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
+  const [address, setAddress] = useState('');
   const [role, setRole] = useState<'client' | 'host' | 'designer' | 'admin'>('client');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -124,7 +125,8 @@ export default function SignUp() {
         options: {
           data: { 
             name: name.trim(), 
-            role: role 
+            role: role,
+            address: address.trim()
           },
           emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
@@ -254,6 +256,18 @@ export default function SignUp() {
                   <span>{errors.name}</span>
                 </div>
               )}
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Address</label>
+            <div className="relative group">
+              <input 
+                type="text"
+                className="w-full px-4 py-3 border-2 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 bg-white dark:bg-slate-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 hover:border-gray-400 dark:hover:border-gray-600 border-gray-300 dark:border-gray-600 focus:bg-white dark:focus:bg-slate-700"
+                placeholder="Enter your address"
+                value={address} 
+                onChange={(e) => setAddress(e.target.value)}
+              />
             </div>
           </div>
           <div>

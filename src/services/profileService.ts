@@ -7,6 +7,7 @@ export interface Profile {
   role: 'client' | 'host' | 'designer' | 'admin';
   company_name?: string;
   avatar_url?: string;
+  address?: string;
   subscription_tier: 'free' | 'basic' | 'premium' | 'enterprise';
   stripe_customer_id?: string;
   created_at: string;
@@ -17,6 +18,7 @@ export interface ProfileUpdateData {
   full_name?: string;
   company_name?: string;
   avatar_url?: string;
+  address?: string;
 }
 
 export class ProfileService {

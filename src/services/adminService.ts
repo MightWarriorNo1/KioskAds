@@ -1857,13 +1857,27 @@ export class AdminService {
   // Get system settings
   static async getSystemSettings(): Promise<SystemSetting[]> {
     try {
+      console.log('AdminService.getSystemSettings - Starting query...');
+      
       const { data, error } = await supabase
         .from('system_settings')
         .select('*')
         .order('category', { ascending: true })
         .order('key', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('AdminService.getSystemSettings - Supabase error:', error);
+        throw error;
+      }
+      
+      console.log('AdminService.getSystemSettings - Raw data:', data);
+      console.log('AdminService.getSystemSettings - Data length:', data?.length);
+      console.log('AdminService.getSystemSettings - Partner settings:', {
+        partnerNameText: data?.find(s => s.key === 'partner_name_text'),
+        partnerLogoUrl: data?.find(s => s.key === 'partner_logo_url'),
+        logoBackgroundColor: data?.find(s => s.key === 'partner_logo_background_color')
+      });
+      
       return data || [];
     } catch (error) {
       console.error('Error fetching system settings:', error);
@@ -1874,11 +1888,14 @@ export class AdminService {
   // Update system setting (upsert - insert if not exists, update if exists)
   static async updateSystemSetting(key: string, value: any): Promise<void> {
     try {
+      // For string values, store as JSON-encoded strings to maintain consistency with migration format
+      const processedValue = typeof value === 'string' ? JSON.stringify(value) : value;
+      
       const { data, error } = await supabase
         .from('system_settings')
         .upsert({ 
           key,
-          value,
+          value: processedValue,
           updated_at: new Date().toISOString()
         }, {
           onConflict: 'key'
@@ -1891,7 +1908,7 @@ export class AdminService {
 
       await this.logAdminAction('update_system_setting', 'system_setting', null, {
         key,
-        value
+        value: processedValue
       });
     } catch (error) {
       console.error('Error updating system setting:', error);

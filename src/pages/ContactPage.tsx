@@ -1,3 +1,4 @@
+/*eslint-disable */
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import SiteHeader from '../components/layouts/SiteHeader';
@@ -51,16 +52,11 @@ export default function ContactPage() {
           <button onClick={handleViewKiosksClick} className="btn-secondary text-sm">View Available Kiosks</button>
         </div>
 
-        <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-3xl mx-auto">
+        <div className="mt-8 sm:grid-cols-2 gap-4 max-w-3xl mx-auto">
           <div className="card p-4">
             <div className="text-xs text-gray-500 dark:text-gray-400">Email Us</div>
             <div className="mt-1 text-sm font-medium">For sales inquiries</div>
             <div className="text-sm">sales@ezkioskads.com</div>
-          </div>
-          <div className="card p-4">
-            <div className="text-xs text-gray-500 dark:text-gray-400">Call Us</div>
-            <div className="mt-1 text-sm font-medium">Customer support</div>
-            <div className="text-sm">(951) 216-3657</div>
           </div>
         </div>
 
@@ -124,29 +120,12 @@ export default function ContactPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Company (optional)</label>
-                    <input className="input text-sm" placeholder="Your company name" value={company} onChange={(e)=>setCompany(e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Monthly Advertising Budget</label>
-                    <select className="input text-sm" value={budget} onChange={(e)=>setBudget(e.target.value)}>
-                      <option value="">Select…</option>
-                      <option value="under-500">Under $500/month</option>
-                      <option value="500-2500">$500 - $2,500/month</option>
-                      <option value="2500-10000">$2,500 - $10,000/month</option>
-                      <option value="10000+">$10,000+/month</option>
-                    </select>
-                  </div>
-                </div>
-
                 <div>
                   <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">What are you interested in?</label>
                   <select className="input text-sm" value={interest} onChange={(e)=>setInterest(e.target.value)}>
-                    <option>General Inquiry</option>
-                    <option>Campaign Planning</option>
-                    <option>Partnership</option>
+                    <option>Advertising  </option>
+                    <option>Hosting</option>
+                    <option>Designer</option>
                     <option>Other</option>
                   </select>
                 </div>

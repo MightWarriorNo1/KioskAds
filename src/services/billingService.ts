@@ -48,6 +48,7 @@ export interface RecentSale {
     id: string;
     full_name: string;
     company_name?: string;
+    address?: string;
   };
   campaign: {
     id: string;
@@ -393,7 +394,8 @@ export class BillingService {
           profiles!payment_history_user_id_fkey(
             id,
             full_name,
-            company_name
+            company_name,
+            address
           ),
           campaigns!payment_history_campaign_id_fkey(
             id,
@@ -422,7 +424,8 @@ export class BillingService {
         user: {
           id: payment.profiles.id,
           full_name: payment.profiles.full_name,
-          company_name: payment.profiles.company_name
+          company_name: payment.profiles.company_name,
+          address: payment.profiles.address
         },
         campaign: {
           id: payment.campaigns.id,
@@ -462,7 +465,8 @@ export class BillingService {
         user: {
           id: item.user_data.id,
           full_name: item.user_data.full_name,
-          company_name: item.user_data.company_name
+          company_name: item.user_data.company_name,
+          address: item.user_data.address
         },
         campaign: {
           id: item.campaign_data.id,

@@ -9,6 +9,7 @@ export interface Database {
           role: 'client' | 'host' | 'designer' | 'admin';
           company_name?: string;
           avatar_url?: string;
+          address?: string;
           created_at: string;
           updated_at: string;
           subscription_tier: 'free' | 'basic' | 'premium' | 'enterprise';
@@ -21,6 +22,7 @@ export interface Database {
           role?: 'client' | 'host' | 'designer' | 'admin';
           company_name?: string;
           avatar_url?: string;
+          address?: string;
           created_at?: string;
           updated_at?: string;
           subscription_tier?: 'free' | 'basic' | 'premium' | 'enterprise';
@@ -33,6 +35,7 @@ export interface Database {
           role?: 'client' | 'host' | 'designer' | 'admin';
           company_name?: string;
           avatar_url?: string;
+          address?: string;
           created_at?: string;
           updated_at?: string;
           subscription_tier?: 'free' | 'basic' | 'premium' | 'enterprise';

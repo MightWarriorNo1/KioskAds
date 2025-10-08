@@ -37,17 +37,16 @@ export default function RecentSales({
     }
   };
 
-  const formatUserName = (fullName: string, companyName?: string) => {
+  const formatUserName = (fullName: string, address?: string) => {
     const nameParts = fullName.split(' ');
     const firstName = nameParts[0];
     const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1].charAt(0) + '.' : '';
     
-    if (companyName) {
-      return `${firstName} ${lastName} from ${companyName}`;
+    if (address) {
+      return `${firstName} ${lastName} from ${address}`;
     }
     
-    // If no company name, we could try to extract location from other data
-    // For now, we'll just show the name
+    // If no address, just show the name
     return `${firstName} ${lastName}`;
   };
 
@@ -147,7 +146,7 @@ export default function RecentSales({
             <div className="flex-1 min-w-0">
               <div className="flex items-center space-x-2 mb-1">
                 <span className="text-sm font-medium text-gray-900 dark:text-white">
-                  {formatUserName(sale.user.full_name, sale.user.company_name)}
+                  {formatUserName(sale.user.full_name, sale.user.address)}
                 </span>
                 <span className="text-sm text-gray-500 dark:text-gray-400">just purchased</span>
               </div>

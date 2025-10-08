@@ -834,32 +834,32 @@ export default function RevenueAnalytics() {
                   <span className="ml-2 text-gray-500">Loading transactions...</span>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <div className="w-full">
+                  <table className="w-full divide-y divide-gray-200 dark:divide-gray-700 table-fixed">
                     <thead className="bg-gray-50 dark:bg-gray-800">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        <th className="w-24 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Date
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        <th className="w-20 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Type
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        <th className="w-32 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Client
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Campaign/Service Details
+                        <th className="w-40 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Details
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        <th className="w-20 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Ad Type
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        <th className="w-24 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Amount
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        <th className="w-24 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Status
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        <th className="w-20 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Kiosks
                         </th>
                       </tr>
@@ -867,11 +867,11 @@ export default function RevenueAnalytics() {
                     <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                       {filteredTransactions.map((transaction) => (
                         <tr key={transaction.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                          <td className="px-3 py-3 text-xs text-gray-900 dark:text-white">
                             {new Date(transaction.date).toLocaleDateString()}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          <td className="px-3 py-3">
+                            <span className={`inline-flex px-1 py-0.5 text-xs font-semibold rounded-full ${
                               transaction.type === 'campaign' 
                                 ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
                                 : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
@@ -879,20 +879,20 @@ export default function RevenueAnalytics() {
                               {transaction.type === 'campaign' ? 'Campaign' : 'Custom Ad'}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-3 py-3">
                             <div>
-                              <div className="text-sm font-medium text-gray-900 dark:text-white">
+                              <div className="text-xs font-medium text-gray-900 dark:text-white truncate">
                                 {transaction.client.name}
                               </div>
-                              <div className="text-sm text-gray-500 dark:text-gray-400">
+                              <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
                                 {transaction.client.email}
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-3 py-3">
                             {transaction.type === 'campaign' ? (
                               <div>
-                                <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                <div className="text-xs font-medium text-gray-900 dark:text-white truncate">
                                   {transaction.campaign?.name || 'N/A'}
                                 </div>
                                 <div className="text-xs text-gray-500 dark:text-gray-400">
@@ -901,27 +901,27 @@ export default function RevenueAnalytics() {
                               </div>
                             ) : (
                               <div>
-                                <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                <div className="text-xs font-medium text-gray-900 dark:text-white truncate">
                                   {transaction.customAd?.service_key || 'N/A'}
                                 </div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-xs">
-                                  {transaction.customAd?.details?.substring(0, 50)}...
+                                <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                  {transaction.customAd?.details?.substring(0, 30)}...
                                 </div>
                               </div>
                             )}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-3 py-3">
                             {transaction.adType && (
-                              <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                              <span className="inline-flex px-1 py-0.5 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
                                 {transaction.adType}
                               </span>
                             )}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-white">
+                          <td className="px-3 py-3 text-xs font-semibold text-gray-900 dark:text-white">
                             {formatCurrency(transaction.amount)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          <td className="px-3 py-3">
+                            <span className={`inline-flex px-1 py-0.5 text-xs font-semibold rounded-full ${
                               transaction.status === 'succeeded' || transaction.status === 'completed'
                                 ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                                 : transaction.status === 'pending' || transaction.status === 'in_progress'
@@ -933,8 +933,8 @@ export default function RevenueAnalytics() {
                               {transaction.status.replace('_', ' ')}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                            {transaction.kiosks?.length || 0} kiosk(s)
+                          <td className="px-3 py-3 text-xs text-gray-500 dark:text-gray-400">
+                            {transaction.kiosks?.length || 0}
                           </td>
                         </tr>
                       ))}

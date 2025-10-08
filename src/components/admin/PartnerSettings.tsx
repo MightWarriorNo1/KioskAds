@@ -53,7 +53,7 @@ export default function PartnerSettings() {
       const partnerLogoSetting = systemSettings.find(s => s.key === 'partner_logo_url');
       const logoBackgroundColorSetting = systemSettings.find(s => s.key === 'partner_logo_background_color');
       
-      // Handle different value formats (string, JSON string, or direct value)
+      // Handle JSONB values - they are stored as JSON-encoded strings
       const getStringValue = (value: unknown, defaultValue: string): string => {
         if (typeof value === 'string') {
           // If it's a JSON string, parse it
@@ -75,6 +75,12 @@ export default function PartnerSettings() {
         logoBackgroundColor: getStringValue(logoBackgroundColorSetting?.value, '#ffffff')
       };
 
+      console.log('PartnerSettings - Loaded settings:', {
+        partnerNameSetting: partnerNameSetting?.value,
+        partnerLogoSetting: partnerLogoSetting?.value,
+        logoBackgroundColorSetting: logoBackgroundColorSetting?.value,
+        loadedSettings
+      });
 
       setSettings(loadedSettings);
       
@@ -174,6 +180,11 @@ export default function PartnerSettings() {
     try {
       setSaving(true);
       
+      console.log('PartnerSettings - Saving settings:', {
+        partnerNameText: settings.partnerNameText,
+        partnerLogoUrl: settings.partnerLogoUrl,
+        logoBackgroundColor: settings.logoBackgroundColor
+      });
 
       // Save all settings
       await Promise.all([

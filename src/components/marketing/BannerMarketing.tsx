@@ -76,7 +76,7 @@ export default function BannerMarketing({ className = '' }: BannerMarketingProps
             {/* Text content */}
             <div className="flex-1 min-w-0">
               <p 
-                className="font-medium text-center sm:text-left"
+                className="font-medium text-center"
                 style={{ fontSize: `${settings?.fontSize || 14}px` }}
               >
                 {marketingTool.content}

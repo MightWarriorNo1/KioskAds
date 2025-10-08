@@ -21,6 +21,7 @@ import DesignerPortal from './pages/DesignerPortal';
 import NotFound from './pages/NotFound';
 import ProtectedRoute from './components/ProtectedRoute';
 import AnnouncementBar from './components/shared/AnnouncementBar';
+import LanderRedirect from './components/LanderRedirect';
 
 function App() {
   return (
@@ -44,6 +45,7 @@ function App() {
                   <Route path="/kiosks" element={<KiosksPage />} />
                   <Route path="/auth/callback" element={<AuthCallback />} />
                   <Route path="/confirm-email" element={<AuthCallback />} />
+                  <Route path="/lander" element={<LanderRedirect />} />
                   <Route 
                     path="/client/*" 
                     element={

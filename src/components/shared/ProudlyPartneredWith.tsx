@@ -34,7 +34,7 @@ export default function ProudlyPartneredWith({ className = '' }: ProudlyPartnere
       const partnerLogoSetting = settingsData.find(s => s.key === 'partner_logo_url');
       const logoBackgroundColorSetting = settingsData.find(s => s.key === 'partner_logo_background_color');
       
-      // Handle different value formats (string, JSON string, or direct value)
+      // Handle JSONB values - they are stored as JSON-encoded strings
       const getStringValue = (value: unknown, defaultValue: string): string => {
         if (typeof value === 'string') {
           // If it's a JSON string, parse it
@@ -67,7 +67,9 @@ export default function ProudlyPartneredWith({ className = '' }: ProudlyPartnere
         partnerNameSetting: partnerNameSetting?.value,
         partnerLogoSetting: partnerLogoSetting?.value,
         logoBackgroundColorSetting: logoBackgroundColorSetting?.value,
-        processedColor: partnerSettingsData.logoBackgroundColor
+        processedColor: partnerSettingsData.logoBackgroundColor,
+        rawBackgroundColor: rawBackgroundColor,
+        validBackgroundColor: validBackgroundColor
       });
       setPartnerSettings(partnerSettingsData);
     } catch (err) {

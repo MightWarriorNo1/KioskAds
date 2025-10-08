@@ -114,7 +114,7 @@ export default function AnnouncementBar() {
           <div className="flex-1 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 pr-8 sm:pr-12">
             {/* Text content */}
             <div 
-              className="font-medium text-center sm:text-left flex-1 min-w-0"
+              className="font-medium text-center flex-1 min-w-0"
               style={{ fontSize: `${fontSize}px` }}
             >
               {activeBar.title ? (
