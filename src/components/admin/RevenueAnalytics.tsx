@@ -9,8 +9,6 @@ import {
   Activity,
   Filter,
   Search,
-  Eye,
-  EyeOff,
 } from 'lucide-react';
 import { useNotification } from '../../contexts/NotificationContext';
 import Card from '../ui/Card';
@@ -110,7 +108,7 @@ export default function RevenueAnalytics() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
-  const [showTransactions, setShowTransactions] = useState(false);
+  const [showTransactions] = useState(true);
   const [dateRange, setDateRange] = useState<DateRange>({
     start: new Date(2020, 0, 1).toISOString().split('T')[0], // January 1, 2020 for "all" period
     end: new Date().toISOString().split('T')[0]
@@ -393,15 +391,6 @@ export default function RevenueAnalytics() {
         </div>
         
         <div className="flex items-center gap-3">
-          <Button
-            onClick={() => setShowTransactions(!showTransactions)}
-            variant="secondary"
-            size="sm"
-            className="flex items-center gap-2"
-          >
-            {showTransactions ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            {showTransactions ? 'Hide Transactions' : 'View Transactions'}
-          </Button>
           <Button
             onClick={exportData}
             variant="secondary"

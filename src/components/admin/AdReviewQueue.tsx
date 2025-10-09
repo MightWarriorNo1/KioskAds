@@ -39,7 +39,7 @@ export default function AdReviewQueue() {
   useEffect(() => {
     if (activeTab === 'client') {
       setSelectedHostAd(null);
-    } else if (activeTab === 'host') {
+    } else if (activeTab === 'host' || activeTab === 'swapped') {
       setSelectedAd(null);
       setSelectedCampaign(null);
     } else {
@@ -325,7 +325,9 @@ export default function AdReviewQueue() {
                     ? pendingClientCampaigns
                     : activeTab === 'host'
                       ? [...hostAds, ...pendingHostCampaigns]
-                      : [...ads, ...pendingClientCampaigns, ...hostAds, ...pendingHostCampaigns]).length === 0) ? (
+                      : activeTab === 'swapped'
+                        ? swappedAssets
+                        : [...ads, ...pendingClientCampaigns, ...hostAds, ...pendingHostCampaigns, ...swappedAssets]).length === 0) ? (
                 <div className="p-6 text-center">
                   <CheckSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No {(activeTab === 'all' ? '' : activeTab + ' ')}ads to review</h3>
@@ -336,14 +338,16 @@ export default function AdReviewQueue() {
                   ? pendingClientCampaigns
                   : activeTab === 'host'
                     ? [...hostAds, ...pendingHostCampaigns]
-                    : [...ads, ...pendingClientCampaigns, ...hostAds, ...pendingHostCampaigns]
+                    : activeTab === 'swapped'
+                      ? swappedAssets
+                      : [...ads, ...pendingClientCampaigns, ...hostAds, ...pendingHostCampaigns, ...swappedAssets]
                 ).map((item) => (
                   <div
                     key={item.id}
                     className={`p-6 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors ${
                       (() => {
                         const campaign = isCampaign(item);
-                        const hostItem = activeTab === 'all' ? isHostAdItem(item) : (activeTab === 'host');
+                        const hostItem = activeTab === 'all' ? isHostAdItem(item) : (activeTab === 'host' || activeTab === 'swapped');
                         if (campaign) return selectedCampaign?.id === item.id;
                         if (hostItem) return selectedHostAd?.id === item.id;
                         return selectedAd?.id === item.id;
@@ -353,7 +357,7 @@ export default function AdReviewQueue() {
                       try {
                         console.log('Item clicked:', item);
                         const campaign = isCampaign(item);
-                        const hostItem = activeTab === 'all' ? isHostAdItem(item) : (activeTab === 'host');
+                        const hostItem = activeTab === 'all' ? isHostAdItem(item) : (activeTab === 'host' || activeTab === 'swapped');
                         if (campaign) {
                           setSelectedCampaign(item);
                           setSelectedAd(null);
@@ -398,9 +402,9 @@ export default function AdReviewQueue() {
                               </div>
                             );
                           }
-                          const hostItem = activeTab === 'all' ? isHostAdItem(item) : (activeTab === 'host');
-                          const isVideo = hostItem ? item.media_type === 'video' : item.file_type === 'video';
-                          const src = hostItem ? item.media_url : getFilePreview(item.file_type, item.file_path);
+                          const hostItem = activeTab === 'all' ? isHostAdItem(item) : (activeTab === 'host' || activeTab === 'swapped');
+                          const isVideo = hostItem ? (item.media_type === 'video' || item.file_type === 'video') : item.file_type === 'video';
+                          const src = hostItem ? (item.media_url || getFilePreview(item.file_type, item.file_path)) : getFilePreview(item.file_type, item.file_path);
                           return (
                             <div className="w-16 h-28 bg-black rounded-[0.5rem] overflow-hidden flex-shrink-0 shadow-lg">
                               {isVideo ? (
@@ -425,8 +429,8 @@ export default function AdReviewQueue() {
                           <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
                             {(() => {
                               if (isCampaign(item)) return item.name;
-                              const hostItem = activeTab === 'all' ? isHostAdItem(item) : (activeTab === 'host');
-                              return hostItem ? item.name : item.file_name;
+                              const hostItem = activeTab === 'all' ? isHostAdItem(item) : (activeTab === 'host' || activeTab === 'swapped');
+                              return hostItem ? (item.name || item.file_name) : item.file_name;
                             })()}
                           </h4>
                           <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -434,9 +438,14 @@ export default function AdReviewQueue() {
                               if (isCampaign(item)) {
                                 return <>by {item.user?.full_name} ({item.user?.company_name || item.user?.email})</>;
                               }
-                              const hostItem = activeTab === 'all' ? isHostAdItem(item) : (activeTab === 'host');
+                              const hostItem = activeTab === 'all' ? isHostAdItem(item) : (activeTab === 'host' || activeTab === 'swapped');
                               if (hostItem) {
-                                return <>by {item.host?.full_name} ({item.host?.company_name || item.host?.email})</>;
+                                // For swapped assets, check if it's a media asset (has user) or host ad (has host)
+                                if (item.user) {
+                                  return <>by {item.user?.full_name} ({item.user?.company_name || item.user?.email})</>;
+                                } else {
+                                  return <>by {item.host?.full_name} ({item.host?.company_name || item.host?.email})</>;
+                                }
                               }
                               return <>by {item.user?.full_name} ({item.user?.company_name || item.user?.email})</>;
                             })()}
@@ -461,7 +470,7 @@ export default function AdReviewQueue() {
                               <>
                                 <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
                                   {(() => {
-                                    const hostItem = activeTab === 'all' ? isHostAdItem(item) : (activeTab === 'host');
+                                    const hostItem = activeTab === 'all' ? isHostAdItem(item) : (activeTab === 'host' || activeTab === 'swapped');
                                     return hostItem ? item.media_type : item.file_type;
                                   })()}
                                 </span>
@@ -570,9 +579,18 @@ export default function AdReviewQueue() {
                     console.log('Ad Media URL:', mediaUrl, 'File Path:', selectedAd.file_path);
                   } else if (selectedHostAd) {
                     console.log('Selected Host Ad Data:', selectedHostAd);
-                    mediaUrl = selectedHostAd.media_url || '';
-                    mediaType = selectedHostAd.media_type || 'image';
-                    title = selectedHostAd.name || 'Ad Preview';
+                    // For swapped assets, check if it's a media asset (has file_path) or host ad (has media_url)
+                    if (selectedHostAd.file_path) {
+                      // Swapped media asset
+                      mediaUrl = getFilePreview(selectedHostAd.file_type, selectedHostAd.file_path);
+                      mediaType = selectedHostAd.file_type;
+                      title = selectedHostAd.file_name || 'Ad Preview';
+                    } else {
+                      // Regular host ad
+                      mediaUrl = selectedHostAd.media_url || '';
+                      mediaType = selectedHostAd.media_type || 'image';
+                      title = selectedHostAd.name || 'Ad Preview';
+                    }
                     console.log('Host Ad Media URL:', mediaUrl);
                   }
 
@@ -608,7 +626,8 @@ export default function AdReviewQueue() {
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Name:</span>
                   <p className="text-sm text-gray-900 dark:text-white">
                     {selectedCampaign ? selectedCampaign!.name : 
-                     (activeTab === 'client' ? (selectedAd?.file_name || '') : (selectedHostAd?.name || ''))}
+                     (activeTab === 'client' ? (selectedAd?.file_name || '') : 
+                      (selectedHostAd?.name || selectedHostAd?.file_name || ''))}
                   </p>
                 </div>
                 <div>
@@ -617,17 +636,21 @@ export default function AdReviewQueue() {
                   </span>
                   <p className="text-sm text-gray-900 dark:text-white">
                     {selectedCampaign ? selectedCampaign!.user.full_name :
-                     (activeTab === 'client' ? (selectedAd?.user.full_name || '') : (selectedHostAd?.host.full_name || ''))}
+                     (activeTab === 'client' ? (selectedAd?.user?.full_name || '') : 
+                      (selectedHostAd?.host?.full_name || selectedHostAd?.user?.full_name || ''))}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     {selectedCampaign ? selectedCampaign!.user.email :
-                     (activeTab === 'client' ? (selectedAd?.user.email || '') : (selectedHostAd?.host.email || ''))}
+                     (activeTab === 'client' ? (selectedAd?.user?.email || '') : 
+                      (selectedHostAd?.host?.email || selectedHostAd?.user?.email || ''))}
                   </p>
                   {(selectedCampaign ? selectedCampaign!.user.company_name :
-                    (activeTab === 'client' ? selectedAd?.user.company_name : selectedHostAd?.host.company_name)) && (
+                    (activeTab === 'client' ? selectedAd?.user?.company_name : 
+                     (selectedHostAd?.host?.company_name || selectedHostAd?.user?.company_name))) && (
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       {selectedCampaign ? selectedCampaign!.user.company_name :
-                       (activeTab === 'client' ? (selectedAd?.user.company_name || '') : (selectedHostAd?.host.company_name || ''))}
+                       (activeTab === 'client' ? (selectedAd?.user?.company_name || '') : 
+                        (selectedHostAd?.host?.company_name || selectedHostAd?.user?.company_name || ''))}
                     </p>
                   )}
                 </div>
@@ -663,7 +686,8 @@ export default function AdReviewQueue() {
                     <div>
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Type:</span>
                       <p className="text-sm text-gray-900 dark:text-white capitalize">
-                        {activeTab === 'client' ? (selectedAd?.file_type || '') : (selectedHostAd?.media_type || '')}
+                        {activeTab === 'client' ? (selectedAd?.file_type || '') : 
+                         (selectedHostAd?.media_type || selectedHostAd?.file_type || '')}
                       </p>
                     </div>
                     {activeTab === 'client' && selectedAd && selectedAd.campaign && (
@@ -676,13 +700,13 @@ export default function AdReviewQueue() {
                         <p className="text-xs text-gray-500 dark:text-gray-400">Budget: ${selectedAd.campaign.budget}</p>
                       </div>
                     )}
-                    {activeTab === 'host' && selectedHostAd?.duration && (
+                    {(activeTab === 'host' || activeTab === 'swapped') && selectedHostAd?.duration && (
                       <div>
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Duration:</span>
                         <p className="text-sm text-gray-900 dark:text-white">{selectedHostAd.duration} seconds</p>
                       </div>
                     )}
-                    {activeTab === 'host' && selectedHostAd?.description && (
+                    {(activeTab === 'host' || activeTab === 'swapped') && selectedHostAd?.description && (
                       <div>
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Description:</span>
                         <p className="text-sm text-gray-900 dark:text-white">{selectedHostAd.description}</p>
@@ -709,7 +733,7 @@ export default function AdReviewQueue() {
                     </ul>
                   </div>
                 )}
-                {activeTab === 'host' && selectedHostAd?.rejection_reason && (
+                {(activeTab === 'host' || activeTab === 'swapped') && selectedHostAd?.rejection_reason && (
                   <div>
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Previous Rejection Reason:</span>
                     <p className="text-sm text-red-600 dark:text-red-400 mt-1">{selectedHostAd.rejection_reason}</p>
@@ -729,7 +753,7 @@ export default function AdReviewQueue() {
                           handleApproveCampaign(selectedCampaign.id);
                         } else if (activeTab === 'client' && selectedAd) {
                           handleApprove(selectedAd.id);
-                        } else if (activeTab === 'host' && selectedHostAd) {
+                        } else if ((activeTab === 'host' || activeTab === 'swapped') && selectedHostAd) {
                           handleApproveHostAd(selectedHostAd.id);
                         }
                       }}

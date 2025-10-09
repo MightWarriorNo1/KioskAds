@@ -6,6 +6,7 @@ import { useNotification } from '../../contexts/NotificationContext';
 import { HostService, HostAd, HostKiosk, HostAdAssignment } from '../../services/hostService';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
+import { toLocalDateString, getCurrentLocalDate } from '../../utils/dateUtils';
 
 interface AssignmentForm {
   kioskId: string;
@@ -330,8 +331,8 @@ export default function AdKioskAssignment() {
                     <input
                       type="date"
                       value={assignmentForm.startDate}
-                      onChange={(e) => setAssignmentForm(prev => ({ ...prev, startDate: e.target.value }))}
-                      min={new Date().toISOString().split('T')[0]}
+                      onChange={(e) => setAssignmentForm(prev => ({ ...prev, startDate: toLocalDateString(e.target.value) }))}
+                      min={getCurrentLocalDate()}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
                       required
                     />
@@ -344,8 +345,8 @@ export default function AdKioskAssignment() {
                     <input
                       type="date"
                       value={assignmentForm.endDate}
-                      onChange={(e) => setAssignmentForm(prev => ({ ...prev, endDate: e.target.value }))}
-                      min={assignmentForm.startDate || new Date().toISOString().split('T')[0]}
+                      onChange={(e) => setAssignmentForm(prev => ({ ...prev, endDate: toLocalDateString(e.target.value) }))}
+                      min={assignmentForm.startDate || getCurrentLocalDate()}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
                       required
                     />

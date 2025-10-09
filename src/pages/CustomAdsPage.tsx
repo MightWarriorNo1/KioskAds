@@ -1,6 +1,8 @@
+/*eslint-disable*/
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { toLocalDateString, getCurrentLocalDate } from '../utils/dateUtils';
 import { 
   Camera, 
   Video, 
@@ -165,10 +167,10 @@ export default function CustomAdsPage() {
   const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string);
 
   const steps = [
-    { number: 1, name: 'Service Selection', current: currentStep === 1, completed: currentStep > 1 },
-    { number: 2, name: 'Description & Details', current: currentStep === 2, completed: currentStep > 2 },
-    { number: 3, name: 'File Upload', current: currentStep === 3, completed: currentStep > 3 },
-    { number: 4, name: 'Review & Submit', current: currentStep === 4, completed: currentStep > 4 },
+    { number: 1, name: 'Select Service', current: currentStep === 1, completed: currentStep > 1 },
+    { number: 2, name: 'Description & File Upload', current: currentStep === 2, completed: currentStep > 2 },
+    { number: 3, name: 'Payment', current: currentStep === 3, completed: currentStep > 3 },
+    { number: 4, name: 'Review', current: currentStep === 4, completed: currentStep > 4 },
   ];
 
   // Load proofs for the just-submitted order so user can review/approve
@@ -450,6 +452,8 @@ export default function CustomAdsPage() {
     try {
       if (!selectedService || !user) throw new Error('No service selected or user not authenticated');
       
+      // Move to step 3 (Payment)
+      setCurrentStep(3);
       // Don't upload files here - let createOrder handle it
       // Just load payment methods and show payment method selection
       await loadPaymentMethods();
@@ -509,23 +513,41 @@ export default function CustomAdsPage() {
       const selectedMethod = paymentMethods.find(m => m.id === selectedPaymentMethodId);
       if (!selectedMethod) throw new Error('Selected payment method not found');
 
-      const intent = await BillingService.createPaymentIntentWithPaymentMethod({
+      // Process payment directly with saved payment method
+      const result = await BillingService.processPaymentWithSavedMethod({
         amount: selectedService.price,
         currency: 'usd',
         paymentMethodId: selectedMethod.stripe_payment_method_id,
+        userId: user.id,
         metadata: {
           serviceId: selectedService.id,
           email: formData.email,
         },
       });
 
-      if (!intent?.clientSecret) {
-        setPaymentMessage('Unable to process payment. Please try again.');
+      if (!result.success) {
+        setPaymentMessage(result.error || 'Payment failed. Please try again.');
         return;
       }
 
-      setClientSecret(intent.clientSecret);
-      setPaymentStep('pay');
+      // Payment successful, create the order and move to success step
+      const orderId = await CustomAdsService.createOrder({
+        userId: user.id,
+        serviceKey: selectedService.id,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+        address: formData.address,
+        details: formData.details,
+        files: formData.files,
+        totalAmount: selectedService.price,
+      });
+      
+      setSubmittedOrderId(orderId);
+      setCurrentStep(4); // Move to step 4 (Review)
+      setPaymentStep('success');
+      setPaymentMessage('Payment succeeded and your order has been saved.');
     } catch (error) {
       console.error('Error processing payment:', error);
       setPaymentMessage('Error processing payment. Please try again.');
@@ -573,11 +595,9 @@ export default function CustomAdsPage() {
   const content = (
     <div className="max-w-7xl mx-auto px-6 py-12">
       {/* Progress Steps */}
-      {currentStep > 1 && (
-        <div className="mb-8">
-          <ProgressSteps steps={steps} currentStep={currentStep} />
-        </div>
-      )}
+      <div className="mb-8">
+        <ProgressSteps steps={steps} currentStep={currentStep} />
+      </div>
 
       {/* Order Submitted Success */}
       {orderSubmitted && (
@@ -890,8 +910,8 @@ export default function CustomAdsPage() {
                       <input
                         type="date"
                         value={formData.preferredDate}
-                        onChange={(e) => handleInputChange('preferredDate', e.target.value)}
-                        min={new Date().toISOString().split('T')[0]} // Only future dates
+                        onChange={(e) => handleInputChange('preferredDate', toLocalDateString(e.target.value))}
+                        min={getCurrentLocalDate()} // Only future dates
                         className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                           formErrors.preferredDate ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                         } bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
@@ -1082,7 +1102,10 @@ export default function CustomAdsPage() {
                     <Button 
                       type="button" 
                       variant="secondary" 
-                      onClick={() => setPaymentStep('form')}
+                      onClick={() => {
+                        setCurrentStep(2);
+                        setPaymentStep('form');
+                      }}
                     >
                       Back
                     </Button>
@@ -1103,7 +1126,10 @@ export default function CustomAdsPage() {
                   <StripePaySection
                     amount={selectedService.price}
                     email={formData.email}
-                    onBack={() => setPaymentStep('method')}
+                    onBack={() => {
+                      setCurrentStep(3);
+                      setPaymentStep('method');
+                    }}
                     message={paymentMessage}
                     setMessage={setPaymentMessage}
                     onSavePaymentMethod={selectedPaymentMethodId === null ? handleSavePaymentMethod : undefined}
@@ -1126,6 +1152,7 @@ export default function CustomAdsPage() {
                         });
                         
                         setSubmittedOrderId(orderId);
+                        setCurrentStep(4); // Move to step 4 (Review)
                         setPaymentStep('success');
                         setPaymentMessage('Payment succeeded and your order has been saved.');
                       } catch (e) {

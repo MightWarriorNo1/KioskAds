@@ -69,6 +69,7 @@ export interface CustomAdOrder {
     author: string;
     created_at: string;
   }>;
+  proofs?: CustomAdProof[];
 }
 
 export interface CustomAdProof {
@@ -208,7 +209,7 @@ export class CustomAdsService {
         const path = `${userId}/${timestamp}-${randomId}-${fileHash}.${fileExt}`;
 
         // Upload to storage
-        const { data: uploadData, error: uploadError } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from('custom-ad-uploads')
           .upload(path, file, {
             cacheControl: '3600',
@@ -247,7 +248,8 @@ export class CustomAdsService {
         });
       } catch (error) {
         console.error(`Error uploading file ${file.name}:`, error);
-        throw new Error(`Failed to upload ${file.name}: ${error.message}`);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        throw new Error(`Failed to upload ${file.name}: ${errorMessage}`);
       }
     }
     return uploaded;
@@ -311,14 +313,17 @@ export class CustomAdsService {
         throw error;
       }
 
-      // Send email notification for order submitted
+      // Send email notifications for order submitted and purchased
       try {
         const order = await this.getOrder(data.id as string);
         if (order) {
+          // Send order submitted notification (internal workflow)
           await CustomAdEmailService.sendOrderSubmittedNotification(order);
+          // Send order purchased notification (client confirmation)
+          await CustomAdEmailService.sendOrderPurchasedNotification(order);
         }
       } catch (emailError) {
-        console.error('Error sending order submitted email:', emailError);
+        console.error('Error sending order notifications:', emailError);
         // Don't throw error - order creation should succeed even if email fails
       }
 
@@ -345,26 +350,37 @@ export class CustomAdsService {
     
     console.log('Raw data from database:', data);
     
-    // Get comments for each order
-    const ordersWithComments = await Promise.all(
+    // Get comments and proofs for each order
+    const ordersWithDetails = await Promise.all(
       (data || []).map(async (order) => {
         console.log('Processing order:', order.id, 'files:', order.files);
-        const { data: comments } = await supabase
-          .from('custom_ad_order_comments')
-          .select('*')
-          .eq('order_id', order.id)
-          .order('created_at', { ascending: true });
+        const [commentsRes, proofsRes] = await Promise.all([
+          supabase
+            .from('custom_ad_order_comments')
+            .select('*')
+            .eq('order_id', order.id)
+            .order('created_at', { ascending: true }),
+          supabase
+            .from('custom_ad_proofs')
+            .select(`
+              *,
+              designer:profiles!custom_ad_proofs_designer_id_fkey(id, full_name, email)
+            `)
+            .eq('order_id', order.id)
+            .order('version_number', { ascending: false })
+        ]);
         
         return {
           ...order,
-          comments: comments || [],
+          comments: commentsRes.data || [],
+          proofs: proofsRes.data || [],
           files: order.files || []
         };
       })
     );
 
-    console.log('Final orders with comments:', ordersWithComments);
-    return ordersWithComments;
+    console.log('Final orders with comments and proofs:', ordersWithDetails);
+    return ordersWithDetails;
   }
 
   // Get order details
@@ -498,15 +514,18 @@ export class CustomAdsService {
         .update({ workflow_status: 'proofs_ready' })
         .eq('id', proof.order_id);
 
-      // Send email notification for proofs ready
+      // Send email notifications for proof submitted and proofs ready
       try {
         const order = await this.getOrder(proof.order_id);
         const fullProof = await this.getProof(proofId);
         if (order && fullProof) {
+          // Send proof submitted notification (designer to client)
+          await CustomAdEmailService.sendProofSubmittedNotification(order, fullProof);
+          // Send proofs ready notification (client review)
           await CustomAdEmailService.sendProofsReadyNotification(order, fullProof);
         }
       } catch (emailError) {
-        console.error('Error sending proofs ready email:', emailError);
+        console.error('Error sending proof notifications:', emailError);
         // Don't throw error - proof submission should succeed even if email fails
       }
     }
@@ -696,7 +715,7 @@ export class CustomAdsService {
   // Request changes for order (client function)
   static async requestChanges(orderId: string, changeRequest: string, attachedFiles?: File[]): Promise<void> {
     try {
-      let uploadedFiles: Array<{ name: string; url: string; size: number; type: string }> = [];
+      const uploadedFiles: Array<{ name: string; url: string; size: number; type: string }> = [];
 
       // Upload attached files if provided
       if (attachedFiles && attachedFiles.length > 0) {
@@ -952,7 +971,7 @@ export class CustomAdsService {
   }
 
   static async updateOrderStatus(orderId: string, status: CustomAdOrder['workflow_status'], notes?: string): Promise<void> {
-    const updateData: any = { workflow_status: status };
+    const updateData: Record<string, string> = { workflow_status: status };
     
     if (notes) {
       updateData.designer_notes = notes;

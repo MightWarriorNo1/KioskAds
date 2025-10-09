@@ -7,6 +7,7 @@ import { HostService, HostAdAssignment, HostAd, HostKiosk } from '../../services
 import ProofOfPlayWidget from '../shared/ProofOfPlayWidget';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
+import { toLocalDateString } from '../../utils/dateUtils';
 
 export default function AdAssignment() {
   const navigate = useNavigate();
@@ -275,7 +276,7 @@ export default function AdAssignment() {
               <input
                 type="date"
                 value={newAssignment.startDate}
-                onChange={(e) => setNewAssignment(prev => ({ ...prev, startDate: e.target.value }))}
+                onChange={(e) => setNewAssignment(prev => ({ ...prev, startDate: toLocalDateString(e.target.value) }))}
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
               />
             </div>
@@ -287,7 +288,7 @@ export default function AdAssignment() {
               <input
                 type="date"
                 value={newAssignment.endDate}
-                onChange={(e) => setNewAssignment(prev => ({ ...prev, endDate: e.target.value }))}
+                onChange={(e) => setNewAssignment(prev => ({ ...prev, endDate: toLocalDateString(e.target.value) }))}
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
               />
             </div>

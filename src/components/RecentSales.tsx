@@ -65,6 +65,20 @@ export default function RecentSales({
     return campaignMappings[campaignName] || campaignName;
   };
 
+  const formatCustomAdName = (customAdName: string, description?: string) => {
+    // Custom ad names are already formatted correctly from the service
+    return customAdName;
+  };
+
+  const getDisplayName = (sale: RecentSale) => {
+    if (sale.payment_type === 'campaign' && sale.campaign) {
+      return formatCampaignName(sale.campaign.name, sale.campaign.description);
+    } else if (sale.payment_type === 'custom_ad' && sale.custom_ad) {
+      return formatCustomAdName(sale.custom_ad.name, sale.custom_ad.description);
+    }
+    return 'Unknown Purchase';
+  };
+
   const formatTimeAgo = (dateString: string) => {
     const now = new Date();
     const paymentDate = new Date(dateString);
@@ -152,7 +166,7 @@ export default function RecentSales({
               </div>
               
               <div className="text-sm font-medium text-gray-900 dark:text-white mb-1">
-                {formatCampaignName(sale.campaign.name, sale.campaign.description)}
+                {getDisplayName(sale)}
               </div>
               
               <div className="flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-400">

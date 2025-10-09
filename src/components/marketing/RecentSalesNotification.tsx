@@ -130,7 +130,7 @@ export default function RecentSalesNotification({}: RecentSalesNotificationProps
         address: sale.user.address || '',
         amount: sale.amount,
         timeAgo: formatTimeAgo(sale.payment_date),
-        campaignName: formatCampaignName(sale.campaign.name),
+        campaignName: getDisplayName(sale),
         profilePicture: undefined // We don't store profile pictures in the database
       }));
       
@@ -187,6 +187,15 @@ export default function RecentSalesNotification({}: RecentSalesNotificationProps
       'Premium Ad Package': 'Premium Ad Package'
     };
     return campaignMappings[campaignName] || campaignName;
+  };
+
+  const getDisplayName = (sale: any) => {
+    if (sale.payment_type === 'campaign' && sale.campaign) {
+      return formatCampaignName(sale.campaign.name);
+    } else if (sale.payment_type === 'custom_ad' && sale.custom_ad) {
+      return sale.custom_ad.name;
+    }
+    return 'Unknown Purchase';
   };
 
   const formatTimeAgo = (dateString: string) => {

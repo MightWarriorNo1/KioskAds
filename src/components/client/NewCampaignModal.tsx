@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Calendar, DollarSign, MapPin, Users } from 'lucide-react';
+import { toLocalDateString, compareLocalDates } from '../../utils/dateUtils';
 
 interface NewCampaignModalProps {
   isOpen: boolean;
@@ -33,7 +34,13 @@ export default function NewCampaignModal({ isOpen, onClose, onSubmit }: NewCampa
   const [errors, setErrors] = useState<Partial<CampaignData>>({});
 
   const handleInputChange = (field: keyof CampaignData, value: string | number) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    // Handle date fields to ensure they're treated as local dates
+    if (field === 'startDate' || field === 'endDate') {
+      const localDate = toLocalDateString(value as string);
+      setFormData(prev => ({ ...prev, [field]: localDate }));
+    } else {
+      setFormData(prev => ({ ...prev, [field]: value }));
+    }
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
@@ -59,7 +66,7 @@ export default function NewCampaignModal({ isOpen, onClose, onSubmit }: NewCampa
       newErrors.endDate = 'End date is required';
     }
 
-    if (formData.startDate && formData.endDate && new Date(formData.startDate) >= new Date(formData.endDate)) {
+    if (formData.startDate && formData.endDate && compareLocalDates(formData.startDate, formData.endDate) >= 0) {
       newErrors.endDate = 'End date must be after start date';
     }
 

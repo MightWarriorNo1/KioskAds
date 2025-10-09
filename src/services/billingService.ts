@@ -38,7 +38,9 @@ export interface PaymentHistory {
 export interface RecentSale {
   id: string;
   user_id: string;
-  campaign_id: string;
+  campaign_id?: string;
+  custom_ad_order_id?: string;
+  payment_type: 'campaign' | 'custom_ad';
   amount: number;
   status: 'succeeded' | 'pending' | 'failed' | 'refunded';
   description: string;
@@ -50,8 +52,14 @@ export interface RecentSale {
     company_name?: string;
     address?: string;
   };
-  campaign: {
+  campaign?: {
     id: string;
+    name: string;
+    description?: string;
+  };
+  custom_ad?: {
+    id: string;
+    service_key: string;
     name: string;
     description?: string;
   };
@@ -61,7 +69,7 @@ export class BillingService {
   static async createPaymentIntent(params: { amount: number; currency?: string; metadata?: Record<string, string>; setupForFutureUse?: boolean }): Promise<{ clientSecret: string } | null> {
     try {
       const requestBody: Record<string, unknown> = {
-        amount: Math.round(params.amount),
+        amount: Math.round(params.amount * 100), // Convert dollars to cents
         currency: params.currency || 'usd',
         metadata: params.metadata,
         setupForFutureUse: params.setupForFutureUse || false,
@@ -401,6 +409,11 @@ export class BillingService {
             id,
             name,
             description
+          ),
+          custom_ad_orders!payment_history_custom_ad_order_id_fkey(
+            id,
+            service_key,
+            details
           )
         `)
         .eq('status', 'succeeded')
@@ -412,27 +425,51 @@ export class BillingService {
         throw error;
       }
 
-      return data?.map(payment => ({
-        id: payment.id,
-        user_id: payment.user_id,
-        campaign_id: payment.campaign_id,
-        amount: payment.amount,
-        status: payment.status,
-        description: payment.description,
-        payment_date: payment.payment_date,
-        created_at: payment.created_at,
-        user: {
-          id: payment.profiles.id,
-          full_name: payment.profiles.full_name,
-          company_name: payment.profiles.company_name,
-          address: payment.profiles.address
-        },
-        campaign: {
-          id: payment.campaigns.id,
-          name: payment.campaigns.name,
-          description: payment.campaigns.description
+      return data?.map(payment => {
+        const baseSale = {
+          id: payment.id,
+          user_id: payment.user_id,
+          campaign_id: payment.campaign_id,
+          custom_ad_order_id: payment.custom_ad_order_id,
+          payment_type: payment.payment_type,
+          amount: payment.amount,
+          status: payment.status,
+          description: payment.description,
+          payment_date: payment.payment_date,
+          created_at: payment.created_at,
+          user: {
+            id: payment.profiles.id,
+            full_name: payment.profiles.full_name,
+            company_name: payment.profiles.company_name,
+            address: payment.profiles.address
+          }
+        };
+
+        if (payment.payment_type === 'campaign' && payment.campaigns) {
+          return {
+            ...baseSale,
+            campaign: {
+              id: payment.campaigns.id,
+              name: payment.campaigns.name,
+              description: payment.campaigns.description
+            }
+          };
+        } else if (payment.payment_type === 'custom_ad' && payment.custom_ad_orders) {
+          const customAd = payment.custom_ad_orders;
+          const serviceName = this.getCustomAdServiceName(customAd.service_key);
+          return {
+            ...baseSale,
+            custom_ad: {
+              id: customAd.id,
+              service_key: customAd.service_key,
+              name: serviceName,
+              description: customAd.details
+            }
+          };
         }
-      })) || [];
+
+        return baseSale;
+      }) || [];
     } catch (error) {
       console.error('Error fetching recent sales:', error);
       return [];
@@ -453,27 +490,49 @@ export class BillingService {
       }
 
       // Transform the RPC response to match our interface
-      return data?.map((item: any) => ({
-        id: item.id,
-        user_id: item.user_id,
-        campaign_id: item.campaign_id,
-        amount: item.amount,
-        status: item.status,
-        description: item.description,
-        payment_date: item.payment_date,
-        created_at: item.created_at,
-        user: {
-          id: item.user_data.id,
-          full_name: item.user_data.full_name,
-          company_name: item.user_data.company_name,
-          address: item.user_data.address
-        },
-        campaign: {
-          id: item.campaign_data.id,
-          name: item.campaign_data.name,
-          description: item.campaign_data.description
+      return data?.map((item: any) => {
+        const baseSale = {
+          id: item.id,
+          user_id: item.user_id,
+          campaign_id: item.campaign_id,
+          custom_ad_order_id: item.custom_ad_order_id,
+          payment_type: item.payment_type,
+          amount: item.amount,
+          status: item.status,
+          description: item.description,
+          payment_date: item.payment_date,
+          created_at: item.created_at,
+          user: {
+            id: item.user_data.id,
+            full_name: item.user_data.full_name,
+            company_name: item.user_data.company_name,
+            address: item.user_data.address
+          }
+        };
+
+        if (item.payment_type === 'campaign' && item.campaign_data) {
+          return {
+            ...baseSale,
+            campaign: {
+              id: item.campaign_data.id,
+              name: item.campaign_data.name,
+              description: item.campaign_data.description
+            }
+          };
+        } else if (item.payment_type === 'custom_ad' && item.custom_ad_data) {
+          return {
+            ...baseSale,
+            custom_ad: {
+              id: item.custom_ad_data.id,
+              service_key: item.custom_ad_data.service_key,
+              name: item.custom_ad_data.name,
+              description: item.custom_ad_data.description
+            }
+          };
         }
-      })) || [];
+
+        return baseSale;
+      }) || [];
     } catch (error) {
       console.error('Error fetching public recent sales:', error);
       // Fallback to regular method if RPC fails
@@ -586,7 +645,7 @@ export class BillingService {
   }): Promise<{ clientSecret: string } | null> {
     try {
       const requestBody: Record<string, unknown> = {
-        amount: Math.round(params.amount),
+        amount: Math.round(params.amount * 100), // Convert dollars to cents
         currency: params.currency || 'usd',
         metadata: params.metadata,
       };
@@ -609,6 +668,70 @@ export class BillingService {
     } catch (error) {
       console.error('Error creating payment intent:', error);
       return null;
+    }
+  }
+
+  // Direct payment processing with saved payment method
+  static async processPaymentWithSavedMethod(params: { 
+    amount: number; 
+    currency?: string; 
+    paymentMethodId: string;
+    metadata?: Record<string, string>; 
+    userId?: string;
+  }): Promise<{ success: boolean; paymentIntentId?: string; error?: string }> {
+    try {
+      // Get customer ID if userId is provided
+      let customerId = params.metadata?.customerId;
+      if (!customerId && params.userId) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('stripe_customer_id')
+          .eq('id', params.userId)
+          .single();
+        customerId = profile?.stripe_customer_id;
+      }
+
+      const requestBody = {
+        amount: Math.round(params.amount * 100), // Convert dollars to cents
+        currency: params.currency || 'usd',
+        paymentMethodId: params.paymentMethodId,
+        metadata: {
+          ...params.metadata,
+          customerId,
+          userId: params.userId
+        },
+      };
+      
+      const { data, error } = await supabase.functions.invoke('process-payment', {
+        body: requestBody,
+      });
+
+      if (error) {
+        console.error('Failed to process payment', error);
+        return { success: false, error: error.message || 'Payment processing failed' };
+      }
+
+      return data as { success: boolean; paymentIntentId?: string; error?: string };
+    } catch (error) {
+      console.error('Error processing payment:', error);
+      return { success: false, error: 'Payment processing failed' };
+    }
+  }
+
+  // Helper method to get custom ad service name from service key
+  static getCustomAdServiceName(serviceKey: string): string {
+    switch (serviceKey) {
+      case 'graphic-design':
+      case 'vertical_ad_design':
+      case 'vertical_ad_with_upload':
+        return 'Custom Vertical Ad';
+      case 'photography':
+        return 'Custom Vertical Ad - Photo';
+      case 'videography':
+      case 'video_ad_creation':
+        return 'Custom Vertical Ad - Video';
+      default:
+        return 'Custom Vertical Ad';
     }
   }
 }

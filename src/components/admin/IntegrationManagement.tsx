@@ -367,7 +367,7 @@ export default function IntegrationManagement() {
       </div>
 
       {/* Setup Instructions */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+      <div className="border border-blue-200 rounded-xl p-6">
         <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-300 mb-3">Setup Instructions</h3>
         <div className="space-y-3 text-sm text-blue-800 dark:text-blue-300">
           <p><strong>Gmail API:</strong> Enable Gmail API in Google Cloud Console and create OAuth 2.0 credentials.</p>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, CheckCircle, Mail } from 'lucide-react';
 import { AdminService, MarketingTool } from '../../services/adminService';
 import { MailchimpService } from '../../services/mailchimpService';
+import { CouponEmailService } from '../../services/couponEmailService';
 import { useNotification } from '../../contexts/NotificationContext';
 
 interface PopupSettings {
@@ -13,6 +14,8 @@ interface PopupSettings {
   message?: string;
   buttonText?: string;
   collectEmail?: boolean;
+  couponCode?: string;
+  confirmationMessage?: string;
 }
 
 export default function PopupMarketingTool() {
@@ -59,6 +62,9 @@ export default function PopupMarketingTool() {
     try {
       setIsSubmitting(true);
       
+      const settings: PopupSettings = marketingTool.settings || {};
+      const couponCode = settings.couponCode || generateCouponCode();
+      
       // Subscribe to Mailchimp
       const success = await MailchimpService.subscribe({
         email: email.trim(),
@@ -66,19 +72,27 @@ export default function PopupMarketingTool() {
       });
 
       if (success) {
-        // Generate coupon code
-        const couponCode = generateCouponCode();
+        // Send coupon email using the new service
+        const emailSent = await CouponEmailService.sendCouponCodeEmail({
+          email: email.trim(),
+          name: email.trim().split('@')[0], // Use email prefix as name
+          couponCode: couponCode,
+          marketingToolId: marketingTool.id,
+          marketingToolTitle: marketingTool.title
+        });
         
-        // Send coupon email
-        await sendCouponEmail(email.trim(), couponCode);
-        
-        setIsSuccess(true);
-        addNotification('success', 'Success!', 'Check your email for your coupon code.');
-        
-        // Auto close after success
-        setTimeout(() => {
-          handleClose();
-        }, 3000);
+        if (emailSent) {
+          setIsSuccess(true);
+          const confirmationMessage = settings.confirmationMessage || 'Check Your Email For Coupon Code';
+          addNotification('success', 'Success!', confirmationMessage);
+          
+          // Auto close after success
+          setTimeout(() => {
+            handleClose();
+          }, 3000);
+        } else {
+          addNotification('error', 'Failed to send email', 'Please try again.');
+        }
       } else {
         addNotification('error', 'Failed to subscribe', 'Please try again.');
       }
@@ -96,70 +110,6 @@ export default function PopupMarketingTool() {
     return `${prefix}${random}`;
   };
 
-  const sendCouponEmail = async (email: string, couponCode: string) => {
-    try {
-      // Create email template for coupon
-      const subject = 'Your 15% Discount Code is Here! 🎉';
-      const htmlBody = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 20px; border-radius: 10px 10px 0 0;">
-            <h1 style="margin: 0; font-size: 32px; font-weight: bold;">🎉 Welcome!</h1>
-            <p style="margin: 10px 0 0 0; font-size: 18px; opacity: 0.9;">Your discount code is ready</p>
-          </div>
-          
-          <div style="background: white; padding: 40px 20px; border-radius: 0 0 10px 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <h2 style="color: #333; margin: 0 0 10px 0; font-size: 24px;">Get 15% Off Your First Purchase</h2>
-              <p style="color: #666; margin: 0; font-size: 16px;">Use this code at checkout to save on your first order</p>
-            </div>
-            
-            <div style="background: #f8f9fa; border: 2px dashed #667eea; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
-              <div style="font-size: 14px; color: #666; margin-bottom: 5px;">Your Discount Code:</div>
-              <div style="font-size: 28px; font-weight: bold; color: #667eea; letter-spacing: 2px; font-family: 'Courier New', monospace;">${couponCode}</div>
-            </div>
-            
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${window.location.origin}" 
-                 style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px; display: inline-block;">
-                Start Shopping Now
-              </a>
-            </div>
-            
-            <div style="border-top: 1px solid #eee; padding-top: 20px; margin-top: 30px; text-align: center; color: #666; font-size: 14px;">
-              <p style="margin: 0;">This code expires in 30 days. Terms and conditions apply.</p>
-              <p style="margin: 5px 0 0 0;">Thank you for subscribing to our newsletter!</p>
-            </div>
-          </div>
-        </div>
-      `;
-
-      const textBody = `
-Welcome! Your discount code is ready.
-
-Get 15% Off Your First Purchase
-Use this code at checkout to save on your first order
-
-Your Discount Code: ${couponCode}
-
-Start Shopping Now: ${window.location.origin}
-
-This code expires in 30 days. Terms and conditions apply.
-Thank you for subscribing to our newsletter!
-      `;
-
-      // Queue the email
-      await AdminService.queueEmail({
-        recipient_email: email,
-        recipient_name: '',
-        subject,
-        body_html: htmlBody,
-        body_text: textBody
-      });
-
-    } catch (error) {
-      console.error('Error sending coupon email:', error);
-    }
-  };
 
   // Auto close functionality - must be before early return
   useEffect(() => {
@@ -207,10 +157,10 @@ Thank you for subscribing to our newsletter!
                 <CheckCircle className="h-8 w-8 text-green-600" />
               </div>
               <h2 className="text-2xl font-bold" style={{ color: textColor }}>
-                Check Your Email!
+                {settings.confirmationMessage || 'Check Your Email!'}
               </h2>
               <p className="text-lg" style={{ color: textColor, opacity: 0.8 }}>
-                We've sent your 15% discount code to <strong>{email}</strong>
+                We've sent your discount code to <strong>{email}</strong>
               </p>
               <div className="flex items-center justify-center space-x-2 text-sm" style={{ color: textColor, opacity: 0.6 }}>
                 <Mail className="h-4 w-4" />

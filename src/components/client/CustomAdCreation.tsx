@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { CustomAdCreationService, CustomAdCreationInput } from '../../services/customAdCreationService';
+import { toLocalDateString } from '../../utils/dateUtils';
 import { 
   validateCustomAdFiles, 
   formatFileSize, 
@@ -481,7 +482,7 @@ export default function CustomAdCreation({ onComplete, onCancel }: CustomAdCreat
               <input
                 type="date"
                 value={formData.deadline}
-                onChange={(e) => handleInputChange('deadline', e.target.value)}
+                onChange={(e) => handleInputChange('deadline', toLocalDateString(e.target.value))}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
             </div>

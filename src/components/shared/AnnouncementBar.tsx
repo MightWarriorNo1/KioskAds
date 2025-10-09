@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import { AdminService, MarketingTool } from '../../services/adminService';
+import { CouponEmailService } from '../../services/couponEmailService';
+import { MailchimpService } from '../../services/mailchimpService';
+import { useNotification } from '../../contexts/NotificationContext';
 
 interface AnnouncementSettings {
   position?: 'top' | 'bottom';
@@ -19,6 +22,8 @@ interface AnnouncementSettings {
     href?: string;
   } | null;
   collectEmail?: boolean;
+  couponCode?: string;
+  confirmationMessage?: string;
 }
 
 export default function AnnouncementBar() {
@@ -26,10 +31,11 @@ export default function AnnouncementBar() {
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [dismissedId, setDismissedId] = useState<string | null>(null);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const { addNotification } = useNotification();
 
   useEffect(() => {
     loadActiveBar();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadActiveBar = async () => {
@@ -65,17 +71,57 @@ export default function AnnouncementBar() {
 
   const handleSubmitEmail = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) return;
+    if (!email || !activeBar) return;
+    
     try {
       setSubmitting(true);
-      await AdminService.logAdminAction('announcement_bar_email', 'marketing_tool', activeBar.id, { email });
-      setEmail('');
-      setDismissedId(activeBar.id);
-    } catch (err) {
-      console.error(err);
+      
+      const settings: AnnouncementSettings = activeBar.settings || {};
+      const couponCode = settings.couponCode || generateCouponCode();
+      
+      // Subscribe to Mailchimp
+      const success = await MailchimpService.subscribe({
+        email: email.trim(),
+        tags: ['announcement-signup', 'discount-offer']
+      });
+
+      if (success) {
+        // Send coupon email using the new service
+        const emailSent = await CouponEmailService.sendCouponCodeEmail({
+          email: email.trim(),
+          name: email.trim().split('@')[0], // Use email prefix as name
+          couponCode: couponCode,
+          marketingToolId: activeBar.id,
+          marketingToolTitle: activeBar.title
+        });
+        
+        if (emailSent) {
+          setIsSuccess(true);
+          const confirmationMessage = settings.confirmationMessage || 'Check Your Email For Coupon Code';
+          addNotification('success', 'Success!', confirmationMessage);
+          
+          // Auto dismiss after success
+          setTimeout(() => {
+            setDismissedId(activeBar.id);
+          }, 3000);
+        } else {
+          addNotification('error', 'Failed to send email', 'Please try again.');
+        }
+      } else {
+        addNotification('error', 'Failed to subscribe', 'Please try again.');
+      }
+    } catch (error) {
+      console.error('Error submitting email:', error);
+      addNotification('error', 'Error', 'An error occurred. Please try again.');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const generateCouponCode = (): string => {
+    const prefix = 'SAVE15';
+    const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+    return `${prefix}${random}`;
   };
 
   return (
@@ -112,55 +158,68 @@ export default function AnnouncementBar() {
           
           {/* Main content area with proper mobile handling */}
           <div className="flex-1 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 pr-8 sm:pr-12">
-            {/* Text content */}
-            <div 
-              className="font-medium text-center flex-1 min-w-0"
-              style={{ fontSize: `${fontSize}px` }}
-            >
-              {activeBar.title ? (
-                <span className="block sm:inline mr-0 sm:mr-2">{activeBar.title}</span>
-              ) : null}
-              <span className="block sm:inline">{activeBar.content}</span>
-            </div>
-            
-            {/* CTA or Email form */}
-            <div className="flex-shrink-0">
-              {cta && cta.label && cta.href && !collectEmail && (
-                <a
-                  href={cta.href}
-                  className="font-semibold underline underline-offset-2 whitespace-nowrap"
-                  style={{ color: textColor, fontSize: `${fontSize}px` }}
+            {isSuccess ? (
+              <div 
+                className="font-medium text-center flex-1 min-w-0"
+                style={{ fontSize: `${fontSize}px` }}
+              >
+                <span className="block sm:inline">{settings.confirmationMessage || 'Check Your Email For Coupon Code'}</span>
+              </div>
+            ) : (
+              <>
+                {/* Text content */}
+                <div 
+                  className="font-medium text-center flex-1 min-w-0"
+                  style={{ fontSize: `${fontSize}px` }}
                 >
-                  {cta.label}
-                </a>
-              )}
-              
-              {collectEmail && (
-                <form onSubmit={handleSubmitEmail} className="flex flex-col sm:flex-row items-center gap-2">
-                  <input
-                    type="email"
-                    placeholder="Enter your email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="rounded px-2 py-1 w-full sm:w-auto min-w-[200px]"
-                    style={{ 
-                      backgroundColor: emailInputBackgroundColor,
-                      color: emailInputTextColor,
-                      fontSize: `${fontSize}px`
-                    }}
-                    required
-                  />
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="rounded bg-white/20 px-3 py-1 font-semibold whitespace-nowrap"
+                  {activeBar.title ? (
+                    <span className="block sm:inline mr-0 sm:mr-2">{activeBar.title}</span>
+                  ) : null}
+                  <span className="block sm:inline">{activeBar.content}</span>
+                </div>
+              </>
+            )}
+            
+            {/* CTA or Email form - only show when not in success state */}
+            {!isSuccess && (
+              <div className="flex-shrink-0">
+                {cta && cta.label && cta.href && !collectEmail && (
+                  <a
+                    href={cta.href}
+                    className="font-semibold underline underline-offset-2 whitespace-nowrap"
                     style={{ color: textColor, fontSize: `${fontSize}px` }}
                   >
-                    {submitting ? 'Sending...' : 'Submit'}
-                  </button>
-                </form>
-              )}
-            </div>
+                    {cta.label}
+                  </a>
+                )}
+                
+                {collectEmail && (
+                  <form onSubmit={handleSubmitEmail} className="flex flex-col sm:flex-row items-center gap-2">
+                    <input
+                      type="email"
+                      placeholder="Enter your email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="rounded px-2 py-1 w-full sm:w-auto min-w-[200px]"
+                      style={{ 
+                        backgroundColor: emailInputBackgroundColor,
+                        color: emailInputTextColor,
+                        fontSize: `${fontSize}px`
+                      }}
+                      required
+                    />
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      className="rounded bg-white/20 px-3 py-1 font-semibold whitespace-nowrap"
+                      style={{ color: textColor, fontSize: `${fontSize}px` }}
+                    >
+                      {submitting ? 'Sending...' : 'Submit'}
+                    </button>
+                  </form>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

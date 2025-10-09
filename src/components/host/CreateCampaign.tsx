@@ -13,6 +13,7 @@ import { MediaService } from '../../services/mediaService';
 import { BillingService } from '../../services/billingService';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, useElements, useStripe, PaymentElement } from '@stripe/react-stripe-js';
+import { toLocalDateString, compareLocalDates } from '../../utils/dateUtils';
 
 export default function CreateCampaign() {
 	const navigate = useNavigate();
@@ -70,7 +71,7 @@ export default function CreateCampaign() {
 			form.name.trim().length > 0 &&
 			form.startDate &&
 			form.endDate &&
-			new Date(form.startDate) <= new Date(form.endDate) &&
+			compareLocalDates(form.startDate, form.endDate) <= 0 &&
 			selectedKioskIds.length > 0 &&
 			!!file && !!fileValidation?.isValid
 		);
@@ -227,7 +228,7 @@ export default function CreateCampaign() {
 						<input
 							type="date"
 							value={form.startDate}
-							onChange={(e) => setForm(prev => ({ ...prev, startDate: e.target.value }))}
+							onChange={(e) => setForm(prev => ({ ...prev, startDate: toLocalDateString(e.target.value) }))}
 							className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
 						/>
 					</div>
@@ -238,7 +239,7 @@ export default function CreateCampaign() {
 						<input
 							type="date"
 							value={form.endDate}
-							onChange={(e) => setForm(prev => ({ ...prev, endDate: e.target.value }))}
+							onChange={(e) => setForm(prev => ({ ...prev, endDate: toLocalDateString(e.target.value) }))}
 							className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
 						/>
 					</div>

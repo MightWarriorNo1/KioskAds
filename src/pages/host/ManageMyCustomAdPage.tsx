@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   MessageSquare, 
   Send, 
@@ -12,7 +12,8 @@ import {
   DollarSign,
   Eye,
   RefreshCw,
-  Users
+  Users,
+  Play
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../contexts/NotificationContext';
@@ -24,6 +25,7 @@ export default function HostManageMyCustomAdPage() {
   const { user } = useAuth();
   const { addNotification } = useNotification();
   const location = useLocation();
+  const navigate = useNavigate();
   
   const [customAds, setCustomAds] = useState<CustomAdOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -151,6 +153,14 @@ export default function HostManageMyCustomAdPage() {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleCreateCampaign = () => {
+    if (!selectedAd) return;
+    
+    // Navigate to kiosk selection to start the campaign creation flow
+    // This is the same flow as "Upload Your Own Vertical Ad"
+    navigate('/host/kiosk-selection');
   };
 
   const getStatusIcon = (status: string) => {
@@ -475,9 +485,145 @@ export default function HostManageMyCustomAdPage() {
                     ))}
                   </div>
                 </div>
-              )}
+                )}
 
-              {/* Action Buttons for Designer Assigned Orders */}
+                {/* Designer Proofs */}
+                {selectedAd.proofs && selectedAd.proofs.length > 0 && (
+                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                      <FileText className="w-5 h-5 mr-2" />
+                      Designer Proofs ({selectedAd.proofs.length})
+                    </h3>
+
+                    <div className="space-y-4">
+                      {selectedAd.proofs.map((proof) => (
+                        <div key={proof.id} className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <h4 className="font-medium text-gray-900 dark:text-white">
+                                {proof.title || 'Proof'} - Version {proof.version_number}
+                              </h4>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">
+                                Created by {proof.designer?.full_name || 'Designer'} on{' '}
+                                {new Date(proof.created_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              proof.status === 'approved' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                              proof.status === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                              proof.status === 'submitted' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                              'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+                            }`}>
+                              {proof.status.replace('_', ' ').toUpperCase()}
+                            </span>
+                          </div>
+
+                          {proof.description && (
+                            <p className="text-gray-700 dark:text-gray-300 mb-3">
+                              {proof.description}
+                            </p>
+                          )}
+
+                          {proof.designer_notes && (
+                            <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg">
+                              <h5 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">Designer Notes:</h5>
+                              <p className="text-sm text-gray-700 dark:text-gray-300">{proof.designer_notes}</p>
+                            </div>
+                          )}
+
+                          {proof.client_feedback && (
+                            <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                              <h5 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">Client Feedback:</h5>
+                              <p className="text-sm text-blue-800 dark:text-blue-200">{proof.client_feedback}</p>
+                            </div>
+                          )}
+
+                          {/* Proof Files */}
+                          {Array.isArray(proof.files) && proof.files.length > 0 ? (
+                            <div className="grid gap-3">
+                              {proof.files.map((file: any, idx: number) => (
+                                <div key={idx} className="border border-gray-200 dark:border-gray-600 rounded p-3">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm font-medium text-gray-900 dark:text-white">{file.name}</span>
+                                    <Button
+                                      onClick={() => window.open(file.url, '_blank')}
+                                      variant="secondary"
+                                      size="sm"
+                                      className="flex items-center space-x-1"
+                                    >
+                                      <Eye className="w-4 h-4" />
+                                      <span>View</span>
+                                    </Button>
+                                  </div>
+                                  {file.type?.startsWith('image/') ? (
+                                    <img src={file.url} alt={file.name} className="max-h-[300px] rounded mx-auto" />
+                                  ) : file.type?.startsWith('video/') ? (
+                                    <video src={file.url} controls className="max-h-[300px] rounded mx-auto" />
+                                  ) : (
+                                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                                      <a href={file.url} className="text-blue-600 hover:text-blue-800 underline">
+                                        Download {file.name}
+                                      </a>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-sm text-gray-600 dark:text-gray-400">No files attached to this proof.</div>
+                          )}
+
+                          {/* Proof Actions */}
+                          {(proof.status === 'submitted' || proof.status === 'revision_requested') && (
+                            <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-600">
+                              <Button
+                                onClick={async () => {
+                                  try {
+                                    await CustomAdsService.approveProof(proof.id);
+                                    addNotification('success', 'Proof Approved', 'Proof has been approved successfully!');
+                                    loadCustomAds(); // Refresh to get updated data
+                                  } catch (error) {
+                                    console.error('Error approving proof:', error);
+                                    addNotification('error', 'Approval Failed', 'Failed to approve proof. Please try again.');
+                                  }
+                                }}
+                                className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white"
+                                size="sm"
+                              >
+                                <CheckCircle className="w-4 h-4" />
+                                <span>Approve</span>
+                              </Button>
+                              <Button
+                                onClick={() => {
+                                  const feedback = prompt('Please provide feedback for the requested changes:');
+                                  if (feedback && feedback.trim()) {
+                                    CustomAdsService.rejectProof(proof.id, feedback.trim())
+                                      .then(() => {
+                                        addNotification('success', 'Feedback Sent', 'Your feedback has been sent to the designer.');
+                                        loadCustomAds(); // Refresh to get updated data
+                                      })
+                                      .catch((error) => {
+                                        console.error('Error rejecting proof:', error);
+                                        addNotification('error', 'Request Failed', 'Failed to send feedback. Please try again.');
+                                      });
+                                  }
+                                }}
+                                variant="secondary"
+                                className="flex items-center space-x-2"
+                                size="sm"
+                              >
+                                <XCircle className="w-4 h-4" />
+                                <span>Request Changes</span>
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons for Designer Assigned Orders */}
               {selectedAd.workflow_status === 'designer_assigned' && (
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
@@ -504,6 +650,29 @@ export default function HostManageMyCustomAdPage() {
                     >
                       <AlertCircle className="w-4 h-4" />
                       <span>Request Changes</span>
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Create Campaign Button for Approved Orders */}
+              {selectedAd.workflow_status === 'approved' && (
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <Play className="w-5 h-5 mr-2" />
+                    Ready to Launch Campaign
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-300 mb-4">
+                    Your custom ad has been approved! You can now create a campaign to start running your ad.
+                  </p>
+                  
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Button
+                      onClick={handleCreateCampaign}
+                      className="flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      <Play className="w-4 h-4" />
+                      <span>Create Campaign</span>
                     </Button>
                   </div>
                 </div>

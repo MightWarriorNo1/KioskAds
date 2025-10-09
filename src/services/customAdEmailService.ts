@@ -678,6 +678,41 @@ export class CustomAdEmailService {
     }
   }
 
+  // Send email notification for revision requested (change request)
+  static async sendRevisionRequestedNotification(order: CustomAdOrder): Promise<void> {
+    try {
+      const template = await this.getEmailTemplate('custom_ad_revision_requested');
+      if (!template) return;
+
+      const client = await this.getUserProfile(order.user_id);
+      if (!client) return;
+
+      const designer = order.designer;
+      if (!designer) return;
+
+      const service = await this.getCustomAdService(order.service_key);
+      if (!service) return;
+
+      const variables = {
+        order_id: order.id,
+        client_name: order.user?.full_name || order.user?.full_name || `${order.first_name} ${order.last_name}`,
+        service_name: service.name,
+        designer_name: designer.full_name,
+        client_feedback: order.client_notes || 'No specific feedback provided'
+      };
+
+      // Send to designer
+      await this.sendEmail(template, designer.email, designer.full_name, variables);
+
+      // Send to admins
+      await this.sendNotificationToAdmins(order, 'revision_requested', 'Revision Requested', 
+        `Client has requested changes for order #${order.id}`);
+
+    } catch (error) {
+      console.error('Error sending revision requested notification:', error);
+    }
+  }
+
   // Send test email
   static async sendTestEmail(templateType: string, testEmail: string): Promise<boolean> {
     try {

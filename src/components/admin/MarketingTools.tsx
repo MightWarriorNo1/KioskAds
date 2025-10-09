@@ -1,7 +1,9 @@
+/*eslint-disable */
 import { useState, useEffect } from 'react';
-import { Megaphone, Plus, Edit, Trash2, Eye, EyeOff, RefreshCw, Star, MessageSquare, Bell, BarChart3, Users } from 'lucide-react';
+import { Megaphone, Plus, Edit, Trash2, Eye, EyeOff, RefreshCw, Star, MessageSquare, Bell, BarChart3, Mail } from 'lucide-react';
 import { useNotification } from '../../contexts/NotificationContext';
 import { AdminService, MarketingTool, Testimonial } from '../../services/adminService';
+import { CouponEmailService } from '../../services/couponEmailService';
 import PartnerSettings from './PartnerSettings';
 
 export default function MarketingTools() {
@@ -11,6 +13,10 @@ export default function MarketingTools() {
   const [activeTab, setActiveTab] = useState<'tools' | 'testimonials' | 'partner-settings'>('tools');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingItem, setEditingItem] = useState<MarketingTool | Testimonial | null>(null);
+  const [showTestEmailModal, setShowTestEmailModal] = useState(false);
+  const [testEmail, setTestEmail] = useState('');
+  const [sendingTestEmail, setSendingTestEmail] = useState(false);
+  const [testEmailTool, setTestEmailTool] = useState<MarketingTool | null>(null);
   const { addNotification } = useNotification();
 
   // Form state
@@ -23,7 +29,9 @@ export default function MarketingTools() {
       backgroundColor: '',
       textColor: '',
       cta: { label: '', href: '' },
-      collectEmail: false
+      collectEmail: false,
+      couponCode: '',
+      confirmationMessage: 'Check Your Email For Coupon Code'
     } as any,
     is_active: true,
     priority: 0,
@@ -148,15 +156,25 @@ export default function MarketingTools() {
     setEditingItem(item);
     setFormData({
       type: 'type' in item ? item.type : 'announcement_bar',
-      title: item.title || '',
+      title: 'title' in item ? (item as any).title || '' : '',
       content: item.content || '',
       settings: 'settings' in item ? (item as any).settings || {
         position: 'top',
         backgroundColor: '',
         textColor: '',
         cta: { label: '', href: '' },
-        collectEmail: false
-      } : {},
+        collectEmail: false,
+        couponCode: '',
+        confirmationMessage: 'Check Your Email For Coupon Code'
+      } : {
+        position: 'top',
+        backgroundColor: '',
+        textColor: '',
+        cta: { label: '', href: '' },
+        collectEmail: false,
+        couponCode: '',
+        confirmationMessage: 'Check Your Email For Coupon Code'
+      },
       is_active: item.is_active,
       priority: 'priority' in item ? item.priority : 0,
       target_audience: 'target_audience' in item ? item.target_audience : {},
@@ -172,7 +190,8 @@ export default function MarketingTools() {
   };
 
   const handleDelete = async (item: MarketingTool | Testimonial) => {
-    if (!confirm(`Are you sure you want to delete "${item.title}"? This action cannot be undone.`)) {
+    const itemTitle = 'title' in item ? item.title : item.client_name || 'this item';
+    if (!confirm(`Are you sure you want to delete "${itemTitle}"? This action cannot be undone.`)) {
       return;
     }
 
@@ -220,7 +239,9 @@ export default function MarketingTools() {
         backgroundColor: '',
         textColor: '',
         cta: { label: '', href: '' },
-        collectEmail: false
+        collectEmail: false,
+        couponCode: '',
+        confirmationMessage: 'Check Your Email For Coupon Code'
       } as any,
       is_active: true,
       priority: 0,
@@ -239,6 +260,53 @@ export default function MarketingTools() {
   const openCreateModal = () => {
     resetForm();
     setShowCreateModal(true);
+  };
+
+  const handleSendTestEmail = async () => {
+    if (!testEmail || !testEmailTool) return;
+
+    try {
+      setSendingTestEmail(true);
+      
+      const settings = testEmailTool.settings as any;
+      const couponCode = settings?.couponCode || 'TEST20';
+      
+      console.log('Sending test email with coupon code:', couponCode);
+      
+      // Try the simple test email first
+      const emailSent = await CouponEmailService.sendSimpleTestEmail(testEmail.trim(), couponCode);
+      
+      if (emailSent) {
+        addNotification('success', 'Test Email Sent', `Test coupon email sent to ${testEmail}. Check your inbox and spam folder.`);
+        setShowTestEmailModal(false);
+        setTestEmail('');
+        setTestEmailTool(null);
+      } else {
+        addNotification('error', 'Failed to Send', 'Failed to send test email. Please check the console for errors and try again.');
+      }
+    } catch (error) {
+      console.error('Error sending test email:', error);
+      addNotification('error', 'Error', `An error occurred while sending test email: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setSendingTestEmail(false);
+    }
+  };
+
+  const handleTriggerEmailQueue = async () => {
+    try {
+      setSendingTestEmail(true);
+      const success = await CouponEmailService.triggerEmailQueueProcessor();
+      if (success) {
+        addNotification('success', 'Queue Triggered', 'Email queue processor triggered successfully!');
+      } else {
+        addNotification('error', 'Queue Failed', 'Failed to trigger email queue processor');
+      }
+    } catch (error) {
+      console.error('Error triggering email queue:', error);
+      addNotification('error', 'Error', `An error occurred while triggering email queue: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setSendingTestEmail(false);
+    }
   };
 
   const getTypeIcon = (type: string) => {
@@ -375,6 +443,16 @@ export default function MarketingTools() {
                               title={tool.is_active ? 'Deactivate' : 'Activate'}
                             >
                               {tool.is_active ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                            </button>
+                            <button 
+                              onClick={() => {
+                                setTestEmailTool(tool);
+                                setShowTestEmailModal(true);
+                              }}
+                              className="p-2 text-blue-600 hover:text-blue-800"
+                              title="Send Test Email"
+                            >
+                              <Mail className="h-4 w-4" />
                             </button>
                             <button 
                               onClick={() => handleEdit(tool)}
@@ -688,6 +766,35 @@ export default function MarketingTools() {
                     <label htmlFor="is_active" className="ml-2 block text-sm text-gray-900 dark:text-white">
                       Active (tool is visible to users)
                     </label>
+                  </div>
+
+                  {/* Coupon Code Selection */}
+                  <div className="space-y-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Coupon Code Settings</h4>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Coupon Code</label>
+                        <input
+                          type="text"
+                          value={(formData.settings as any).couponCode || ''}
+                          onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), couponCode: e.target.value } }))}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          placeholder="e.g., SAVE20"
+                        />
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Leave empty to disable coupon functionality</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Confirmation Message</label>
+                        <input
+                          type="text"
+                          value={(formData.settings as any).confirmationMessage || 'Check Your Email For Coupon Code'}
+                          onChange={(e) => setFormData(prev => ({ ...prev, settings: { ...(prev.settings as any), confirmationMessage: e.target.value } }))}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          placeholder="Check Your Email For Coupon Code"
+                        />
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Message shown after email submission</p>
+                      </div>
+                    </div>
                   </div>
                 </>
               )}
@@ -1110,6 +1217,78 @@ export default function MarketingTools() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Test Email Modal */}
+      {showTestEmailModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Send Coupon Email
+              </h3>
+              <button
+                onClick={() => {
+                  setShowTestEmailModal(false);
+                  setTestEmail('');
+                  setTestEmailTool(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <EyeOff className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  value={testEmail}
+                  onChange={(e) => setTestEmail(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="test@example.com"
+                />
+              </div>
+
+              {testEmailTool && (
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email Details:</h4>
+                  <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                    <p><strong>Marketing Tool:</strong> {testEmailTool.title}</p>
+                    <p><strong>Coupon Code:</strong> {(testEmailTool.settings as any)?.couponCode || 'TEST20'}</p>
+                    <p><strong>Type:</strong> {testEmailTool.type.replace('_', ' ')}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => {
+                      setShowTestEmailModal(false);
+                      setTestEmail('');
+                      setTestEmailTool(null);
+                    }}
+                    className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-500 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSendTestEmail}
+                    disabled={!testEmail || sendingTestEmail}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {sendingTestEmail ? 'Sending...' : 'Send Email'}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
