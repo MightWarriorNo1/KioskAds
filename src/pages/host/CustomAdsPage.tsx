@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
   Video, 
@@ -12,7 +12,8 @@ import {
   FileVideo,
   Trash2,
   CheckCircle,
-  ArrowRight
+  ArrowRight,
+  Camera
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
@@ -47,37 +48,39 @@ interface OrderFormData {
   address: string;
   details: string;
   files: File[];
-  preferredDate: string;
-  preferredTime: string;
+  preferredDate?: string;
+  preferredTime?: string;
 }
 
 const services: ServiceTile[] = [
   {
-    id: 'vertical_ad_design',
-    title: 'Vertical Ad Design',
-    description: 'Professional vertical ad design optimized for digital kiosks',
+    id: 'graphic-design',
+    title: 'Vertical Ad with User Uploaded Files',
+    description: 'Custom graphic design using your provided assets',
     price: 125,
     turnaround: '5-day turnaround',
     icon: <Palette className="h-8 w-8" />,
     requiresLocation: false
   },
   {
-    id: 'vertical_ad_with_upload',
-    title: 'Vertical Ad with User Uploaded Files',
-    description: 'Custom vertical ad using your provided assets and content',
-    price: 125,
+    id: 'photography',
+    title: 'Vertical Ad with Custom Photography',
+    description: 'Professional photography session for your ad',
+    price: 199,
     turnaround: '5-day turnaround',
-    icon: <Upload className="h-8 w-8" />,
-    requiresLocation: false
+    icon: <Camera className="h-8 w-8" />,
+    requiresLocation: true,
+    timeLimit: '2hr time limit'
   },
   {
-    id: 'video_ad_creation',
-    title: 'Video Ad Creation',
-    description: 'Dynamic video advertisement for maximum engagement',
-    price: 250,
+    id: 'videography',
+    title: 'Vertical Ad with Custom Video',
+    description: 'Professional video production for your ad',
+    price: 399,
     turnaround: '7-day turnaround',
     icon: <Video className="h-8 w-8" />,
-    requiresLocation: false,
+    requiresLocation: true,
+    timeLimit: '3hr time limit',
     videoLength: '15 sec - 30 sec video'
   }
 ];
@@ -103,18 +106,11 @@ export default function HostCustomAdsPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentStep, setPaymentStep] = useState<'form' | 'pay' | 'method' | 'success'>('form');
-  const [paymentMessage, setPaymentMessage] = useState<string | null>(null);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
-  const [isLoadingPaymentMethods, setIsLoadingPaymentMethods] = useState(false);
   const [orderSubmitted, setOrderSubmitted] = useState(false);
   const [submittedOrderId, setSubmittedOrderId] = useState<string | null>(null);
-  const [submittedOrderProofs, setSubmittedOrderProofs] = useState<any[]>([]);
-  const [isLoadingProofs, setIsLoadingProofs] = useState(false);
-  const [selectedProofForComments, setSelectedProofForComments] = useState<any>(null);
-  const [commentText, setCommentText] = useState('');
   const navigate=useNavigate();
-  const location = useLocation();
 
   // Update form data when user changes
   useEffect(() => {
@@ -158,28 +154,6 @@ export default function HostCustomAdsPage() {
     { number: 4, name: 'Review', current: currentStep === 4, completed: currentStep > 4 },
   ];
 
-  // Load proofs for the just-submitted order so user can review/approve
-  React.useEffect(() => {
-    const loadProofs = async () => {
-      if (!submittedOrderId) return;
-      try {
-        setIsLoadingProofs(true);
-        const proofs = await CustomAdsService.getOrderProofs(submittedOrderId);
-        setSubmittedOrderProofs(proofs || []);
-      } catch (e) {
-        console.error('Error loading proofs for submitted order:', e);
-      } finally {
-        setIsLoadingProofs(false);
-      }
-    };
-    loadProofs();
-
-    // Poll for new proofs for a short time after order submission (designer may upload soon)
-    const interval = submittedOrderId ? setInterval(loadProofs, 15000) : undefined;
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [submittedOrderId]);
 
   const handleInputChange = (field: keyof OrderFormData, value: string | File[]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -189,20 +163,56 @@ export default function HostCustomAdsPage() {
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    const newFiles = [...formData.files, ...files];
-    setFormData(prev => ({ ...prev, files: newFiles }));
-    
-    // Validate files
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    const maxFiles = 20;
+
+    if (files.length + formData.files.length > maxFiles) {
+      alert(`Maximum ${maxFiles} files allowed`);
+      return;
+    }
+
+    const validFiles: File[] = [];
     const errors: string[] = [];
-    newFiles.forEach((file, index) => {
-      const validation = validateCustomAdFile(file);
-      if (!validation.isValid) {
-        errors.push(`File ${index + 1}: ${validation.error}`);
+
+    // Clear previous validation errors
+    setFileValidationErrors([]);
+
+    for (const file of files) {
+      try {
+        // Use custom-ad validation: allow any dimensions and broad types
+        const validation = await validateCustomAdFile(file, { allowAnyDimensions: true });
+        
+        if (!validation.isValid) {
+          const errorMessage = `${file.name}: ${validation.errors.join(', ')}`;
+          errors.push(errorMessage);
+          continue;
+        }
+        
+        validFiles.push(file);
+      } catch (error) {
+        console.error('Validation error for file:', file.name, error);
+        const errorMessage = `${file.name}: Failed to validate file`;
+        errors.push(errorMessage);
+        continue;
       }
-    });
+    }
+
+    // Set validation errors for display
     setFileValidationErrors(errors);
+
+    if (errors.length > 0) {
+      // Show notification for validation errors
+      const errorMessage = errors.length === 1 ? errors[0] : `${errors.length} files failed validation`;
+      alert(errorMessage);
+    }
+
+    if (validFiles.length > 0) {
+      setFormData(prev => ({
+        ...prev,
+        files: [...prev.files, ...validFiles]
+      }));
+    }
   };
 
   const removeFile = (index: number) => {
@@ -246,7 +256,7 @@ export default function HostCustomAdsPage() {
       setCurrentStep(3);
       
       // Upload files if any (but keep original File objects for createOrder)
-      const uploadedFiles: any[] = [];
+      const uploadedFiles: unknown[] = [];
       for (const file of formData.files) {
         const uploadedFile = await CustomAdsService.uploadFiles(user.id, [file]);
         uploadedFiles.push(...uploadedFile);
@@ -258,7 +268,7 @@ export default function HostCustomAdsPage() {
       // Load payment methods and show payment method selection
       await loadPaymentMethods();
       setPaymentStep('method');
-    } catch (error) {
+    } catch {
       alert('Error submitting order. Please try again.');
     } finally {
       setIsUploading(false);
@@ -270,11 +280,10 @@ export default function HostCustomAdsPage() {
   };
 
   const handleAddNewMethod = async () => {
-    if (!selectedService || !user) return;
+    if (!selectedService || !user || isUploading) return;
     
     setSelectedPaymentMethodId(null);
     setIsUploading(true);
-    setPaymentMessage(null);
 
     try {
       const intent = await BillingService.createPaymentIntent({
@@ -288,7 +297,7 @@ export default function HostCustomAdsPage() {
       });
 
       if (!intent?.clientSecret) {
-        setPaymentMessage('Unable to start payment. Please try again.');
+        alert('Unable to start payment. Please try again.');
         return;
       }
 
@@ -296,17 +305,16 @@ export default function HostCustomAdsPage() {
       setPaymentStep('pay');
     } catch (error) {
       console.error('Error creating payment intent:', error);
-      setPaymentMessage('Error creating payment intent. Please try again.');
+      alert('Error creating payment intent. Please try again.');
     } finally {
       setIsUploading(false);
     }
   };
 
   const handlePaymentWithSavedMethod = async () => {
-    if (!selectedService || !user || !selectedPaymentMethodId) return;
+    if (!selectedService || !user || !selectedPaymentMethodId || isUploading) return;
 
     setIsUploading(true);
-    setPaymentMessage(null);
 
     try {
       const selectedMethod = paymentMethods.find(m => m.id === selectedPaymentMethodId);
@@ -325,7 +333,7 @@ export default function HostCustomAdsPage() {
       });
 
       if (!result.success) {
-        setPaymentMessage(result.error || 'Payment failed. Please try again.');
+        alert(result.error || 'Payment failed. Please try again.');
         return;
       }
 
@@ -343,14 +351,13 @@ export default function HostCustomAdsPage() {
         totalAmount: selectedService.price,
       });
       
-      setSubmittedOrderId(order.id);
+      setSubmittedOrderId(order);
       setOrderSubmitted(true);
       setCurrentStep(4); // Move to step 4 (Review)
-      setPaymentStep('success');
-      setPaymentMessage('Order submitted successfully!');
+      setShowOrderForm(false); // Hide payment window
     } catch (error) {
       console.error('Error processing payment:', error);
-      setPaymentMessage('Error processing payment. Please try again.');
+      alert('Error processing payment. Please try again.');
     } finally {
       setIsUploading(false);
     }
@@ -359,45 +366,37 @@ export default function HostCustomAdsPage() {
   const loadPaymentMethods = async () => {
     if (!user?.id) return;
     
-    setIsLoadingPaymentMethods(true);
     try {
       const methods = await BillingService.getPaymentMethods(user.id);
       setPaymentMethods(methods);
     } catch (error) {
       console.error('Error loading payment methods:', error);
-    } finally {
-      setIsLoadingPaymentMethods(false);
     }
   };
 
-  const handlePayment = async () => {
-    if (!selectedService || !user) return;
-    
+
+  const handleSavePaymentMethod = async (stripePaymentMethodId: string) => {
+    if (!user) return;
+
     try {
-      setIsUploading(true);
-      
-      // Create payment intent
-      const intent = await BillingService.createPaymentIntent({
-        amount: Math.round(selectedService.price * 100),
-        currency: 'usd',
-        metadata: {
-          purpose: 'custom_ad_order',
-          user_id: user.id,
-          service: selectedService.id
-        }
+      // Save to our database using the Supabase function
+      const savedMethod = await BillingService.savePaymentMethod({
+        user_id: user.id,
+        stripe_payment_method_id: stripePaymentMethodId,
+        type: 'card', // Default to card type
+        last4: undefined, // Will be filled by the function
+        brand: undefined, // Will be filled by the function
+        expiry_month: undefined, // Will be filled by the function
+        expiry_year: undefined, // Will be filled by the function
       });
 
-      if (!intent?.clientSecret) {
-        throw new Error('Unable to create payment intent');
+      if (savedMethod) {
+        // Reload payment methods to show the newly saved one
+        await loadPaymentMethods();
       }
-
-      setClientSecret(intent.clientSecret);
-      setPaymentStep('pay');
     } catch (error) {
-      console.error('Payment error:', error);
-      alert('Payment failed. Please try again.');
-    } finally {
-      setIsUploading(false);
+      console.error('Error saving payment method:', error);
+      // Don't fail the payment if saving the method fails
     }
   };
 
@@ -421,11 +420,10 @@ export default function HostCustomAdsPage() {
         totalAmount: selectedService.price
       });
 
-      setSubmittedOrderId(order.id);
+      setSubmittedOrderId(order);
       setOrderSubmitted(true);
       setCurrentStep(4); // Move to step 4 (Review)
-      setPaymentStep('success');
-      setPaymentMessage('Order submitted successfully!');
+      setShowOrderForm(false); // Hide payment window
     } catch (error) {
       console.error('Order creation error:', error);
       alert('Order creation failed. Please try again.');
@@ -797,7 +795,7 @@ export default function HostCustomAdsPage() {
                     type="file"
                     multiple
                     accept="image/*,video/*,.pdf,.doc,.docx,.txt"
-                    onChange={handleFileSelect}
+                    onChange={handleFileUpload}
                     className="hidden"
                   />
                   
@@ -957,7 +955,12 @@ export default function HostCustomAdsPage() {
                   Back
                 </Button>
                 <Button
-                  onClick={() => setShowOrderForm(true)}
+                  onClick={() => {
+                    setShowOrderForm(true);
+                    setCurrentStep(3);
+                    loadPaymentMethods();
+                    setPaymentStep('method');
+                  }}
                   className="px-8 py-3"
                 >
                   Submit Order
@@ -1067,6 +1070,44 @@ export default function HostCustomAdsPage() {
                   />
                 </div>
 
+                {/* Date and Time Selection for Photography/Videography */}
+                {(selectedService?.id === 'photography' || selectedService?.id === 'videography') && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Preferred Date (Optional)
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.preferredDate}
+                        onChange={(e) => handleInputChange('preferredDate', e.target.value)}
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          formErrors.preferredDate ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                        } bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+                      />
+                      {formErrors.preferredDate && (
+                        <p className="text-red-500 text-sm mt-1">{formErrors.preferredDate}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Preferred Time (Optional)
+                      </label>
+                      <input
+                        type="time"
+                        value={formData.preferredTime}
+                        onChange={(e) => handleInputChange('preferredTime', e.target.value)}
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          formErrors.preferredTime ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                        } bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+                      />
+                      {formErrors.preferredTime && (
+                        <p className="text-red-500 text-sm mt-1">{formErrors.preferredTime}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Project Details *
@@ -1084,64 +1125,91 @@ export default function HostCustomAdsPage() {
                   )}
                 </div>
 
-                {/* File Upload Section */}
+                {/* File Upload */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Upload Media Assets (Max 20 files)
                   </label>
-                  <div
-                    className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-gray-400 dark:hover:border-gray-500 transition-colors cursor-pointer"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                  <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 lg:p-6 text-center">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      accept="image/*,video/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/zip,application/x-rar-compressed,text/plain"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                    <Upload className="w-8 h-8 lg:w-12 lg:h-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600 dark:text-gray-300 mb-2 text-sm lg:text-base">
                       Click to upload or drag and drop
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-500">
+                    <p className="text-xs lg:text-sm text-gray-500">
                       Any dimensions allowed • Images up to 100MB • Videos up to 5 minutes • Many common document types supported
                     </p>
+                    <Button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      variant="secondary"
+                      className="mt-4 w-full sm:w-auto"
+                    >
+                      Choose Files
+                    </Button>
                   </div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    accept="image/*,video/*,.pdf,.doc,.docx,.txt"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
-                  
-                  {formData.files.length > 0 && (
-                    <div className="mt-4 space-y-2">
-                      {formData.files.map((file, index) => (
-                        <div key={index} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded">
-                          <div className="flex items-center space-x-2">
-                            {file.type.startsWith('image/') ? (
-                              <FileImage className="h-4 w-4 text-blue-500" />
-                            ) : file.type.startsWith('video/') ? (
-                              <FileVideo className="h-4 w-4 text-purple-500" />
-                            ) : (
-                              <FileImage className="h-4 w-4 text-gray-500" />
-                            )}
-                            <span className="text-sm text-gray-700 dark:text-gray-300">
-                              {file.name} ({formatFileSize(file.size)})
-                            </span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => removeFile(index)}
-                            className="text-red-500 hover:text-red-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+
+                  {/* File Validation Errors */}
+                  {fileValidationErrors.length > 0 && (
+                    <div className="mt-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0">
+                          <AlertCircle className="h-5 w-5 text-red-400" />
                         </div>
-                      ))}
+                        <div className="flex-1">
+                          <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
+                            File Validation Errors
+                          </h3>
+                          <div className="mt-2 text-sm text-red-700 dark:text-red-300">
+                            <ul className="list-disc list-inside space-y-1">
+                              {fileValidationErrors.map((error, index) => (
+                                <li key={index}>{error}</li>
+                              ))}
+                            </ul>
+                          </div>
+                          <div className="mt-3">
+                            <p className="text-xs text-red-600 dark:text-red-400">
+                              Please ensure your files meet all requirements: JPG/PNG images (10MB max), MP4 videos (500MB max), 9:16 aspect ratio, and 1080×1920 or 2160×3840 resolution.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
 
-                  {fileValidationErrors.length > 0 && (
-                    <div className="mt-2 space-y-1">
-                      {fileValidationErrors.map((error, index) => (
-                        <p key={index} className="text-sm text-red-600">{error}</p>
+                  {/* File List */}
+                  {formData.files.length > 0 && (
+                    <div className="mt-4 space-y-2">
+                      {formData.files.map((file, index) => (
+                        <div key={index} className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
+                          <div className="flex items-center gap-3">
+                            {file.type.startsWith('video/') ? (
+                              <FileVideo className="w-5 h-5 text-blue-500" />
+                            ) : (
+                              <FileImage className="w-5 h-5 text-green-500" />
+                            )}
+                            <div>
+                              <p className="text-sm font-medium">{file.name}</p>
+                              <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            onClick={() => removeFile(index)}
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -1212,43 +1280,12 @@ export default function HostCustomAdsPage() {
                     Amount: ${selectedService.price}
                   </p>
                   <Elements stripe={stripePromise} options={{ clientSecret }}>
-                    <PaymentForm onSuccess={handlePaymentSuccess} />
+                    <PaymentForm onSuccess={handlePaymentSuccess} isProcessing={isUploading} onSavePaymentMethod={handleSavePaymentMethod} />
                   </Elements>
                 </div>
               </div>
             )}
 
-            {/* Success Message */}
-            {paymentStep === 'success' && (
-              <div className="text-center space-y-4">
-                <CheckCircle className="mx-auto h-16 w-16 text-green-500" />
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  Order Submitted Successfully!
-                </h3>
-                <p className="text-gray-600 dark:text-gray-300">
-                  Your custom ad order has been submitted. Our design team will review your requirements and get started on your project.
-                </p>
-                <div className="flex justify-center space-x-4">
-                  <Button
-                    onClick={() => {
-                      setShowOrderForm(false);
-                      setSelectedService(null);
-                      setPaymentStep('form');
-                      setOrderSubmitted(false);
-                      setSubmittedOrderId(null);
-                    }}
-                  >
-                    Create Another Order
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    onClick={() => navigate('/host/manage-custom-ads')}
-                  >
-                    View My Orders
-                  </Button>
-                </div>
-              </div>
-            )}
           </div>
         </Card>
       )}
@@ -1273,6 +1310,21 @@ export default function HostCustomAdsPage() {
                     setShowOrderForm(false);
                     setSelectedService(null);
                     setPaymentStep('form');
+                    setCurrentStep(1);
+                    // Reset form data
+                    setFormData({
+                      firstName: '',
+                      lastName: '',
+                      email: '',
+                      phone: '',
+                      address: '',
+                      details: '',
+                      files: [],
+                      preferredDate: '',
+                      preferredTime: ''
+                    });
+                    setFormErrors({});
+                    setFileValidationErrors([]);
                   }}
                 >
                   Create Another Order
@@ -1295,10 +1347,13 @@ export default function HostCustomAdsPage() {
 }
 
 // Payment Form Component
-function PaymentForm({ onSuccess }: { onSuccess: () => void }) {
+function PaymentForm({ onSuccess, isProcessing: externalProcessing, onSavePaymentMethod }: { onSuccess: () => void; isProcessing?: boolean; onSavePaymentMethod?: (paymentMethodId: string) => Promise<void> }) {
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Use external processing state if provided, otherwise use internal state
+  const processing = externalProcessing !== undefined ? externalProcessing : isProcessing;
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -1307,22 +1362,42 @@ function PaymentForm({ onSuccess }: { onSuccess: () => void }) {
 
     setIsProcessing(true);
 
-    const { error } = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        return_url: window.location.origin + '/host/custom-ads',
-      },
-      redirect: 'if_required',
-    });
+    try {
+      const { error, paymentIntent } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: window.location.origin + '/host/custom-ads',
+        },
+        redirect: 'if_required',
+      });
 
-    if (error) {
-      console.error('Payment failed:', error);
-      alert('Payment failed. Please try again.');
-    } else {
-      onSuccess();
+      if (error) {
+        console.error('Payment failed:', error);
+        alert(`Payment failed: ${error.message || 'Please try again.'}`);
+        setIsProcessing(false);
+      } else if (paymentIntent && paymentIntent.status === 'succeeded') {
+        // Save the payment method if the callback is provided
+        if (onSavePaymentMethod && paymentIntent.payment_method) {
+          try {
+            await onSavePaymentMethod(paymentIntent.payment_method as string);
+          } catch (saveError) {
+            console.error('Error saving payment method:', saveError);
+            // Don't fail the payment if saving the method fails
+          }
+        }
+        
+        // Don't set isProcessing to false here - let onSuccess handle it
+        onSuccess();
+      } else {
+        console.log('Payment status:', paymentIntent?.status);
+        alert('Payment was not successful. Please try again.');
+        setIsProcessing(false);
+      }
+    } catch (err) {
+      console.error('Payment processing error:', err);
+      alert('An error occurred during payment processing. Please try again.');
+      setIsProcessing(false);
     }
-
-    setIsProcessing(false);
   };
 
   return (
@@ -1330,10 +1405,10 @@ function PaymentForm({ onSuccess }: { onSuccess: () => void }) {
       <PaymentElement />
       <button
         type="submit"
-        disabled={!stripe || isProcessing}
+        disabled={!stripe || processing}
         className="w-full mt-4 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50"
       >
-        {isProcessing ? 'Processing...' : 'Pay Now'}
+        {processing ? 'Processing...' : 'Pay Now'}
       </button>
     </form>
   );

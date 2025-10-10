@@ -31,6 +31,7 @@ export default function HostSelectWeeksPage() {
   const kiosks = (location.state?.kiosks || []);
   const kiosk = kiosks[0] || location.state?.kiosk;
   const weeklyRate = getWeeklyRate(kiosk?.price);
+  const useCustomAd = location.state?.useCustomAd;
 
   const steps = [
     { number: 1, name: 'Setup Service', current: false, completed: true },
@@ -633,7 +634,8 @@ export default function HostSelectWeeksPage() {
                       slots: 1
                     })),
                     totalSlots: selectedMondays.length,
-                    baseRate: weeklyRate
+                    baseRate: weeklyRate,
+                    useCustomAd: useCustomAd
                   };
                 } else {
                   campaignData = {
@@ -645,7 +647,8 @@ export default function HostSelectWeeksPage() {
                       slots: subSlots
                     }],
                     totalSlots: subSlots,
-                    baseRate: weeklyRate
+                    baseRate: weeklyRate,
+                    useCustomAd: useCustomAd
                   };
                 }
                 navigate('/host/add-media-duration', { state: campaignData });

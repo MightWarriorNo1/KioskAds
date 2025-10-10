@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Search, MapPin, List, ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import LeafletMap from '../../components/MapContainer';
 import { CampaignService, Kiosk } from '../../services/campaignService';
 import { LatLngTuple } from 'leaflet';
@@ -20,12 +20,15 @@ interface KioskData {
 
 export default function HostKioskSelectionPage() {
   const navigate = useNavigate();
+  const location = useLocation() as { state?: { useCustomAd?: boolean } };
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedKioskIds, setSelectedKioskIds] = useState<string[]>([]);
   const [showContentModal, setShowContentModal] = useState(false);
   const [kiosks, setKiosks] = useState<Kiosk[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  const useCustomAd = location.state?.useCustomAd;
 
   const steps = [
     { number: 1, name: 'Choose Ad Type', current: false, completed: true },
@@ -506,12 +509,15 @@ export default function HostKioskSelectionPage() {
             })()}
             <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
               <button onClick={() => setShowContentModal(false)} className="px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm md:text-base">Cancel</button>
-              <button onClick={() => navigate('/host/select-weeks', { state: { kiosks: selectedKiosks.map(k => ({
-                id: k.id,
-                name: k.name,
-                city: k.city,
-                price: `$${k.price.toFixed(2)}/week`
-              })) } })} className="px-4 py-2 rounded-lg bg-black dark:bg-gray-900 text-white text-sm md:text-base">I Understand & Accept</button>
+              <button onClick={() => navigate('/host/select-weeks', { state: { 
+                kiosks: selectedKiosks.map(k => ({
+                  id: k.id,
+                  name: k.name,
+                  city: k.city,
+                  price: `$${k.price.toFixed(2)}/week`
+                })),
+                useCustomAd: useCustomAd
+              } })} className="px-4 py-2 rounded-lg bg-black dark:bg-gray-900 text-white text-sm md:text-base">I Understand & Accept</button>
             </div>
           </div>
         </div>

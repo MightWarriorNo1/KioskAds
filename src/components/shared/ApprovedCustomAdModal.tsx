@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { X, Image, Video, Calendar, FileText, CheckCircle } from 'lucide-react';
 import { CustomAdsService } from '../../services/customAdsService';
 import KioskPreview from '../admin/KioskPreview';
-import { debugCustomAds } from '../../utils/debugCustomAds';
 
 interface ApprovedCustomAd {
   id: string;
@@ -35,20 +34,11 @@ export default function ApprovedCustomAdModal({
   const [error, setError] = useState<string | null>(null);
   const [selectedAd, setSelectedAd] = useState<ApprovedCustomAd | null>(null);
 
-  useEffect(() => {
-    if (isOpen && userId) {
-      loadCustomAds();
-    }
-  }, [isOpen, userId]);
-
-  const loadCustomAds = async () => {
+  const loadCustomAds = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       console.log('Loading custom ads for user:', userId);
-      
-      // Run debug function first
-      await debugCustomAds(userId);
       
       const ads = await CustomAdsService.getUserApprovedCustomAdMedia(userId);
       console.log('Loaded custom ads:', ads);
@@ -59,7 +49,13 @@ export default function ApprovedCustomAdModal({
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
+
+  useEffect(() => {
+    if (isOpen && userId) {
+      loadCustomAds();
+    }
+  }, [isOpen, userId, loadCustomAds]);
 
   const handleSelect = () => {
     if (selectedAd) {

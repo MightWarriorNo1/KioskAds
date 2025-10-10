@@ -1,4 +1,4 @@
-import { Palette, Upload } from 'lucide-react';
+import { Palette, Upload, CheckSquare } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/layouts/DashboardLayout';
 import ProgressSteps from '../components/shared/ProgressSteps';
@@ -22,6 +22,11 @@ export default function NewCampaignPage() {
     navigate('/client/kiosk-selection');
   };
 
+  const handleSelectCustomAd = () => {
+    // Navigate to kiosk selection with custom ad selection flag
+    navigate('/client/kiosk-selection', { state: { useCustomAd: true } });
+  };
+
   return (
     <DashboardLayout
       title="Create New Campaign"
@@ -43,7 +48,7 @@ export default function NewCampaignPage() {
           </div>
 
           {/* Vertical Ad Options */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 md:gap-8 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8 max-w-7xl mx-auto">
             {/* Create Custom Vertical Ad */}
             <div className="bg-gray-900 dark:bg-gray-800 rounded-xl p-6 sm:p-8 md:p-10 shadow-lg hover:shadow-xl transition-shadow">
               <div className="text-center mb-6 sm:mb-8">
@@ -117,6 +122,43 @@ export default function NewCampaignPage() {
                 CLICK HERE TO UPLOAD AD →
               </button>
             </div>
+
+            {/* Select Custom Created Vertical Ad */}
+            <div className="bg-gray-900 dark:bg-gray-800 rounded-xl p-6 sm:p-8 md:p-10 shadow-lg hover:shadow-xl transition-shadow">
+              <div className="text-center mb-6 sm:mb-8">
+                <div className="w-16 h-16 sm:w-18 sm:h-18 md:w-20 md:h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
+                  <CheckSquare className="h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 text-gray-900" />
+                </div>
+                <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-3 sm:mb-4">Select Custom Created Vertical Ad</h3>
+                <p className="text-gray-300 text-sm sm:text-base leading-relaxed">Choose from your approved custom ad designs.</p>
+              </div>
+              
+              <ul className="space-y-3 sm:space-y-4 mb-6 sm:mb-8">
+                <li className="flex items-start space-x-3">
+                  <div className="w-2 h-2 bg-white rounded-full mt-2 flex-shrink-0"></div>
+                  <span className="text-white text-sm sm:text-base">Use approved designs</span>
+                </li>
+                <li className="flex items-start space-x-3">
+                  <div className="w-2 h-2 bg-white rounded-full mt-2 flex-shrink-0"></div>
+                  <span className="text-white text-sm sm:text-base">Professional quality</span>
+                </li>
+                <li className="flex items-start space-x-3">
+                  <div className="w-2 h-2 bg-white rounded-full mt-2 flex-shrink-0"></div>
+                  <span className="text-white text-sm sm:text-base">Ready to deploy</span>
+                </li>
+                <li className="flex items-start space-x-3">
+                  <div className="w-2 h-2 bg-white rounded-full mt-2 flex-shrink-0"></div>
+                  <span className="text-white text-sm sm:text-base">No additional design time</span>
+                </li>
+              </ul>
+
+              <button 
+                onClick={handleSelectCustomAd}
+                className="w-full bg-purple-500 hover:bg-purple-600 text-white py-4 sm:py-5 rounded-lg font-bold text-sm sm:text-base uppercase transition-colors flex items-center justify-center"
+              >
+                SELECT CUSTOM AD →
+              </button>
+            </div>
           </div>
         </div>
 
@@ -134,6 +176,7 @@ export default function NewCampaignPage() {
           </p>
         </div>
       </div>
+
     </DashboardLayout>
   );
 }

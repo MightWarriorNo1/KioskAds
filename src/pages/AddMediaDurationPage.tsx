@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Upload, AlertTriangle, Clock, CheckCircle, FileText } from 'lucide-react';
+import { ArrowLeft, Upload, AlertTriangle, Clock, CheckCircle, CheckSquare } from 'lucide-react';
 import DashboardLayout from '../components/layouts/DashboardLayout';
 import { MediaService } from '../services/mediaService';
 import { useAuth } from '../contexts/AuthContext';
@@ -19,6 +19,7 @@ interface CampaignData {
   selectedWeeks: SelectedWeek[];
   totalSlots: number;
   baseRate: number;
+  useCustomAd?: boolean;
 }
 
 export default function AddMediaDurationPage() {
@@ -27,19 +28,6 @@ export default function AddMediaDurationPage() {
   const { user } = useAuth();
   
   const campaignData = location.state;
-  
-  const [slotsPerWeek] = useState(1);
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [filePreview, setFilePreview] = useState<string | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [isUploadingToSupabase, setIsUploadingToSupabase] = useState(false);
-  const [timeRemaining, setTimeRemaining] = useState(4 * 60 + 56); // 4:56 in seconds
-  const [showConfig, setShowConfig] = useState(false);
-  const [preselectedAsset, setPreselectedAsset] = useState<any | null>(null);
-  const [showCustomAdModal, setShowCustomAdModal] = useState(false);
-  const [selectedCustomAd, setSelectedCustomAd] = useState<any | null>(null);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Redirect if no campaign data or user not authenticated
   React.useEffect(() => {
@@ -52,6 +40,50 @@ export default function AddMediaDurationPage() {
       return;
     }
   }, [campaignData, user, navigate]);
+  
+  if (!campaignData || !user) {
+    return null; // Will redirect
+  }
+  
+  const kiosk = campaignData.kiosk;
+  const kiosks = campaignData.kiosks || (campaignData.kiosk ? [campaignData.kiosk] : []);
+  const selectedWeeks = campaignData.selectedWeeks || [];
+  const totalSlots = campaignData.totalSlots || 1;
+  const baseRate = campaignData.baseRate || 40.00;
+  const useCustomAd = campaignData.useCustomAd;
+
+  const [slotsPerWeek, setSlotsPerWeek] = useState(1);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isUploadingToSupabase, setIsUploadingToSupabase] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState(4 * 60 + 56); // 4:56 in seconds
+  const [showConfig, setShowConfig] = useState(false);
+  const [backgroundColor, setBackgroundColor] = useState('#000000');
+  const [preselectedAsset, setPreselectedAsset] = useState<any | null>(null);
+  const [showCustomAdModal, setShowCustomAdModal] = useState(false);
+  const [selectedCustomAdForCampaign, setSelectedCustomAdForCampaign] = useState<any | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleSelectCustomAd = () => {
+    if (user?.id) {
+      setShowCustomAdModal(true);
+    }
+  };
+
+  const handleCustomAdSelected = (customAd: any) => {
+    setSelectedCustomAdForCampaign(customAd);
+    setShowCustomAdModal(false);
+  };
+
+  const steps = [
+    { number: 1, name: 'Setup Service', current: false, completed: true },
+    { number: 2, name: 'Select Kiosk', current: false, completed: true },
+    { number: 3, name: 'Choose Weeks', current: false, completed: true },
+    { number: 4, name: 'Add Media & Duration', current: true, completed: false },
+    { number: 5, name: 'Review & Submit', current: false, completed: false }
+  ];
 
   // Countdown timer
   useEffect(() => {
@@ -103,24 +135,6 @@ export default function AddMediaDurationPage() {
       }
     })();
   }, []);
-  
-  if (!campaignData || !user) {
-    return null; // Will redirect
-  }
-  
-  const kiosk = campaignData.kiosk;
-  const kiosks = campaignData.kiosks || (campaignData.kiosk ? [campaignData.kiosk] : []);
-  const selectedWeeks = campaignData.selectedWeeks || [];
-  const totalSlots = campaignData.totalSlots || 1;
-  const baseRate = campaignData.baseRate || 40.00;
-
-  const steps = [
-    { number: 1, name: 'Setup Service', current: false, completed: true },
-    { number: 2, name: 'Select Kiosk', current: false, completed: true },
-    { number: 3, name: 'Choose Weeks', current: false, completed: true },
-    { number: 4, name: 'Add Media & Duration', current: true, completed: false },
-    { number: 5, name: 'Review & Submit', current: false, completed: false }
-  ];
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -203,21 +217,9 @@ export default function AddMediaDurationPage() {
     });
   };
 
-  const handleCustomAdSelect = (customAd: any) => {
-    setSelectedCustomAd(customAd);
-    setFilePreview(customAd.url);
-    setShowConfig(true);
-    setShowCustomAdModal(false);
-  };
-
   const handleContinue = async () => {
-    if ((!uploadedFile && !preselectedAsset && !selectedCustomAd) || !user) {
-      console.error('Missing uploadedFile, preselectedAsset, selectedCustomAd or user:', { 
-        uploadedFile: !!uploadedFile, 
-        preselectedAsset: !!preselectedAsset,
-        selectedCustomAd: !!selectedCustomAd,
-        user: !!user 
-      });
+    if ((!uploadedFile && !preselectedAsset && !selectedCustomAdForCampaign) || !user) {
+      console.error('Missing media or user:', { uploadedFile: !!uploadedFile, preselectedAsset: !!preselectedAsset, selectedCustomAdForCampaign: !!selectedCustomAdForCampaign, user: !!user });
       return;
     }
 
@@ -228,22 +230,18 @@ export default function AddMediaDurationPage() {
     try {
       let uploadedMediaAsset = preselectedAsset;
       
-      // Handle selected custom ad
-      if (!uploadedMediaAsset && selectedCustomAd) {
-        console.log('Using selected custom ad:', selectedCustomAd);
-        // Create a media asset from the custom ad
-        uploadedMediaAsset = await MediaService.createMediaFromApprovedCustomAd({
-          userId: user.id,
-          sourceId: selectedCustomAd.proofId,
-          fileName: selectedCustomAd.fileName,
-          publicUrl: selectedCustomAd.url,
-          fileSize: selectedCustomAd.size,
-          mimeType: selectedCustomAd.type === 'video' ? 'video/mp4' : 'image/jpeg',
-          fileType: selectedCustomAd.type === 'video' ? 'video' : 'image',
-          dimensions: { width: 1080, height: 1920 }, // Default for custom ads
-          duration: selectedCustomAd.type === 'video' ? 15 : undefined
-        });
-        console.log('Created media asset from custom ad:', uploadedMediaAsset);
+      // Handle custom ad selection
+      if (selectedCustomAdForCampaign) {
+        console.log('Using selected custom ad:', selectedCustomAdForCampaign);
+        uploadedMediaAsset = {
+          id: selectedCustomAdForCampaign.id,
+          url: selectedCustomAdForCampaign.url,
+          type: selectedCustomAdForCampaign.type,
+          title: selectedCustomAdForCampaign.title,
+          fileName: selectedCustomAdForCampaign.fileName,
+          size: selectedCustomAdForCampaign.size,
+          isCustomAd: true
+        };
       } else if (!uploadedMediaAsset && uploadedFile) {
         console.log('Getting file dimensions and duration...');
         // Get actual file dimensions and duration
@@ -294,7 +292,8 @@ export default function AddMediaDurationPage() {
           kiosks,
           mediaFile: uploadedFile,
           slotsPerWeek,
-          uploadedMediaAsset
+          uploadedMediaAsset,
+          selectedCustomAd: selectedCustomAdForCampaign
         }
       });
     } catch (error) {
@@ -304,7 +303,7 @@ export default function AddMediaDurationPage() {
     }
   };
 
-  const canContinue = (uploadedFile || preselectedAsset || selectedCustomAd) && !isUploadingToSupabase;
+  const canContinue = (uploadedFile || selectedCustomAdForCampaign) && !isUploadingToSupabase;
 
   return (
     <DashboardLayout 
@@ -508,93 +507,136 @@ export default function AddMediaDurationPage() {
           </h3>
 
           {!showConfig ? (
-            /* File Upload Area */
+            /* Media Selection Area */
             <div className="space-y-4">
               <div>
                 <h4 className="font-medium text-gray-900 dark:text-white mb-2">
-                  Upload Your Ad Content
+                  {useCustomAd ? 'Select Custom Ad' : 'Upload Your Ad Content'}
                 </h4>
                 <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-                  Upload an image or video for your ad. Maximum file size: 50MB. Supported formats: JPEG, PNG, GIF, MP4, WebM, OGG. Required: 9:16 aspect ratio (portrait) with resolution 1080x1920 or 2160x3840.
+                  {useCustomAd 
+                    ? 'Choose from your approved custom ad designs.'
+                    : 'Upload an image or video for your ad. Maximum file size: 50MB. Supported formats: JPEG, PNG, GIF, MP4, WebM, OGG. Required: 9:16 aspect ratio (portrait) with resolution 1080x1920 or 2160x3840.'
+                  }
                 </p>
               </div>
 
-              {/* Custom Ad Option */}
-              <div className="mb-4">
-                <button
-                  onClick={() => setShowCustomAdModal(true)}
-                  className="w-full flex items-center justify-center space-x-2 px-4 py-3 border-2 border-dashed border-blue-300 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:border-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
-                >
-                  <FileText className="h-5 w-5 text-blue-600" />
-                  <span className="text-blue-700 dark:text-blue-300 font-medium">
-                    Use Approved Custom Ad
-                  </span>
-                </button>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-                  Select from your previously approved custom ad designs
-                </p>
-              </div>
-
-              {/* Upload Area */}
-              <div
-                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                  uploadedFile 
-                    ? 'border-green-300 bg-green-50 dark:bg-green-900/20' 
-                    : 'border-gray-300 hover:border-primary-400'
-                }`}
-                onDrop={handleDrop}
-                onDragOver={handleDragOver}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                {!uploadedFile ? (
-                  <div className="space-y-4">
-                    <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                    <div>
-                      <p className="text-lg font-medium text-gray-900 dark:text-white">
-                        Click to upload or drag and drop
-                      </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        JPEG, PNG, GIF, MP4, WebM, OGG up to 50MB
-                      </p>
-                    </div>
-                    <div className="flex items-center justify-center space-x-2 text-yellow-600 dark:text-yellow-400">
-                      <AlertTriangle className="w-4 h-4" />
-                      <span className="text-sm">9:16 aspect ratio required (1080x1920 or 2160x3840)</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {filePreview && (
-                      <div className="max-w-[270px] mx-auto">
-                        <div style={{ aspectRatio: '9 / 16' }} className="w-full rounded-lg overflow-hidden bg-black">
-                          {uploadedFile.type.startsWith('image/') ? (
-                            <img src={filePreview} alt="Preview" className="w-full h-full object-cover" />
-                          ) : (
-                            <video src={filePreview} controls className="w-full h-full object-cover" />
-                          )}
+              {/* Media Selection Area */}
+              {useCustomAd ? (
+                /* Custom Ad Selection Box */
+                <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-8 text-center">
+                  {selectedCustomAdForCampaign ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-center">
+                        <CheckSquare className="h-12 w-12 text-green-600" />
+                      </div>
+                      <div className="text-center">
+                        <h5 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                          {selectedCustomAdForCampaign.title}
+                        </h5>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+                          Custom ad design ready for deployment
+                        </p>
+                        <div className="flex justify-center space-x-3">
+                          <button
+                            onClick={handleSelectCustomAd}
+                            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                          >
+                            Change Selection
+                          </button>
+                          <button
+                            onClick={() => setShowConfig(true)}
+                            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                          >
+                            Use This Ad
+                          </button>
                         </div>
                       </div>
-                    )}
-                    <div>
-                      <p className="text-lg font-medium text-gray-900 dark:text-white">
-                        {uploadedFile.name}
-                      </p>
-                      <p className="text-sm text-gray-500 dark;text-gray-400">
-                        {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB
-                      </p>
                     </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowConfig(true);
-                      }}
-                      className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-                    >
-                      Upload Ad
-                    </button>
-                  </div>
-                )}
-              </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-center">
+                        <CheckSquare className="h-12 w-12 text-gray-400" />
+                      </div>
+                      <div>
+                        <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                          Select a Custom Ad
+                        </p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                          Choose from your approved custom ad designs
+                        </p>
+                        <button
+                          onClick={handleSelectCustomAd}
+                          className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                        >
+                          Browse Custom Ads
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* File Upload Area */
+                <div
+                  className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                    uploadedFile 
+                      ? 'border-green-300 bg-green-50 dark:bg-green-900/20' 
+                      : 'border-gray-300 hover:border-primary-400'
+                  }`}
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {!uploadedFile ? (
+                    <div className="space-y-4">
+                      <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                      <div>
+                        <p className="text-lg font-medium text-gray-900 dark:text-white">
+                          Click to upload or drag and drop
+                        </p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                          JPEG, PNG, GIF, MP4, WebM, OGG up to 50MB
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-center space-x-2 text-yellow-600 dark:text-yellow-400">
+                        <AlertTriangle className="w-4 h-4" />
+                        <span className="text-sm">9:16 aspect ratio required (1080x1920 or 2160x3840)</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {filePreview && (
+                        <div className="max-w-[270px] mx-auto">
+                          <div style={{ aspectRatio: '9 / 16' }} className="w-full rounded-lg overflow-hidden bg-black">
+                            {uploadedFile.type.startsWith('image/') ? (
+                              <img src={filePreview} alt="Preview" className="w-full h-full object-cover" />
+                            ) : (
+                              <video src={filePreview} controls className="w-full h-full object-cover" />
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-lg font-medium text-gray-900 dark:text-white">
+                          {uploadedFile.name}
+                        </p>
+                        <p className="text-sm text-gray-500 dark;text-gray-400">
+                          {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowConfig(true);
+                        }}
+                        className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                      >
+                        Upload Ad
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <input
                 ref={fileInputRef}
@@ -621,16 +663,8 @@ export default function AddMediaDurationPage() {
                       <div className="flex justify-center mb-4">
                         <KioskPreview
                           mediaUrl={filePreview}
-                          mediaType={
-                            selectedCustomAd 
-                              ? (selectedCustomAd.type === 'video' ? 'video' : 'image')
-                              : uploadedFile?.type.startsWith('image/') ? 'image' : 'video'
-                          }
-                          title={
-                            selectedCustomAd 
-                              ? selectedCustomAd.title 
-                              : uploadedFile?.name || 'Ad Preview'
-                          }
+                          mediaType={uploadedFile?.type.startsWith('image/') ? 'image' : 'video'}
+                          title={uploadedFile?.name || 'Ad Preview'}
                           className="w-48 h-96"
                         />
                       </div>
@@ -640,10 +674,10 @@ export default function AddMediaDurationPage() {
                     <button
                       onClick={() => {
                         setUploadedFile(null);
-                        setSelectedCustomAd(null);
                         setFilePreview(null);
                         setUploadError(null);
                         setShowConfig(false);
+                        setBackgroundColor('#000000');
                       }}
                       className="mt-4 w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center space-x-2"
                     >
@@ -658,37 +692,20 @@ export default function AddMediaDurationPage() {
                   <div>
                     <h5 className="font-medium text-gray-900 dark:text-white mb-3">File Information</h5>
                     <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                      <div>
-                        {selectedCustomAd ? selectedCustomAd.title : uploadedFile?.name}
-                      </div>
-                      <div>
-                        ({selectedCustomAd 
-                          ? (selectedCustomAd.size / 1024 / 1024).toFixed(2) 
-                          : uploadedFile ? (uploadedFile.size / 1024 / 1024).toFixed(2) : '0'} MB)
-                      </div>
-                      <div>
-                        Type: {selectedCustomAd 
-                          ? (selectedCustomAd.type === 'video' ? 'Video' : 'Image')
-                          : uploadedFile?.type.startsWith('image/') ? 'Image' : 'Video'}
-                      </div>
-                      {selectedCustomAd && (
-                        <div className="text-blue-600 dark:text-blue-400">
-                          ✓ Approved Custom Ad
-                        </div>
-                      )}
+                      <div>{uploadedFile?.name}</div>
+                      <div>({uploadedFile ? (uploadedFile.size / 1024 / 1024).toFixed(2) : '0'} MB)</div>
+                      <div>Type: {uploadedFile?.type.startsWith('image/') ? 'Image' : 'Video'}</div>
                     </div>
                   </div>
 
                   
 
                   {/* File Status */}
-                  {(uploadedFile || selectedCustomAd) && (
+                  {uploadedFile && (
                     <div className="pt-4">
                       <div className="text-green-600 flex items-center space-x-2">
                         <CheckCircle className="w-5 h-5" />
-                        <span>
-                          {selectedCustomAd ? 'Custom ad ready to use' : 'File ready for upload'}
-                        </span>
+                        <span>File ready for upload</span>
                       </div>
                     </div>
                   )}
@@ -722,13 +739,15 @@ export default function AddMediaDurationPage() {
         </button>
       </div>
 
-      {/* Custom Ad Modal */}
-      <ApprovedCustomAdModal
-        isOpen={showCustomAdModal}
-        onClose={() => setShowCustomAdModal(false)}
-        onSelect={handleCustomAdSelect}
-        userId={user.id}
-      />
+      {/* Custom Ad Selection Modal */}
+      {user?.id && (
+        <ApprovedCustomAdModal
+          isOpen={showCustomAdModal}
+          onClose={() => setShowCustomAdModal(false)}
+          onSelect={handleCustomAdSelected}
+          userId={user.id}
+        />
+      )}
     </DashboardLayout>
   );
 }

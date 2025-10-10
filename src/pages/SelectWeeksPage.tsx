@@ -32,6 +32,7 @@ export default function SelectWeeksPage() {
   const kiosks = (location.state?.kiosks || []);
   const kiosk = kiosks[0] || location.state?.kiosk; // backward compatibility
   const weeklyRate = getWeeklyRate(kiosk?.price);
+  const useCustomAd = location.state?.useCustomAd;
 
   const steps = [
     { number: 1, name: 'Setup Service', current: false, completed: true },
@@ -683,7 +684,8 @@ export default function SelectWeeksPage() {
                       slots: 1
                     })),
                     totalSlots: selectedMondays.length,
-                    baseRate: weeklyRate
+                    baseRate: weeklyRate,
+                    useCustomAd: useCustomAd
                   };
                 } else {
                   // Subscription case
@@ -696,7 +698,8 @@ export default function SelectWeeksPage() {
                       slots: subSlots
                     }],
                     totalSlots: subSlots,
-                    baseRate: weeklyRate
+                    baseRate: weeklyRate,
+                    useCustomAd: useCustomAd
                   };
                 }
                 
