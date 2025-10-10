@@ -177,7 +177,7 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
                   />
                 </div>
                 <div className="text-center">
-                  <div className="text-xs text-slate-600 dark:text-slate-300 font-medium">KIOSK ADS.com</div>
+                  <div className="text-xs text-slate-600 dark:text-slate-300 font-medium">EZKIOSK ADS.com</div>
                   <div className="text-lg font-bold text-slate-900 dark:text-white">EZ Kiosk Ads</div>
                 </div>
               </div>

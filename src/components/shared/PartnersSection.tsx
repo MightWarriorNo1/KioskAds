@@ -131,14 +131,14 @@ function PartnerCard({ partner }: PartnerCardProps) {
       )}
 
       {/* Title */}
-      <h3 className="text-xl font-bold mb-3 text-black dark:text-white group-hover:text-primary-600 transition-colors duration-300">
+      <h3 className="text-xl text-center font-bold mb-3 text-black dark:text-white group-hover:text-primary-600 transition-colors duration-300">
         {partner.title}
       </h3>
 
       {/* Address */}
-      <div className="flex items-start gap-3 mb-4">
+      <div className="flex items-start justify-center gap-3 mb-4">
         <MapPin className="w-5 h-5 text-primary-600 mt-0.5 flex-shrink-0" />
-        <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed">
+        <p className="text-gray-600  dark:text-gray-300 text-sm leading-relaxed">
           {partner.address}
         </p>
       </div>

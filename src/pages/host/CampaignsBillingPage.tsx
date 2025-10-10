@@ -218,19 +218,19 @@ export default function HostCampaignsBillingPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Campaigns & Billing</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Campaigns & Billing</h1>
           <p className="mt-2">Manage your campaigns and track your earnings</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <Button variant="secondary" size="sm" onClick={handleRefresh} disabled={refreshing}>
             <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-            {refreshing ? 'Refreshing...' : 'Refresh'}
+            <span className="hidden sm:inline">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
           </Button>
           <Button variant="primary" size="sm" onClick={handleCreateCampaign}>
             <PlusCircle className="h-4 w-4 mr-2" />
-            Create Campaign
+            <span className="hidden sm:inline">Create Campaign</span>
           </Button>
         </div>
       </div>

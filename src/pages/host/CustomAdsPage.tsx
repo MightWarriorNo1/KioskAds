@@ -2,21 +2,15 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
-  Camera, 
   Video, 
   Palette, 
   Upload, 
-  Check, 
   X, 
   AlertCircle,
   MapPin,
-  Clock,
-  DollarSign,
   FileImage,
   FileVideo,
   Trash2,
-  Eye,
-  Plus,
   CheckCircle,
   ArrowRight
 } from 'lucide-react';
@@ -91,7 +85,6 @@ const services: ServiceTile[] = [
 export default function HostCustomAdsPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedService, setSelectedService] = useState<ServiceTile | null>(null);
-  const [showDisclaimer, setShowDisclaimer] = useState(false);
   const [showOrderForm, setShowOrderForm] = useState(false);
   const { user } = useAuth();
   const [formData, setFormData] = useState<OrderFormData>({
@@ -118,10 +111,6 @@ export default function HostCustomAdsPage() {
   const [submittedOrderId, setSubmittedOrderId] = useState<string | null>(null);
   const [submittedOrderProofs, setSubmittedOrderProofs] = useState<any[]>([]);
   const [isLoadingProofs, setIsLoadingProofs] = useState(false);
-  const [addressSuggestions, setAddressSuggestions] = useState<string[]>([]);
-  const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
-  const [isLoadingAddress, setIsLoadingAddress] = useState(false);
-  const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [selectedProofForComments, setSelectedProofForComments] = useState<any>(null);
   const [commentText, setCommentText] = useState('');
   const navigate=useNavigate();
@@ -191,43 +180,6 @@ export default function HostCustomAdsPage() {
       if (interval) clearInterval(interval);
     };
   }, [submittedOrderId]);
-
-  const handleApproveProof = async (proofId: string, comments?: string) => {
-    try {
-      await CustomAdsService.approveProof(proofId, comments);
-      // Refresh proofs
-      const proofs = await CustomAdsService.getOrderProofs(submittedOrderId!);
-      setSubmittedOrderProofs(proofs || []);
-    } catch (e) {
-      console.error('Error approving proof:', e);
-    }
-  };
-
-  const handleRejectProof = async (proofId: string, feedback: string) => {
-    try {
-      await CustomAdsService.rejectProof(proofId, feedback);
-      // Refresh proofs
-      const proofs = await CustomAdsService.getOrderProofs(submittedOrderId!);
-      setSubmittedOrderProofs(proofs || []);
-    } catch (e) {
-      console.error('Error rejecting proof:', e);
-    }
-  };
-
-  const handleAddComment = async () => {
-    if (!commentText.trim() || !selectedProofForComments) return;
-    try {
-      await CustomAdsService.addComment(submittedOrderId!, commentText, user?.id!);
-      setCommentText('');
-      setShowCommentsModal(false);
-      setSelectedProofForComments(null);
-      // Refresh proofs
-      const proofs = await CustomAdsService.getOrderProofs(submittedOrderId!);
-      setSubmittedOrderProofs(proofs || []);
-    } catch (e) {
-      console.error('Error adding comment:', e);
-    }
-  };
 
   const handleInputChange = (field: keyof OrderFormData, value: string | File[]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -524,12 +476,11 @@ export default function HostCustomAdsPage() {
             {services.map((service) => (
               <Card
                 key={service.id}
-                className={`p-8 cursor-pointer transition-all duration-200 hover:shadow-lg ${
+                className={`p-8 transition-all duration-200 hover:shadow-lg ${
                   selectedService?.id === service.id
                     ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20'
                     : 'hover:shadow-md'
                 }`}
-                onClick={() => setSelectedService(service)}
               >
                 <div className="text-center">
                   <div className="w-16 h-16 mx-auto mb-6 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center text-blue-600 dark:text-blue-300">
@@ -541,7 +492,7 @@ export default function HostCustomAdsPage() {
                   <p className="text-gray-600 dark:text-gray-300 mb-4">
                     {service.description}
                   </p>
-                  <div className="space-y-2">
+                  <div className="space-y-2 mb-6">
                     <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                       ${service.price}
                     </div>
@@ -554,141 +505,243 @@ export default function HostCustomAdsPage() {
                       </div>
                     )}
                   </div>
+                  <Button
+                    onClick={() => {
+                      setSelectedService(service);
+                      setCurrentStep(2);
+                    }}
+                    className="w-full px-6 py-3"
+                    variant={selectedService?.id === service.id ? 'primary' : 'secondary'}
+                  >
+                    Continue
+                  </Button>
                 </div>
               </Card>
             ))}
           </div>
-
-          {selectedService && (
-            <div className="text-center">
-              <Button
-                onClick={() => setCurrentStep(2)}
-                className="px-8 py-3"
-              >
-                Continue with {selectedService.title}
-              </Button>
-            </div>
-          )}
         </div>
       )}
 
       {/* Description & Details Step */}
       {currentStep === 2 && selectedService && (
-        <div className="space-y-8">
-          <div className="text-center">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-              Description & Details
-            </h2>
-            <p className="text-lg text-gray-600 dark:text-gray-300">
-              Tell us about your project requirements and preferences
-            </p>
-          </div>
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-blue-900/20 dark:to-indigo-900/20">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
+            {/* Header Section */}
+            <div className="text-center mb-12">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl mb-6 shadow-lg">
+                <Palette className="h-8 w-8 text-white" />
+              </div>
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-indigo-800 dark:from-white dark:via-blue-200 dark:to-indigo-200 bg-clip-text text-transparent mb-4">
+                Project Details
+              </h1>
+              <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed">
+                Help us understand your vision and requirements for the perfect custom ad
+              </p>
+            </div>
 
-          <Card className="max-w-4xl mx-auto">
-            <div className="p-8">
-              {/* Selected Service Summary */}
-              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    {selectedService.icon}
-                    <div>
-                      <h3 className="font-semibold text-gray-900 dark:text-white">{selectedService.title}</h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-300">
-                        {selectedService.turnaround} • ${selectedService.price}
-                      </p>
+            <div className="grid lg:grid-cols-3 gap-8 lg:gap-12">
+              {/* Service Summary Sidebar */}
+              <div className="lg:col-span-1">
+                <div className="sticky top-8">
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-6">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                          {selectedService.icon}
+                        </div>
+                        <div className="text-white">
+                          <h3 className="font-bold text-lg">{selectedService.title}</h3>
+                          <p className="text-blue-100 text-sm">{selectedService.turnaround}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-6">
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-600 dark:text-gray-300">Service Price</span>
+                          <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                            ${selectedService.price}
+                          </span>
+                        </div>
+                        {selectedService.videoLength && (
+                          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
+                            <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+                              {selectedService.videoLength}
+                            </p>
+                          </div>
+                        )}
+                        <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            Professional design services tailored to your needs
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <form onSubmit={(e) => { e.preventDefault(); setCurrentStep(3); }} className="space-y-6">
-                {/* Personal Information */}
-                <div className="grid md:grid-cols-2 gap-4">
-                  <Input
-                    label="First Name"
-                    value={formData.firstName}
-                    onChange={(e) => handleInputChange('firstName', e.target.value)}
-                    error={formErrors.firstName}
-                    required
-                    disabled
-                    className="bg-gray-100 dark:bg-gray-700"
-                  />
-                  <Input
-                    label="Last Name"
-                    value={formData.lastName}
-                    onChange={(e) => handleInputChange('lastName', e.target.value)}
-                    error={formErrors.lastName}
-                    required
-                    disabled
-                    className="bg-gray-100 dark:bg-gray-700"
-                  />
-                </div>
+              {/* Main Form */}
+              <div className="lg:col-span-2">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                  <div className="bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-700 dark:to-blue-900/20 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                      Contact & Project Information
+                    </h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                      We'll use this information to create your custom ad
+                    </p>
+                  </div>
 
-                <div className="grid md:grid-cols-2 gap-4">
-                  <Input
-                    label="Email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange('email', e.target.value)}
-                    error={formErrors.email}
-                    required
-                    disabled
-                    className="bg-gray-100 dark:bg-gray-700"
-                  />
-                  <Input
-                    label="Phone"
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => handleInputChange('phone', e.target.value)}
-                    error={formErrors.phone}
-                    required
-                  />
-                </div>
+                  <form onSubmit={(e) => { e.preventDefault(); setCurrentStep(3); }} className="p-6 lg:p-8">
+                    <div className="space-y-8">
+                      {/* Contact Information */}
+                      <div className="space-y-6">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                            <MapPin className="h-4 w-4 text-blue-600 dark:text-blue-300" />
+                          </div>
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                            Contact Information
+                          </h3>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                              First Name *
+                            </label>
+                            <input
+                              type="text"
+                              value={formData.firstName}
+                              onChange={(e) => handleInputChange('firstName', e.target.value)}
+                              disabled
+                              className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-gray-500 dark:text-gray-400"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Last Name *
+                            </label>
+                            <input
+                              type="text"
+                              value={formData.lastName}
+                              onChange={(e) => handleInputChange('lastName', e.target.value)}
+                              disabled
+                              className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-gray-500 dark:text-gray-400"
+                            />
+                          </div>
+                        </div>
 
-                <div className="relative">
-                  <Input
-                    label="Address (Optional)"
-                    value={formData.address}
-                    onChange={(e) => handleInputChange('address', e.target.value)}
-                    placeholder="Enter your address"
-                  />
-                </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Email Address *
+                            </label>
+                            <input
+                              type="email"
+                              value={formData.email}
+                              onChange={(e) => handleInputChange('email', e.target.value)}
+                              disabled
+                              className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-gray-500 dark:text-gray-400"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Phone Number *
+                            </label>
+                            <input
+                              type="tel"
+                              value={formData.phone}
+                              onChange={(e) => handleInputChange('phone', e.target.value)}
+                              className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white dark:bg-gray-800"
+                              placeholder="Enter your phone number"
+                            />
+                            {formErrors.phone && (
+                              <p className="text-sm text-red-600 flex items-center gap-1">
+                                <AlertCircle className="h-4 w-4" />
+                                {formErrors.phone}
+                              </p>
+                            )}
+                          </div>
+                        </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Project Details *
-                  </label>
-                  <textarea
-                    value={formData.details}
-                    onChange={(e) => handleInputChange('details', e.target.value)}
-                    rows={4}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                    placeholder="Describe how you want your ad to look and any specific requirements..."
-                    required
-                  />
-                  {formErrors.details && (
-                    <p className="mt-1 text-sm text-red-600">{formErrors.details}</p>
-                  )}
-                </div>
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Address (Optional)
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.address}
+                            onChange={(e) => handleInputChange('address', e.target.value)}
+                            className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white dark:bg-gray-800"
+                            placeholder="Enter your address"
+                          />
+                        </div>
+                      </div>
 
-                <div className="flex justify-between">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => setCurrentStep(1)}
-                  >
-                    Back
-                  </Button>
-                  <Button
-                    type="submit"
-                    className="px-8 py-3"
-                  >
-                    Continue to File Upload
-                  </Button>
+                      {/* Project Details */}
+                      <div className="space-y-6">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-indigo-100 dark:bg-indigo-900 rounded-lg flex items-center justify-center">
+                            <Palette className="h-4 w-4 text-indigo-600 dark:text-indigo-300" />
+                          </div>
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                            Project Requirements
+                          </h3>
+                        </div>
+                        
+                        <div className="space-y-3">
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Project Details *
+                          </label>
+                          <div className="relative">
+                            <textarea
+                              value={formData.details}
+                              onChange={(e) => handleInputChange('details', e.target.value)}
+                              rows={6}
+                              className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white dark:bg-gray-800 resize-none"
+                              placeholder="Describe your vision for the ad. Include details about colors, style, messaging, target audience, and any specific requirements..."
+                              required
+                            />
+                            <div className="absolute bottom-3 right-3 text-xs text-gray-400 bg-white dark:bg-gray-800 px-2 py-1 rounded">
+                              {formData.details.length}/500
+                            </div>
+                          </div>
+                          {formErrors.details && (
+                            <p className="text-sm text-red-600 flex items-center gap-1">
+                              <AlertCircle className="h-4 w-4" />
+                              {formErrors.details}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex flex-col sm:flex-row gap-4 pt-8 mt-8 border-t border-gray-200 dark:border-gray-700">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => setCurrentStep(1)}
+                        className="w-full sm:w-auto px-8 py-3 order-2 sm:order-1"
+                      >
+                        <ArrowRight className="h-4 w-4 mr-2 rotate-180" />
+                        Back to Services
+                      </Button>
+                      <Button
+                        type="submit"
+                        className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 order-1 sm:order-2 shadow-lg"
+                      >
+                        Continue to File Upload
+                        <ArrowRight className="h-4 w-4 ml-2" />
+                      </Button>
+                    </div>
+                  </form>
                 </div>
-              </form>
+              </div>
             </div>
-          </Card>
+          </div>
         </div>
       )}
 

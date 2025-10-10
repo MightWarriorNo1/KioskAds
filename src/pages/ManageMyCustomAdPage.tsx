@@ -250,7 +250,7 @@ export default function ManageMyCustomAdPage() {
         </div>
 
         {/* Filter Tabs */}
-        <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+        <div className="flex flex-wrap gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1 overflow-x-auto">
           {[
             { key: 'all', label: 'All', count: customAds.length },
             { key: 'submitted', label: 'Submitted', count: customAds.filter(ad => ad.workflow_status === 'submitted').length },
@@ -265,19 +265,21 @@ export default function ManageMyCustomAdPage() {
             <button
               key={key}
               onClick={() => setFilter(key as any)}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${filter === key
+              className={`px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${filter === key
                   ? 'bg-white text-gray-900 dark:bg-gray-700 dark:text-white shadow-sm'
                   : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
                 }`}
             >
-              {label} ({count})
+              <span className="hidden sm:inline">{label}</span>
+              <span className="sm:hidden">{label.split(' ')[0]}</span>
+              <span className="ml-1">({count})</span>
             </button>
           ))}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* Ads List */}
-          <div className="lg:col-span-1 space-y-4">
+          <div className="xl:col-span-1 space-y-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               Your Custom Ads ({filteredAds.length})
             </h2>
@@ -327,7 +329,7 @@ export default function ManageMyCustomAdPage() {
           </div>
 
           {/* Selected Ad Details */}
-          <div className="lg:col-span-2">
+          <div className="xl:col-span-2">
             {selectedAd ? (
               <div className="space-y-6">
                 {/* Ad Header */}
@@ -348,22 +350,22 @@ export default function ManageMyCustomAdPage() {
                     {selectedAd.details || 'No details provided.'}
                   </p>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
                     <div className="flex items-center text-gray-600 dark:text-gray-400">
-                      <Calendar className="w-4 h-4 mr-2" />
-                      <span>Created: {new Date(selectedAd.created_at).toLocaleDateString()}</span>
+                      <Calendar className="w-4 h-4 mr-2 flex-shrink-0" />
+                      <span className="truncate">Created: {new Date(selectedAd.created_at).toLocaleDateString()}</span>
                     </div>
                     <div className="flex items-center text-gray-600 dark:text-gray-400">
-                      <DollarSign className="w-4 h-4 mr-2" />
-                      <span>Amount: ${selectedAd.total_amount}</span>
+                      <DollarSign className="w-4 h-4 mr-2 flex-shrink-0" />
+                      <span className="truncate">Amount: ${selectedAd.total_amount}</span>
                     </div>
                     <div className="flex items-center text-gray-600 dark:text-gray-400">
-                      <Users className="w-4 h-4 mr-2" />
-                      <span>Service: {selectedAd.service_key}</span>
+                      <Users className="w-4 h-4 mr-2 flex-shrink-0" />
+                      <span className="truncate">Service: {selectedAd.service_key}</span>
                     </div>
                     <div className="flex items-center text-gray-600 dark:text-gray-400">
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      <span>Payment: {selectedAd.payment_status}</span>
+                      <CheckCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                      <span className="truncate">Payment: {selectedAd.payment_status}</span>
                     </div>
                   </div>
                 </div>
@@ -451,15 +453,15 @@ export default function ManageMyCustomAdPage() {
                       Media Files ({selectedAd.files.length})
                     </h3>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {selectedAd.files.map((file: any) => (
                         <div
                           key={file.name}
                           className="border border-gray-200 dark:border-gray-600 rounded-lg p-4"
                         >
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex items-center space-x-3">
-                              <span className="text-2xl">📁</span>
+                          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-3">
+                            <div className="flex items-center space-x-3 min-w-0 flex-1">
+                              <span className="text-2xl flex-shrink-0">📁</span>
                               <div className="min-w-0 flex-1">
                                 <p className="font-medium text-gray-900 dark:text-white truncate">
                                   {file.name}
@@ -472,25 +474,27 @@ export default function ManageMyCustomAdPage() {
                               </div>
                             </div>
 
-                            {file.url ? (
-                              <Button
-                                onClick={() => {
-                                  console.log('View button clicked for file:', file);
-                                  console.log('File URL:', file.url);
-                                  window.open(file.url, '_blank');
-                                }}
-                                variant="secondary"
-                                size="sm"
-                                className="flex items-center space-x-1"
-                              >
-                                <Eye className="w-4 h-4" />
-                                <span>View</span>
-                              </Button>
-                            ) : (
-                              <div className="text-xs text-red-500">
-                                No URL available
-                              </div>
-                            )}
+                            <div className="flex-shrink-0">
+                              {file.url ? (
+                                <Button
+                                  onClick={() => {
+                                    console.log('View button clicked for file:', file);
+                                    console.log('File URL:', file.url);
+                                    window.open(file.url, '_blank');
+                                  }}
+                                  variant="secondary"
+                                  size="sm"
+                                  className="flex items-center space-x-1 w-full sm:w-auto"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                  <span>View</span>
+                                </Button>
+                              ) : (
+                                <div className="text-xs text-red-500 text-center sm:text-left">
+                                  No URL available
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -648,7 +652,7 @@ export default function ManageMyCustomAdPage() {
                     <div className="flex flex-col sm:flex-row gap-3">
                       <Button
                         onClick={() => setShowApprovalModal(true)}
-                        className="flex items-center justify-center space-x-2 bg-green-600 hover:bg-green-700 text-white"
+                        className="flex items-center justify-center space-x-2 bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
                       >
                         <CheckCircle className="w-4 h-4" />
                         <span>Approve Order</span>
@@ -657,7 +661,7 @@ export default function ManageMyCustomAdPage() {
                       <Button
                         onClick={() => setShowChangeRequestModal(true)}
                         variant="secondary"
-                        className="flex items-center justify-center space-x-2"
+                        className="flex items-center justify-center space-x-2 w-full sm:w-auto"
                       >
                         <AlertCircle className="w-4 h-4" />
                         <span>Request Changes</span>
@@ -680,7 +684,7 @@ export default function ManageMyCustomAdPage() {
                     <div className="flex flex-col sm:flex-row gap-3">
                       <Button
                         onClick={handleCreateCampaign}
-                        className="flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white"
+                        className="flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto"
                       >
                         <Play className="w-4 h-4" />
                         <span>Create Campaign</span>
@@ -706,8 +710,8 @@ export default function ManageMyCustomAdPage() {
 
       {/* Approval Modal */}
       {showApprovalModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-auto">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               Approve Order
             </h3>
@@ -723,7 +727,7 @@ export default function ManageMyCustomAdPage() {
               placeholder="Optional feedback for the designer..."
             />
             
-            <div className="flex justify-end space-x-3">
+            <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
               <Button
                 onClick={() => {
                   setShowApprovalModal(false);
@@ -731,13 +735,14 @@ export default function ManageMyCustomAdPage() {
                 }}
                 variant="secondary"
                 disabled={isProcessing}
+                className="w-full sm:w-auto"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleApproveOrder}
                 disabled={isProcessing}
-                className="bg-green-600 hover:bg-green-700 text-white"
+                className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
               >
                 {isProcessing ? 'Approving...' : 'Approve Order'}
               </Button>
@@ -748,8 +753,8 @@ export default function ManageMyCustomAdPage() {
 
       {/* Change Request Modal */}
       {showChangeRequestModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-lg mx-auto max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               Request Changes
             </h3>
@@ -777,7 +782,7 @@ export default function ManageMyCustomAdPage() {
               />
             </div>
             
-            <div className="flex justify-end space-x-3">
+            <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
               <Button
                 onClick={() => {
                   setShowChangeRequestModal(false);
@@ -786,13 +791,14 @@ export default function ManageMyCustomAdPage() {
                 }}
                 variant="secondary"
                 disabled={isProcessing}
+                className="w-full sm:w-auto"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleRequestChanges}
                 disabled={!changeRequest.trim() || isProcessing}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto"
               >
                 {isProcessing ? 'Sending...' : 'Send Request'}
               </Button>

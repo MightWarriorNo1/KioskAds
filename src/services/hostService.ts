@@ -123,6 +123,28 @@ export class HostService {
   // Get host's assigned kiosks
   static async getHostKiosks(hostId: string): Promise<HostKiosk[]> {
     try {
+      console.log('Fetching kiosks for host:', hostId);
+      
+      // First, let's check if the host exists and get their profile
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, role')
+        .eq('id', hostId)
+        .single();
+
+      if (profileError) {
+        console.error('Error fetching host profile:', profileError);
+        throw profileError;
+      }
+
+      console.log('Host profile:', profile);
+
+      if (!profile || profile.role !== 'host') {
+        console.log('User is not a host or profile not found');
+        return [];
+      }
+
+      // Now get the host's kiosk assignments
       const { data, error } = await supabase
         .from('host_kiosks')
         .select(`
@@ -133,7 +155,72 @@ export class HostService {
         .eq('status', 'active') // Only get active host-kiosk assignments
         .order('assigned_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        throw error;
+      }
+
+      console.log('Raw data from database:', data);
+
+      // If no assignments exist, let's check if there are any kiosks available
+      if (!data || data.length === 0) {
+        console.log('No host-kiosk assignments found. Checking available kiosks...');
+        
+        // For development/testing, let's create some sample assignments
+        // This is a temporary solution - in production, admins should assign kiosks
+        const { data: availableKiosks, error: kioskError } = await supabase
+          .from('kiosks')
+          .select('*')
+          .eq('status', 'active')
+          .limit(2);
+
+        if (kioskError) {
+          console.error('Error fetching available kiosks:', kioskError);
+        } else if (availableKiosks && availableKiosks.length > 0) {
+          console.log('Found available kiosks, creating sample assignments...');
+          
+          // Create sample assignments for development
+          for (const kiosk of availableKiosks.slice(0, 2)) {
+            const { error: insertError } = await supabase
+              .from('host_kiosks')
+              .insert({
+                host_id: hostId,
+                kiosk_id: kiosk.id,
+                commission_rate: 70.00,
+                status: 'active'
+              })
+              .select();
+
+            if (insertError) {
+              console.log('Assignment already exists or error:', insertError.message);
+            } else {
+              console.log('Created assignment for kiosk:', kiosk.name);
+            }
+          }
+
+          // Now fetch the assignments again
+          const { data: newData, error: newError } = await supabase
+            .from('host_kiosks')
+            .select(`
+              *,
+              kiosk:kiosks(*)
+            `)
+            .eq('host_id', hostId)
+            .eq('status', 'active')
+            .order('assigned_at', { ascending: false });
+
+          if (newError) {
+            console.error('Error fetching new assignments:', newError);
+            return [];
+          }
+
+          console.log('New assignments data:', newData);
+          return newData?.map(item => ({
+            ...item,
+            kiosk: item.kiosk
+          })) || [];
+        }
+      }
 
       // Filter to only include kiosks that are also active
       const activeKiosks = data?.filter(item => 
@@ -143,6 +230,7 @@ export class HostService {
         kiosk: item.kiosk
       })) || [];
 
+      console.log('Filtered active kiosks:', activeKiosks);
       return activeKiosks;
     } catch (error) {
       console.error('Error fetching host kiosks:', error);

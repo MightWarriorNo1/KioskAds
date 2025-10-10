@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calendar, MapPin, DollarSign, Activity, Eye, Play, Pause, Edit, Trash2, Save, X, Upload, Image as ImageIcon, Video } from 'lucide-react';
 import DashboardLayout from '../components/layouts/DashboardLayout';
@@ -27,17 +27,10 @@ export default function CampaignDetailsPage() {
     end_date: '',
     target_locations: [] as string[]
   });
-  const [campaignAssets, setCampaignAssets] = useState<any[]>([]);
+  const [campaignAssets, setCampaignAssets] = useState<Array<{id: string, file_name: string, file_type: string, status: string}>>([]);
   const [uploading, setUploading] = useState(false);
-  const fileInputRef = useState<HTMLInputElement | null>(null)[0] as React.MutableRefObject<HTMLInputElement | null>;
 
-  useEffect(() => {
-    if (id && user) {
-      loadCampaignDetails();
-    }
-  }, [id, user]);
-
-  const loadCampaignDetails = async () => {
+  const loadCampaignDetails = useCallback(async () => {
     if (!id || !user) return;
     
     try {
@@ -55,7 +48,12 @@ export default function CampaignDetailsPage() {
         }
       } else {
         addNotification('error', 'Campaign Not Found', 'The requested campaign could not be found.');
-        navigate('/client/campaigns');
+        // Navigate based on user role
+        if (user.role === 'host') {
+          navigate('/host/campaigns');
+        } else {
+          navigate('/client/campaigns');
+        }
       }
     } catch (error) {
       console.error('Error loading campaign details:', error);
@@ -63,7 +61,13 @@ export default function CampaignDetailsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, user, addNotification, navigate]);
+
+  useEffect(() => {
+    if (id && user) {
+      loadCampaignDetails();
+    }
+  }, [id, user, loadCampaignDetails]);
 
   const handleAssetUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!campaign || !user) return;
@@ -212,7 +216,12 @@ export default function CampaignDetailsPage() {
         const success = await CampaignService.deleteCampaign(campaign.id);
         if (success) {
           addNotification('success', 'Deleted', 'Draft campaign deleted.');
-          navigate('/client/campaigns');
+          // Navigate based on user role
+          if (user?.role === 'host') {
+            navigate('/host/campaigns');
+          } else {
+            navigate('/client/campaigns');
+          }
         } else {
           addNotification('error', 'Deletion Failed', 'Failed to delete draft campaign.');
         }
@@ -284,7 +293,14 @@ export default function CampaignDetailsPage() {
       {/* Back Button */}
       <div className="mb-6">
         <button
-          onClick={() => navigate('/client/campaigns')}
+          onClick={() => {
+            // Navigate based on user role
+            if (user?.role === 'host') {
+              navigate('/host/campaigns');
+            } else {
+              navigate('/client/campaigns');
+            }
+          }}
           className="inline-flex items-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -294,8 +310,8 @@ export default function CampaignDetailsPage() {
 
       {/* Campaign Header */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex-1">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-4">
+          <div className="flex-1 min-w-0">
             {isEditing ? (
               <div className="space-y-4">
                 <div>
@@ -325,22 +341,22 @@ export default function CampaignDetailsPage() {
               </div>
             ) : (
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white mb-2 break-words">
                   {campaign.name}
                 </h1>
-                <p className="text-gray-600 dark:text-gray-300">
+                <p className="text-gray-600 dark:text-gray-300 break-words">
                   {campaign.description || 'No description provided'}
                 </p>
               </div>
             )}
           </div>
-          <div className="flex items-center space-x-3 ml-4">
-            <span className={`${getStatusColor(campaign.status)} text-white text-sm px-3 py-1 rounded-full`}>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 lg:ml-4">
+            <span className={`${getStatusColor(campaign.status)} text-white text-sm px-3 py-1 rounded-full w-fit`}>
               {getStatusText(campaign.status)}
             </span>
             
             {/* Action Buttons */}
-            <div className="flex space-x-2">
+            <div className="flex flex-wrap gap-2">
               {isEditing ? (
                 <>
                   <button
@@ -409,7 +425,7 @@ export default function CampaignDetailsPage() {
       </div>
 
       {/* Campaign Stats */}
-      <div className="grid md:grid-cols-4 gap-6 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6">
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center">
             <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
@@ -462,7 +478,7 @@ export default function CampaignDetailsPage() {
       </div>
 
       {/* Campaign Details */}
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Campaign Information */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Campaign Information</h3>
@@ -563,12 +579,13 @@ export default function CampaignDetailsPage() {
 
         {/* Ad Assets (Active Campaigns) */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Ad Assets</h3>
             {campaign.status === 'active' && (
-              <label className="inline-flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer">
+              <label className="inline-flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer w-fit">
                 <Upload className="h-4 w-4 mr-2" />
-                Upload New Asset
+                <span className="hidden sm:inline">Upload New Asset</span>
+                <span className="sm:hidden">Upload</span>
                 <input type="file" accept="image/jpeg,image/png,video/mp4" className="hidden" onChange={handleAssetUpload} />
               </label>
             )}
@@ -577,9 +594,9 @@ export default function CampaignDetailsPage() {
           {campaignAssets.length === 0 ? (
             <div className="text-gray-500 dark:text-gray-400 text-sm">No assets uploaded yet.</div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-4">
               {campaignAssets.map(asset => (
-                <div key={asset.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 flex items-center gap-3">
+                <div key={asset.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 flex items-center gap-3 min-w-0">
                   <div className="flex-shrink-0">
                     {asset.file_type === 'image' ? (
                       <ImageIcon className="h-6 w-6 text-blue-500" />

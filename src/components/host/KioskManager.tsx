@@ -18,11 +18,17 @@ export default function KioskManager() {
 
   useEffect(() => {
     const loadKiosks = async () => {
-      if (!user?.id) return;
+      if (!user?.id) {
+        console.log('No user ID available');
+        return;
+      }
+      
+      console.log('Loading kiosks for user:', user.id, 'role:', user.role);
       
       try {
         setLoading(true);
         const kiosksData = await HostService.getHostKiosks(user.id);
+        console.log('Kiosks data received:', kiosksData);
         setKiosks(kiosksData);
       } catch (error) {
         console.error('Error loading kiosks:', error);
@@ -174,7 +180,26 @@ export default function KioskManager() {
       {/* Main Content */}
       {view === 'list' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {kiosks.map((kiosk) => (
+          {kiosks.length === 0 ? (
+            <div className="col-span-full">
+              <Card className="p-8 text-center">
+                <div className="text-gray-400 dark:text-gray-500 mb-4">
+                  <Monitor className="h-16 w-16 mx-auto" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No Kiosks Assigned</h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  You don't have any kiosks assigned yet. Contact an administrator to get kiosks assigned to your account.
+                </p>
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                  <p>Debug info:</p>
+                  <p>User ID: {user?.id}</p>
+                  <p>User Role: {user?.role}</p>
+                  <p>Kiosks loaded: {kiosks.length}</p>
+                </div>
+              </Card>
+            </div>
+          ) : (
+            kiosks.map((kiosk) => (
             <Card key={kiosk.id} className="p-6 hover:shadow-lg transition-shadow cursor-pointer" onClick={() => handleKioskSelect(kiosk)}>
               <div className="flex items-start justify-between mb-4">
                 <div>
@@ -219,7 +244,8 @@ export default function KioskManager() {
                 </div>
               </div>
             </Card>
-          ))}
+          ))
+          )}
         </div>
       ) : (
         <Card className="p-6">

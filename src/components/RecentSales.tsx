@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BillingService, RecentSale } from '../services/billingService';
 import { useNotification } from '../contexts/NotificationContext';
 import Card from './ui/Card';
-import { ShoppingCart, MapPin, Clock } from 'lucide-react';
+import { ShoppingCart, MapPin, Clock, RefreshCw } from 'lucide-react';
 
 interface RecentSalesProps {
   limit?: number;
@@ -17,24 +17,36 @@ export default function RecentSales({
 }: RecentSalesProps) {
   const [recentSales, setRecentSales] = useState<RecentSale[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const { addNotification } = useNotification();
 
   useEffect(() => {
     loadRecentSales();
   }, [limit]);
 
-  const loadRecentSales = async () => {
+  const loadRecentSales = async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       // Try public method first, fallback to regular method
       const sales = await BillingService.getPublicRecentSales(limit);
       setRecentSales(sales);
     } catch (error) {
       console.error('Error loading recent sales:', error);
       addNotification('error', 'Error', 'Failed to load recent sales');
+      // Set empty array on error to show "no sales" state
+      setRecentSales([]);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const handleRefresh = () => {
+    loadRecentSales(true);
   };
 
   const formatUserName = (fullName: string, address?: string) => {
@@ -142,9 +154,19 @@ export default function RecentSales({
   return (
     <Card className={`p-6 ${className}`}>
       {showHeader && (
-        <div className="flex items-center mb-6">
-          <ShoppingCart className="h-6 w-6 text-blue-600 mr-3" />
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Recent Sales</h3>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center">
+            <ShoppingCart className="h-6 w-6 text-blue-600 mr-3" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Recent Sales</h3>
+          </div>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors disabled:opacity-50"
+            title="Refresh recent sales"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
         </div>
       )}
       

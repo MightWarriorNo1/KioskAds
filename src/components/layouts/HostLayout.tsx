@@ -12,7 +12,8 @@ import {
   Menu, 
   LogOut,
   Receipt,
-  MessageSquare
+  MessageSquare,
+  User
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import Logo from '../shared/Logo';
@@ -30,6 +31,7 @@ const navigation = [
   { name: 'Analytics', href: '/host/analytics', icon: FileText },
   { name: 'Create Custom Ads', href: '/host/custom-ads', icon: Megaphone },
   { name: 'Manage My Custom Ad', href: '/host/manage-custom-ads', icon: MessageSquare },
+  { name: 'Profile', href: '/host/profile', icon: User },
 ];
 
 interface HostLayoutProps {
@@ -83,7 +85,7 @@ export default function HostLayout({ children }: HostLayoutProps) {
                 />
               </div>
               <div className="text-center">
-                <div className="text-xs text-slate-600 dark:text-slate-300 font-medium">KIOSK ADS.com</div>
+                <div className="text-xs text-slate-600 dark:text-slate-300 font-medium">EZKIOSK ADS.com</div>
                 <div className="text-lg font-bold text-slate-900 dark:text-white">EZ Kiosk Ads</div>
               </div>
             </div>

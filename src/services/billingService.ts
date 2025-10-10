@@ -486,6 +486,7 @@ export class BillingService {
       if (error) {
         console.error('Error fetching public recent sales:', error);
         // Fallback to regular method if RPC fails
+        console.log('Falling back to regular getRecentSales method');
         return this.getRecentSales(limit);
       }
 

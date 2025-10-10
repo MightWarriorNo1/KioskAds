@@ -226,19 +226,19 @@ export default function HostManageMyCustomAdPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">
             Manage My Custom Ads
           </h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-2">
+          <p className="text-sm lg:text-base text-gray-600 dark:text-gray-300 mt-2">
             Communicate with designers for proof and approval
           </p>
         </div>
         <Button
           onClick={loadCustomAds}
           variant="secondary"
-          className="flex items-center space-x-2"
+          className="flex items-center space-x-2 w-full sm:w-auto"
         >
           <RefreshCw className="w-4 h-4" />
           <span>Refresh</span>
@@ -246,7 +246,7 @@ export default function HostManageMyCustomAdPage() {
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+      <div className="flex flex-wrap gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1 overflow-x-auto">
         {[
           { key: 'all', label: 'All', count: customAds.length },
           { key: 'submitted', label: 'Submitted', count: customAds.filter(ad => ad.workflow_status === 'submitted').length },
@@ -261,20 +261,22 @@ export default function HostManageMyCustomAdPage() {
           <button
             key={key}
             onClick={() => setFilter(key as typeof filter)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            className={`px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
               filter === key
                 ? 'bg-white text-gray-900 dark:bg-gray-700 dark:text-white shadow-sm'
                 : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
             }`}
           >
-            {label} ({count})
+            <span className="hidden sm:inline">{label}</span>
+            <span className="sm:hidden">{label.split(' ')[0]}</span>
+            <span className="ml-1">({count})</span>
           </button>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Ads List */}
-        <div className="lg:col-span-1 space-y-4">
+        <div className="xl:col-span-1 space-y-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             Your Custom Ads ({filteredAds.length})
           </h2>
@@ -325,7 +327,7 @@ export default function HostManageMyCustomAdPage() {
         </div>
 
         {/* Selected Ad Details */}
-        <div className="lg:col-span-2">
+        <div className="xl:col-span-2">
           {selectedAd ? (
             <div className="space-y-6">
               {/* Ad Header */}
@@ -454,9 +456,9 @@ export default function HostManageMyCustomAdPage() {
                         key={file.name}
                         className="border border-gray-200 dark:border-gray-600 rounded-lg p-4"
                       >
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center space-x-3">
-                            <span className="text-2xl">📁</span>
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-3">
+                          <div className="flex items-center space-x-3 min-w-0 flex-1">
+                            <span className="text-2xl flex-shrink-0">📁</span>
                             <div className="min-w-0 flex-1">
                               <p className="font-medium text-gray-900 dark:text-white truncate">
                                 {file.name}
@@ -469,17 +471,19 @@ export default function HostManageMyCustomAdPage() {
                             </div>
                           </div>
                           
-                          {file.url && (
-                            <Button
-                              onClick={() => window.open(file.url, '_blank')}
-                              variant="secondary"
-                              size="sm"
-                              className="flex items-center space-x-1"
-                            >
-                              <Eye className="w-4 h-4" />
-                              <span>View</span>
-                            </Button>
-                          )}
+                          <div className="flex-shrink-0">
+                            {file.url && (
+                              <Button
+                                onClick={() => window.open(file.url, '_blank')}
+                                variant="secondary"
+                                size="sm"
+                                className="flex items-center space-x-1 w-full sm:w-auto"
+                              >
+                                <Eye className="w-4 h-4" />
+                                <span>View</span>
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -543,13 +547,13 @@ export default function HostManageMyCustomAdPage() {
                             <div className="grid gap-3">
                               {proof.files.map((file: any, idx: number) => (
                                 <div key={idx} className="border border-gray-200 dark:border-gray-600 rounded p-3">
-                                  <div className="flex items-center justify-between mb-2">
-                                    <span className="text-sm font-medium text-gray-900 dark:text-white">{file.name}</span>
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                                    <span className="text-sm font-medium text-gray-900 dark:text-white truncate">{file.name}</span>
                                     <Button
                                       onClick={() => window.open(file.url, '_blank')}
                                       variant="secondary"
                                       size="sm"
-                                      className="flex items-center space-x-1"
+                                      className="flex items-center space-x-1 w-full sm:w-auto"
                                     >
                                       <Eye className="w-4 h-4" />
                                       <span>View</span>

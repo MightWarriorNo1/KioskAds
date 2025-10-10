@@ -14,6 +14,7 @@ import { BillingService } from '../../services/billingService';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, useElements, useStripe, PaymentElement } from '@stripe/react-stripe-js';
 import { toLocalDateString, compareLocalDates } from '../../utils/dateUtils';
+import KioskPreview from '../admin/KioskPreview';
 
 export default function CreateCampaign() {
 	const navigate = useNavigate();
@@ -288,11 +289,14 @@ export default function CreateCampaign() {
 						</div>
 					) : filePreview ? (
 						<div className="space-y-3">
-							{(file?.type.startsWith('image/')) ? (
-								<img src={filePreview} alt="Preview" className="max-h-64 mx-auto rounded-lg shadow" />
-							) : (
-								<video src={filePreview} controls className="max-h-64 mx-auto rounded-lg shadow" />
-							)}
+							<div className="flex justify-center">
+								<KioskPreview
+									mediaUrl={filePreview}
+									mediaType={file?.type.startsWith('image/') ? 'image' : 'video'}
+									title="Campaign Preview"
+									className="w-48 h-96"
+								/>
+							</div>
 							<div className="flex items-center justify-center gap-2 text-green-600 dark:text-green-400">
 								<CheckCircle className="h-5 w-5" />
 								<span className="font-medium">File validated</span>

@@ -21,6 +21,7 @@
   html, body, #root { height: 100%; }
   body {
     @apply antialiased font-sans bg-[rgb(var(--bg))] text-[rgb(var(--fg))];
+    overflow-x: hidden;
   }
   h1 { @apply text-3xl md:text-4xl font-bold tracking-tight; }
   h2 { @apply text-2xl md:text-3xl font-semibold tracking-tight; }

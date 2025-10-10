@@ -136,21 +136,22 @@ export default function CustomAdDashboard({ userRole }: CustomAdDashboardProps) 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
             Custom Ad Orders
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-sm lg:text-base text-gray-600 dark:text-gray-400">
             Manage your custom ad creation requests
           </p>
         </div>
         <Button
           onClick={() => window.location.href = '/custom-ads'}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 w-full sm:w-auto"
         >
           <Plus className="w-4 h-4" />
-          New Order
+          <span className="hidden sm:inline">New Order</span>
+          <span className="sm:hidden">New</span>
         </Button>
       </div>
 
@@ -177,31 +178,31 @@ export default function CustomAdDashboard({ userRole }: CustomAdDashboardProps) 
       ) : (
         <div className="grid gap-4">
           {orders.map((order) => (
-            <Card key={order.id} className="p-6 hover:shadow-lg transition-shadow">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <Card key={order.id} className="p-4 lg:p-6 hover:shadow-lg transition-shadow">
+              <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
+                    <h3 className="text-base lg:text-lg font-semibold text-gray-900 dark:text-white truncate">
                       {order.service?.name || order.service_key}
                     </h3>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(order.workflow_status)}`}>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${getStatusColor(order.workflow_status)}`}>
                       {order.workflow_status.replace('_', ' ').toUpperCase()}
                     </span>
                   </div>
                   
-                  <div className="flex items-center gap-6 text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  <div className="flex flex-wrap items-center gap-4 lg:gap-6 text-xs lg:text-sm text-gray-600 dark:text-gray-400 mb-4">
                     <div className="flex items-center gap-1">
-                      <Calendar className="w-4 h-4" />
-                      <span>Ordered {formatDate(order.created_at)}</span>
+                      <Calendar className="w-3 h-3 lg:w-4 lg:h-4 flex-shrink-0" />
+                      <span className="truncate">Ordered {formatDate(order.created_at)}</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <DollarSign className="w-4 h-4" />
+                      <DollarSign className="w-3 h-3 lg:w-4 lg:h-4 flex-shrink-0" />
                       <span>${order.total_amount}</span>
                     </div>
                     {order.assigned_designer_id && (
                       <div className="flex items-center gap-1">
-                        <User className="w-4 h-4" />
-                        <span>{order.designer?.full_name || 'Designer Assigned'}</span>
+                        <User className="w-3 h-3 lg:w-4 lg:h-4 flex-shrink-0" />
+                        <span className="truncate">{order.designer?.full_name || 'Designer Assigned'}</span>
                       </div>
                     )}
                   </div>
@@ -226,16 +227,16 @@ export default function CustomAdDashboard({ userRole }: CustomAdDashboardProps) 
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 ml-4">
+                <div className="flex items-center gap-2 lg:ml-4">
                   {getStatusIcon(order.workflow_status)}
                   <Button
                     onClick={() => handleViewOrder(order)}
                     variant="secondary"
                     size="sm"
-                    className="flex items-center gap-1"
+                    className="flex items-center gap-1 w-full sm:w-auto"
                   >
                     <Eye className="w-4 h-4" />
-                    View
+                    <span className="hidden sm:inline">View</span>
                   </Button>
                 </div>
               </div>
@@ -388,28 +389,28 @@ function OrderDetailsModal({ order, onClose, userRole }: OrderDetailsModalProps)
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-900 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+        <div className="flex items-center justify-between p-4 lg:p-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg lg:text-xl font-bold text-gray-900 dark:text-white truncate">
               Order Details - {order.service?.name || order.service_key}
             </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-xs lg:text-sm text-gray-600 dark:text-gray-400 truncate">
               Order ID: {order.id}
             </p>
           </div>
-          <Button onClick={onClose} variant="ghost" size="sm">
+          <Button onClick={onClose} variant="ghost" size="sm" className="flex-shrink-0">
             <XCircle className="w-5 h-5" />
           </Button>
         </div>
 
         {/* Tabs */}
         <div className="border-b border-gray-200 dark:border-gray-700">
-          <nav className="flex space-x-8 px-6">
+          <nav className="flex overflow-x-auto space-x-4 lg:space-x-8 px-4 lg:px-6">
             {['details', 'proofs', 'workflow', 'comments'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab as any)}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                className={`py-4 px-1 border-b-2 font-medium text-xs lg:text-sm whitespace-nowrap ${
                   activeTab === tab
                     ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                     : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
@@ -422,7 +423,7 @@ function OrderDetailsModal({ order, onClose, userRole }: OrderDetailsModalProps)
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[60vh]">
+        <div className="p-4 lg:p-6 overflow-y-auto max-h-[60vh]">
           {activeTab === 'details' && (
             <OrderDetailsTab 
               order={order} 
@@ -477,7 +478,7 @@ function OrderDetailsTab({
   return (
     <div className="space-y-6">
       {/* Order Information */}
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Order Information
@@ -580,15 +581,15 @@ function OrderDetailsTab({
           </h3>
           <div className="grid gap-3">
             {order.files.map((file, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                <div className="flex items-center gap-3">
+              <div key={index} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg gap-3">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
                   {file.type.startsWith('video/') ? (
-                    <Video className="w-5 h-5 text-blue-500" />
+                    <Video className="w-4 h-4 lg:w-5 lg:h-5 text-blue-500 flex-shrink-0" />
                   ) : (
-                    <Image className="w-5 h-5 text-green-500" />
+                    <Image className="w-4 h-4 lg:w-5 lg:h-5 text-green-500 flex-shrink-0" />
                   )}
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                       {file.name}
                     </p>
                     <p className="text-xs text-gray-500">
@@ -600,10 +601,10 @@ function OrderDetailsTab({
                   onClick={() => window.open(file.url, '_blank')}
                   variant="ghost"
                   size="sm"
-                  className="flex items-center gap-1"
+                  className="flex items-center gap-1 w-full sm:w-auto"
                 >
                   <Download className="w-4 h-4" />
-                  View
+                  <span className="hidden sm:inline">View</span>
                 </Button>
               </div>
             ))}
@@ -731,12 +732,12 @@ function ProofsTab({ proofs, loading, userRole, onApprove, onRequestEdit, onCrea
 
           {/* Client/Host Actions */}
           {(userRole === 'client' || userRole === 'host') && (
-            <div className="flex flex-wrap gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
               {proof.status === 'submitted' && (
                 <>
                   <Button
                     onClick={() => onApprove(proof.id)}
-                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700 w-full sm:w-auto"
                   >
                     <CheckCircle className="w-4 h-4" />
                     Approve
@@ -744,7 +745,7 @@ function ProofsTab({ proofs, loading, userRole, onApprove, onRequestEdit, onCrea
                   <Button
                     onClick={() => onRequestEdit(proof.id)}
                     variant="secondary"
-                    className="flex items-center gap-2"
+                    className="flex items-center gap-2 w-full sm:w-auto"
                   >
                     <XCircle className="w-4 h-4" />
                     Request Edits
@@ -754,7 +755,7 @@ function ProofsTab({ proofs, loading, userRole, onApprove, onRequestEdit, onCrea
               {proof.status === 'approved' && (
                 <Button
                   onClick={() => onCreateCampaign(proof)}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 w-full sm:w-auto"
                 >
                   <CheckCircle className="w-4 h-4" />
                   Create Campaign
@@ -919,7 +920,7 @@ function CommentsTab({ order, onClose }: { order: CustomAdOrder; onClose: () => 
 
       {/* Add Comment Form */}
       <div className="border-t pt-4">
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <textarea
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
@@ -931,10 +932,11 @@ function CommentsTab({ order, onClose }: { order: CustomAdOrder; onClose: () => 
           <Button
             onClick={handleSubmitComment}
             disabled={!newComment.trim() || submittingComment}
-            className="px-4 py-2 flex items-center gap-2"
+            className="px-4 py-2 flex items-center gap-2 w-full sm:w-auto"
           >
             <Send className="w-4 h-4" />
-            {submittingComment ? 'Sending...' : 'Send'}
+            <span className="hidden sm:inline">{submittingComment ? 'Sending...' : 'Send'}</span>
+            <span className="sm:hidden">{submittingComment ? '...' : 'Send'}</span>
           </Button>
         </div>
         <p className="text-xs text-gray-500 mt-2">

@@ -313,6 +313,22 @@ export class CustomAdsService {
         throw error;
       }
 
+      // Create payment record in payment_history table for recent sales display
+      try {
+        const { BillingService } = await import('./billingService');
+        await BillingService.createPaymentRecord({
+          user_id: input.userId,
+          custom_ad_order_id: data.id as string,
+          payment_type: 'custom_ad',
+          amount: input.totalAmount,
+          status: 'succeeded',
+          description: `Custom Ad Order: ${input.serviceKey}`
+        });
+      } catch (paymentRecordError) {
+        console.error('Error creating payment record:', paymentRecordError);
+        // Don't throw error - order creation should succeed even if payment record fails
+      }
+
       // Send email notifications for order submitted and purchased
       try {
         const order = await this.getOrder(data.id as string);
@@ -473,6 +489,79 @@ export class CustomAdsService {
 
     if (error) throw error;
     return data;
+  }
+
+  // Get approved custom ad media files for a user
+  static async getUserApprovedCustomAdMedia(userId: string): Promise<any[]> {
+    try {
+      // Get all custom ad orders for the user
+      const { data: orders, error: ordersError } = await supabase
+        .from('custom_ad_orders')
+        .select('id, workflow_status, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (ordersError) throw ordersError;
+
+      if (!orders || orders.length === 0) {
+        return [];
+      }
+
+      // Get all proofs for these orders
+      const orderIds = orders.map(order => order.id);
+      const { data: allProofs, error: allProofsError } = await supabase
+        .from('custom_ad_proofs')
+        .select('id, order_id, files, title, created_at, version_number, status')
+        .in('order_id', orderIds)
+        .order('created_at', { ascending: false });
+
+      if (allProofsError) throw allProofsError;
+
+      if (!allProofs || allProofs.length === 0) {
+        return [];
+      }
+
+      // Filter for approved proofs first, then fallback to any proofs with files
+      let proofs = allProofs.filter(proof => proof.status === 'approved');
+      
+      // If no approved proofs, get any proofs with files
+      if (proofs.length === 0) {
+        proofs = allProofs.filter(proof => 
+          proof.files && Array.isArray(proof.files) && proof.files.length > 0
+        );
+      }
+
+      if (proofs.length === 0) {
+        return [];
+      }
+
+      // Flatten and format the media files
+      const mediaFiles: any[] = [];
+      
+      proofs.forEach(proof => {
+        if (proof.files && Array.isArray(proof.files)) {
+          proof.files.forEach((file: any, index: number) => {
+            mediaFiles.push({
+              id: `${proof.id}_${index}`,
+              orderId: proof.order_id,
+              proofId: proof.id,
+              title: proof.title || `Custom Ad - Version ${proof.version_number}`,
+              fileName: file.name || file.url?.split('/').pop() || 'Unknown',
+              url: file.url,
+              size: file.size || 0,
+              type: file.type || 'image',
+              createdAt: proof.created_at,
+              versionNumber: proof.version_number
+            });
+          });
+        }
+      });
+
+      return mediaFiles;
+    } catch (error) {
+      console.error('Error fetching approved custom ad media:', error);
+      throw error;
+    }
   }
 
   // Update order payment status

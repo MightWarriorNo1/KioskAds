@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Play, Pause, Edit, Trash2, Plus, Filter, RefreshCw } from 'lucide-react';
 import NewCampaignModal from './NewCampaignModal';
-import PhonePreview from '../admin/PhonePreview';
+import KioskPreview from '../admin/KioskPreview';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { CampaignService } from '../../services/campaignService';
@@ -202,12 +202,12 @@ export default function CampaignManager() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Campaign Manager</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Campaign Manager</h1>
           <p className="text-gray-600 mt-2">Create and manage your advertising campaigns</p>
         </div>
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-3 flex-wrap">
           <button 
             onClick={handleRefresh}
             className="text-gray-600 hover:text-gray-800 transition-colors p-2 rounded-lg hover:bg-gray-100"
@@ -220,7 +220,7 @@ export default function CampaignManager() {
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
           >
             <Plus className="h-4 w-4" />
-            <span>New Campaign</span>
+            <span className="hidden sm:inline">New Campaign</span>
           </button>
         </div>
       </div>
@@ -279,11 +279,11 @@ export default function CampaignManager() {
                       {/* Media Preview for Draft, Pending, Active campaigns */}
                       {['draft', 'pending', 'active'].includes(campaign.status) && mediaPreviews[campaign.id]?.url ? (
                         <div className="flex justify-center">
-                          <PhonePreview
+                          <KioskPreview
                             mediaUrl={mediaPreviews[campaign.id].url}
                             mediaType={mediaPreviews[campaign.id].type}
                             title={`${campaign.name} - Ad Preview`}
-                            className="scale-75"
+                            className="w-32 h-64"
                           />
                         </div>
                       ) : ['draft', 'pending', 'active'].includes(campaign.status) && loadingPreviews ? (

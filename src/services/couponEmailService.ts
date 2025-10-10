@@ -32,7 +32,7 @@ export class CouponEmailService {
         console.error('Coupon email template not found - creating fallback');
         // Create a fallback template if none exists
         const fallbackTemplate = {
-          id: 'fallback',
+          id: 'fallback-template',
           name: 'Fallback Coupon Template',
           type: 'coupon_code_delivery',
           subject: 'Your Exclusive Coupon Code - {{coupon_code}}',
@@ -139,7 +139,7 @@ export class CouponEmailService {
       const { data, error } = await supabase
         .from('email_queue')
         .insert({
-          template_id: template.id,
+          template_id: template.id === 'fallback-template' ? null : template.id,
           recipient_email: to,
           recipient_name: toName,
           subject,

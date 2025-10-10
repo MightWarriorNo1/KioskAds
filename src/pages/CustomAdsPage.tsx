@@ -696,38 +696,38 @@ export default function CustomAdsPage() {
 
       {/* Step 1: Service Selection */}
       {!orderSubmitted && currentStep === 1 && (
-        <div className="grid md:grid-cols-3 gap-8 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 mb-12">
           {services.map((service) => (
             <Card key={service.id} className="text-center hover:shadow-elevated transition-all duration-300 hover:scale-105">
-              <div className="p-8">
+              <div className="p-6 lg:p-8">
                 <div className="w-16 h-16 rounded-full bg-primary-50 text-primary-700 dark:bg-gray-800 dark:text-primary-300 flex items-center justify-center mx-auto mb-6">
                   {service.icon}
                 </div>
-                <h3 className="text-2xl font-bold mb-4">{service.title}</h3>
-                <p className="text-gray-600 dark:text-gray-300 mb-6">{service.description}</p>
+                <h3 className="text-xl lg:text-2xl font-bold mb-4">{service.title}</h3>
+                <p className="text-gray-600 dark:text-gray-300 mb-6 text-sm lg:text-base">{service.description}</p>
                 
                 <div className="space-y-2 mb-6">
-                  <div className="flex items-center justify-center gap-2 text-lg font-semibold text-primary-600">
-                    <DollarSign className="w-5 h-5" />
+                  <div className="flex items-center justify-center gap-2 text-base lg:text-lg font-semibold text-primary-600">
+                    <DollarSign className="w-4 h-4 lg:w-5 lg:h-5" />
                     <span>${service.price}</span>
                   </div>
-                  <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
-                    <Clock className="w-4 h-4" />
+                  <div className="flex items-center justify-center gap-2 text-xs lg:text-sm text-gray-500">
+                    <Clock className="w-3 h-3 lg:w-4 lg:h-4" />
                     <span>{service.turnaround}</span>
                   </div>
                   {service.timeLimit && (
-                    <div className="text-sm text-gray-500">
+                    <div className="text-xs lg:text-sm text-gray-500">
                       {service.timeLimit}
                     </div>
                   )}
                   {service.videoLength && (
-                    <div className="text-sm text-gray-500">
+                    <div className="text-xs lg:text-sm text-gray-500">
                       {service.videoLength}
                     </div>
                   )}
                   {service.requiresLocation && (
-                    <div className="flex items-center justify-center gap-2 text-sm text-amber-600">
-                      <MapPin className="w-4 h-4" />
+                    <div className="flex items-center justify-center gap-2 text-xs lg:text-sm text-amber-600">
+                      <MapPin className="w-3 h-3 lg:w-4 lg:h-4" />
                       <span>50-mile radius required</span>
                     </div>
                   )}
@@ -782,9 +782,9 @@ export default function CustomAdsPage() {
         {/* Order Form */}
         {showOrderForm && selectedService && (
           <Card className="max-w-4xl mx-auto">
-            <div className="p-8">
+            <div className="p-4 lg:p-8">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold">Order Details</h2>
+                <h2 className="text-xl lg:text-2xl font-bold">Order Details</h2>
                 <Button 
                   onClick={() => {
                     setShowOrderForm(false);
@@ -813,10 +813,12 @@ export default function CustomAdsPage() {
               <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    {selectedService.icon}
-                    <div>
-                      <h3 className="font-semibold">{selectedService.title}</h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-300">
+                    <div className="flex-shrink-0">
+                      {selectedService.icon}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-semibold text-sm lg:text-base truncate">{selectedService.title}</h3>
+                      <p className="text-xs lg:text-sm text-gray-600 dark:text-gray-300">
                         {selectedService.turnaround} • ${selectedService.price}
                       </p>
                     </div>
@@ -827,7 +829,7 @@ export default function CustomAdsPage() {
               {paymentStep === 'form' && (
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Personal Information */}
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Input
                     label="First Name"
                     value={formData.firstName}
@@ -848,7 +850,7 @@ export default function CustomAdsPage() {
                   />
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Input
                     label="Email"
                     type="email"
@@ -902,7 +904,7 @@ export default function CustomAdsPage() {
 
                 {/* Date and Time Selection for Photography/Videography */}
                 {(selectedService?.id === 'photography' || selectedService?.id === 'videography') && (
-                  <div className="grid md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Preferred Date (Optional)
@@ -960,7 +962,7 @@ export default function CustomAdsPage() {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Upload Media Assets (Max 20 files)
                   </label>
-                  <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center">
+                  <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 lg:p-6 text-center">
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -969,18 +971,18 @@ export default function CustomAdsPage() {
                       onChange={handleFileUpload}
                       className="hidden"
                     />
-                    <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600 dark:text-gray-300 mb-2">
+                    <Upload className="w-8 h-8 lg:w-12 lg:h-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600 dark:text-gray-300 mb-2 text-sm lg:text-base">
                       Click to upload or drag and drop
                     </p>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-xs lg:text-sm text-gray-500">
                       Any dimensions allowed • Images up to 100MB • Videos up to 5 minutes • Many common document types supported
                     </p>
                     <Button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                       variant="secondary"
-                      className="mt-4"
+                      className="mt-4 w-full sm:w-auto"
                     >
                       Choose Files
                     </Button>
@@ -1098,7 +1100,7 @@ export default function CustomAdsPage() {
                     />
                   )}
 
-                  <div className="flex items-center justify-between pt-6 border-t border-gray-200 dark:border-gray-700">
+                  <div className="flex flex-col sm:flex-row items-center justify-between pt-6 border-t border-gray-200 dark:border-gray-700 gap-3">
                     <Button 
                       type="button" 
                       variant="secondary" 
@@ -1106,6 +1108,7 @@ export default function CustomAdsPage() {
                         setCurrentStep(2);
                         setPaymentStep('form');
                       }}
+                      className="w-full sm:w-auto"
                     >
                       Back
                     </Button>
@@ -1296,13 +1299,13 @@ export default function CustomAdsPage() {
                         setPaymentMessage(null);
                         setSubmittedOrderId(null);
                       }}
-                      className="flex-1"
+                      className="flex-1 w-full sm:w-auto"
                     >
                       Create Another Ad
                     </Button>
                     <Button
                       onClick={() => navigate('/client/manage-custom-ads')}
-                      className="flex-1 bg-blue-600 hover:bg-blue-700"
+                      className="flex-1 w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
                     >
                       Manage Custom Ad
                     </Button>
@@ -1316,8 +1319,8 @@ export default function CustomAdsPage() {
         {/* Comments Modal */}
         {showCommentsModal && selectedProofForComments && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <Card className="max-w-md w-full">
-              <div className="p-6">
+            <Card className="max-w-md w-full mx-auto">
+              <div className="p-4 lg:p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-xl font-bold">
                     {selectedProofForComments.action === 'approve' ? 'Approve Proof' : 'Request Edits'}
@@ -1350,17 +1353,17 @@ export default function CustomAdsPage() {
                   />
                 </div>
                 
-                <div className="flex gap-3">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <Button
                     onClick={() => setShowCommentsModal(false)}
                     variant="secondary"
-                    className="flex-1"
+                    className="flex-1 w-full sm:w-auto"
                   >
                     Cancel
                   </Button>
                   <Button
                     onClick={handleSubmitComments}
-                    className={`flex-1 ${
+                    className={`flex-1 w-full sm:w-auto ${
                       selectedProofForComments.action === 'approve'
                         ? 'bg-green-600 hover:bg-green-700'
                         : 'bg-orange-600 hover:bg-orange-700'

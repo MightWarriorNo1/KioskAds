@@ -318,16 +318,16 @@ export default function BillingPage() {
       subtitle="Manage your billing and payment information"
     >
       {/* Action Buttons */}
-      <div className="flex justify-end space-x-4 mb-8">
+      <div className="flex flex-col sm:flex-row sm:justify-end gap-4 mb-8">
         <button 
           onClick={handleRefresh}
           disabled={refreshing}
-          className="bg-black text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-800 transition-colors flex items-center space-x-2 disabled:bg-gray-400"
+          className="bg-black text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-800 transition-colors flex items-center space-x-2 disabled:bg-gray-400 w-full sm:w-auto justify-center"
         >
           <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
           <span>{refreshing ? 'Refreshing...' : 'Refresh'}</span>
         </button>
-        <button className="bg-black text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-800 transition-colors flex items-center space-x-2">
+        <button className="bg-black text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-800 transition-colors flex items-center space-x-2 w-full sm:w-auto justify-center">
           <FileText className="h-4 w-4" />
           <span>Manage Billing</span>
         </button>
@@ -335,20 +335,22 @@ export default function BillingPage() {
 
       {/* Tabs */}
       <div className="mb-8">
-        <div className="flex space-x-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
-          {tabs.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeTab === tab
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 dark:text-white hover:text-gray-900'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+        <div className="bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
+          <div className="flex flex-wrap gap-1 sm:gap-0 sm:space-x-1 overflow-x-auto sm:overflow-visible">
+            {tabs.map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-2 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
+                  activeTab === tab
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 dark:text-white hover:text-gray-900'
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

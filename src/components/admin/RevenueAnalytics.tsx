@@ -824,111 +824,198 @@ export default function RevenueAnalytics() {
                 </div>
               ) : (
                 <div className="w-full">
-                  <table className="w-full divide-y divide-gray-200 dark:divide-gray-700 table-fixed">
-                    <thead className="bg-gray-50 dark:bg-gray-800">
-                      <tr>
-                        <th className="w-24 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Date
-                        </th>
-                        <th className="w-20 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Type
-                        </th>
-                        <th className="w-32 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Client
-                        </th>
-                        <th className="w-40 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Details
-                        </th>
-                        <th className="w-20 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Ad Type
-                        </th>
-                        <th className="w-24 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Amount
-                        </th>
-                        <th className="w-24 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Status
-                        </th>
-                        <th className="w-20 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Kiosks
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                  {/* Mobile/Tablet View - Card Layout */}
+                  <div className="block lg:hidden">
+                    <div className="space-y-4">
                       {filteredTransactions.map((transaction) => (
-                        <tr key={transaction.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                          <td className="px-3 py-3 text-xs text-gray-900 dark:text-white">
-                            {new Date(transaction.date).toLocaleDateString()}
-                          </td>
-                          <td className="px-3 py-3">
-                            <span className={`inline-flex px-1 py-0.5 text-xs font-semibold rounded-full ${
-                              transaction.type === 'campaign' 
-                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                                : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                            }`}>
-                              {transaction.type === 'campaign' ? 'Campaign' : 'Custom Ad'}
-                            </span>
-                          </td>
-                          <td className="px-3 py-3">
-                            <div>
-                              <div className="text-xs font-medium text-gray-900 dark:text-white truncate">
-                                {transaction.client.name}
+                        <div key={transaction.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-sm">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                  transaction.type === 'campaign' 
+                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                                    : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                }`}>
+                                  {transaction.type === 'campaign' ? 'Campaign' : 'Custom Ad'}
+                                </span>
+                                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                  transaction.status === 'succeeded' || transaction.status === 'completed'
+                                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                    : transaction.status === 'pending' || transaction.status === 'in_progress'
+                                    ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                                    : transaction.status === 'failed' || transaction.status === 'cancelled'
+                                    ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                                    : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+                                }`}>
+                                  {transaction.status.replace('_', ' ')}
+                                </span>
                               </div>
-                              <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                                {transaction.client.email}
+                              <div className="text-lg font-semibold text-gray-900 dark:text-white">
+                                {formatCurrency(transaction.amount)}
                               </div>
                             </div>
-                          </td>
-                          <td className="px-3 py-3">
-                            {transaction.type === 'campaign' ? (
-                              <div>
-                                <div className="text-xs font-medium text-gray-900 dark:text-white truncate">
-                                  {transaction.campaign?.name || 'N/A'}
-                                </div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400">
-                                  Campaign
-                                </div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                              {new Date(transaction.date).toLocaleDateString()}
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <div>
+                              <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Client</div>
+                              <div className="text-sm text-gray-900 dark:text-white">{transaction.client.name}</div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">{transaction.client.email}</div>
+                            </div>
+                            
+                            <div>
+                              <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                {transaction.type === 'campaign' ? 'Campaign' : 'Service'}
                               </div>
-                            ) : (
-                              <div>
-                                <div className="text-xs font-medium text-gray-900 dark:text-white truncate">
-                                  {transaction.customAd?.service_key || 'N/A'}
-                                </div>
+                              <div className="text-sm text-gray-900 dark:text-white">
+                                {transaction.type === 'campaign' 
+                                  ? (transaction.campaign?.name || 'N/A')
+                                  : (transaction.customAd?.service_key || 'N/A')
+                                }
+                              </div>
+                              {transaction.type === 'custom_ad' && transaction.customAd?.details && (
                                 <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                                  {transaction.customAd?.details?.substring(0, 30)}...
+                                  {transaction.customAd.details.substring(0, 50)}...
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Ad Type</div>
+                                <div className="text-sm text-gray-900 dark:text-white">
+                                  {transaction.adType ? (
+                                    <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                                      {transaction.adType}
+                                    </span>
+                                  ) : 'N/A'}
                                 </div>
                               </div>
-                            )}
-                          </td>
-                          <td className="px-3 py-3">
-                            {transaction.adType && (
-                              <span className="inline-flex px-1 py-0.5 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                                {transaction.adType}
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-3 py-3 text-xs font-semibold text-gray-900 dark:text-white">
-                            {formatCurrency(transaction.amount)}
-                          </td>
-                          <td className="px-3 py-3">
-                            <span className={`inline-flex px-1 py-0.5 text-xs font-semibold rounded-full ${
-                              transaction.status === 'succeeded' || transaction.status === 'completed'
-                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                : transaction.status === 'pending' || transaction.status === 'in_progress'
-                                ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                                : transaction.status === 'failed' || transaction.status === 'cancelled'
-                                ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                                : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
-                            }`}>
-                              {transaction.status.replace('_', ' ')}
-                            </span>
-                          </td>
-                          <td className="px-3 py-3 text-xs text-gray-500 dark:text-gray-400">
-                            {transaction.kiosks?.length || 0}
-                          </td>
-                        </tr>
+                              <div>
+                                <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Kiosks</div>
+                                <div className="text-sm text-gray-900 dark:text-white">
+                                  {transaction.kiosks?.length || 0}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
+                    </div>
+                  </div>
+
+                  {/* Desktop View - Table Layout */}
+                  <div className="hidden lg:block overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                      <thead className="bg-gray-50 dark:bg-gray-800">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Date
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Type
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Client
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Details
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Ad Type
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Amount
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Kiosks
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                        {filteredTransactions.map((transaction) => (
+                          <tr key={transaction.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                              {new Date(transaction.date).toLocaleDateString()}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                transaction.type === 'campaign' 
+                                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                                  : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                              }`}>
+                                {transaction.type === 'campaign' ? 'Campaign' : 'Custom Ad'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div>
+                                <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                  {transaction.client.name}
+                                </div>
+                                <div className="text-sm text-gray-500 dark:text-gray-400">
+                                  {transaction.client.email}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              {transaction.type === 'campaign' ? (
+                                <div>
+                                  <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                    {transaction.campaign?.name || 'N/A'}
+                                  </div>
+                                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                                    Campaign
+                                  </div>
+                                </div>
+                              ) : (
+                                <div>
+                                  <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                    {transaction.customAd?.service_key || 'N/A'}
+                                  </div>
+                                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                                    {transaction.customAd?.details?.substring(0, 50)}...
+                                  </div>
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {transaction.adType && (
+                                <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                                  {transaction.adType}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-white">
+                              {formatCurrency(transaction.amount)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                transaction.status === 'succeeded' || transaction.status === 'completed'
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                  : transaction.status === 'pending' || transaction.status === 'in_progress'
+                                  ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                                  : transaction.status === 'failed' || transaction.status === 'cancelled'
+                                  ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                                  : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+                              }`}>
+                                {transaction.status.replace('_', ' ')}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                              {transaction.kiosks?.length || 0}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                   
                   {filteredTransactions.length === 0 && (
                     <div className="text-center py-8">

@@ -412,56 +412,60 @@ export default function KioskManagement() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 lg:space-y-6 px-2 sm:px-4 lg:px-0">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center space-y-4 lg:space-y-0">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Kiosk Management</h1>
+          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">Kiosk Management</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-2">Assign kiosks to host users for ad management and revenue tracking</p>
         </div>
-        <div className="flex space-x-3">
+        <div className="flex flex-wrap gap-2 lg:gap-3">
           <button
             onClick={loadKiosks}
             disabled={loading}
-            className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
+            className="flex items-center space-x-2 px-3 lg:px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 text-sm lg:text-base"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
+            <span className="hidden sm:inline">Refresh</span>
           </button>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            className="flex items-center space-x-2 px-3 lg:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm lg:text-base"
           >
             <Plus className="h-4 w-4" />
-            <span>Create New Kiosk</span>
+            <span className="hidden sm:inline">Create New Kiosk</span>
+            <span className="sm:hidden">Create</span>
           </button>
           <button
             onClick={() => setShowAssignModal(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            className="flex items-center space-x-2 px-3 lg:px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm lg:text-base"
           >
             <UserPlus className="h-4 w-4" />
-            <span>Assign Kiosk to Host</span>
+            <span className="hidden sm:inline">Assign Kiosk to Host</span>
+            <span className="sm:hidden">Assign</span>
           </button>
           <button
             onClick={exportKiosks}
-            className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            className="flex items-center space-x-2 px-3 lg:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm lg:text-base"
           >
             <Download className="h-4 w-4" />
-            <span>Export CSV</span>
+            <span className="hidden sm:inline">Export CSV</span>
+            <span className="sm:hidden">Export</span>
           </button>
           <button
             onClick={() => setShowImportModal(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex items-center space-x-2 px-3 lg:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm lg:text-base"
           >
             <Upload className="h-4 w-4" />
-            <span>Import CSV</span>
+            <span className="hidden sm:inline">Import CSV</span>
+            <span className="sm:hidden">Import</span>
           </button>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid md:grid-cols-4 gap-6">
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 p-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 p-4 lg:p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Kiosks</p>
@@ -473,7 +477,7 @@ export default function KioskManagement() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 p-4 lg:p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Active</p>
@@ -485,7 +489,7 @@ export default function KioskManagement() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 p-4 lg:p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Inactive</p>
@@ -497,7 +501,7 @@ export default function KioskManagement() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 p-4 lg:p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Maintenance</p>
@@ -511,9 +515,9 @@ export default function KioskManagement() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <div className="flex flex-wrap gap-4">
-          <div className="flex-1 min-w-64">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 lg:p-6">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1 min-w-0">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <input
@@ -525,36 +529,38 @@ export default function KioskManagement() {
               />
             </div>
           </div>
-          <div>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            >
-              <option value="all">All Statuses</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="maintenance">Maintenance</option>
-            </select>
-          </div>
-          <div>
-            <select
-              value={trafficFilter}
-              onChange={(e) => setTrafficFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            >
-              <option value="all">All Traffic Levels</option>
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
-            </select>
+          <div className="flex flex-col sm:flex-row gap-4 sm:gap-2">
+            <div className="sm:w-48">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              >
+                <option value="all">All Statuses</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="maintenance">Maintenance</option>
+              </select>
+            </div>
+            <div className="sm:w-48">
+              <select
+                value={trafficFilter}
+                onChange={(e) => setTrafficFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              >
+                <option value="all">All Traffic Levels</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Kiosks Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="px-4 lg:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Kiosks</h3>
         </div>
         
@@ -570,79 +576,185 @@ export default function KioskManagement() {
             <p className="text-gray-500 dark:text-gray-400">No kiosks match your current filters.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 dark:bg-gray-700">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Kiosk
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Location
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Traffic
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Pricing
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Host
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+          <>
+            {/* Desktop Table View */}
+            <div className="hidden lg:block overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Kiosk
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Location
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Traffic
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Pricing
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Host
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {filteredKiosks.map((kiosk) => {
+                    const StatusIcon = getStatusIcon(kiosk.status);
+                    return (
+                      <tr key={kiosk.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-10 w-10">
+                              <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                                <StatusIcon className="h-5 w-5 text-purple-600" />
+                              </div>
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900 dark:text-white">{kiosk.name}</div>
+                              <div className="text-sm text-gray-500 dark:text-gray-400">{kiosk.id}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900 dark:text-white">{kiosk.location}</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">{kiosk.city}, {kiosk.state}</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">{kiosk.address}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getTrafficColor(kiosk.traffic_level)}`}>
+                            {kiosk.traffic_level}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900 dark:text-white">${kiosk.price.toFixed(2)}</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">Base: ${kiosk.base_rate.toFixed(2)}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {kiosk.host_assignments && kiosk.host_assignments.length > 0 ? (
+                            <div className="space-y-1">
+                              {kiosk.host_assignments.map((assignment) => (
+                                <div key={assignment.id} className="flex items-center space-x-2">
+                                  <div className="flex items-center space-x-1">
+                                    <User className="h-3 w-3 text-gray-400" />
+                                    <span className="text-sm text-gray-900 dark:text-white">
+                                      {assignment.host.full_name}
+                                    </span>
+                                  </div>
+                                  <button
+                                    onClick={() => handleUnassignHost(assignment.id)}
+                                    className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                                    title="Unassign host"
+                                  >
+                                    <UserMinus className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-sm text-gray-500 dark:text-gray-400">No host assigned</div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(kiosk.status)}`}>
+                            {kiosk.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex space-x-2">
+                            <button 
+                              onClick={() => handleShowAssign(kiosk)}
+                              className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
+                              title="Assign Kiosk to Host User"
+                            >
+                              <UserPlus className="h-4 w-4" />
+                            </button>
+                            <button 
+                              onClick={() => handleAssignFolders(kiosk.id)}
+                              className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300"
+                              title="Assign Google Drive Folders"
+                            >
+                              <Folder className="h-4 w-4" />
+                            </button>
+                            <button onClick={() => handleShowLocation(kiosk)} className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300">
+                              <MapPin className="h-4 w-4" />
+                            </button>
+                            <button onClick={() => handleShowSettings(kiosk)} className="text-purple-600 hover:text-purple-900 dark:text-purple-400 dark:hover:text-purple-300">
+                              <Settings className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="lg:hidden">
+              <div className="space-y-3">
                 {filteredKiosks.map((kiosk) => {
                   const StatusIcon = getStatusIcon(kiosk.status);
                   return (
-                    <tr key={kiosk.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10">
-                            <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                              <StatusIcon className="h-5 w-5 text-purple-600" />
+                    <div key={kiosk.id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3 mx-1">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center space-x-3 min-w-0 flex-1">
+                          <div className="flex-shrink-0 h-8 w-8">
+                            <div className="h-8 w-8 rounded-lg bg-purple-100 flex items-center justify-center">
+                              <StatusIcon className="h-4 w-4 text-purple-600" />
                             </div>
                           </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900 dark:text-white">{kiosk.name}</div>
-                            <div className="text-sm text-gray-500 dark:text-gray-400">{kiosk.id}</div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-medium text-gray-900 dark:text-white truncate">{kiosk.name}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{kiosk.id}</div>
+                            <div className="text-xs text-gray-600 dark:text-gray-300 truncate">{kiosk.location}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{kiosk.city}, {kiosk.state}</div>
                           </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900 dark:text-white">{kiosk.location}</div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">{kiosk.city}, {kiosk.state}</div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">{kiosk.address}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getTrafficColor(kiosk.traffic_level)}`}>
-                          {kiosk.traffic_level}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900 dark:text-white">${kiosk.price.toFixed(2)}</div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">Base: ${kiosk.base_rate.toFixed(2)}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {kiosk.host_assignments && kiosk.host_assignments.length > 0 ? (
-                          <div className="space-y-1">
+                        <div className="flex-shrink-0 ml-2">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(kiosk.status)}`}>
+                            {kiosk.status}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-3 mb-3">
+                        <div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Traffic</div>
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getTrafficColor(kiosk.traffic_level)}`}>
+                            {kiosk.traffic_level}
+                          </span>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Pricing</div>
+                          <div className="text-sm text-gray-900 dark:text-white">${kiosk.price.toFixed(2)}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">Base: ${kiosk.base_rate.toFixed(2)}</div>
+                        </div>
+                      </div>
+
+                      {kiosk.host_assignments && kiosk.host_assignments.length > 0 && (
+                        <div className="mb-3">
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">Host</div>
+                          <div className="space-y-2">
                             {kiosk.host_assignments.map((assignment) => (
-                              <div key={assignment.id} className="flex items-center space-x-2">
-                                <div className="flex items-center space-x-1">
-                                  <User className="h-3 w-3 text-gray-400" />
-                                  <span className="text-sm text-gray-900 dark:text-white">
+                              <div key={assignment.id} className="flex items-center justify-between bg-gray-50 dark:bg-gray-700 rounded px-2 py-1">
+                                <div className="flex items-center space-x-2 min-w-0 flex-1">
+                                  <User className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                                  <span className="text-xs text-gray-900 dark:text-white truncate">
                                     {assignment.host.full_name}
                                   </span>
                                 </div>
                                 <button
                                   onClick={() => handleUnassignHost(assignment.id)}
-                                  className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                                  className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 flex-shrink-0 ml-2"
                                   title="Unassign host"
                                 >
                                   <UserMinus className="h-3 w-3" />
@@ -650,52 +762,52 @@ export default function KioskManagement() {
                               </div>
                             ))}
                           </div>
-                        ) : (
-                          <div className="text-sm text-gray-500 dark:text-gray-400">No host assigned</div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(kiosk.status)}`}>
-                          {kiosk.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
-                          <button 
-                            onClick={() => handleShowAssign(kiosk)}
-                            className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
-                            title="Assign Kiosk to Host User"
-                          >
-                            <UserPlus className="h-4 w-4" />
-                          </button>
-                          <button 
-                            onClick={() => handleAssignFolders(kiosk.id)}
-                            className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300"
-                            title="Assign Google Drive Folders"
-                          >
-                            <Folder className="h-4 w-4" />
-                          </button>
-                          <button onClick={() => handleShowLocation(kiosk)} className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300">
-                            <MapPin className="h-4 w-4" />
-                          </button>
-                          <button onClick={() => handleShowSettings(kiosk)} className="text-purple-600 hover:text-purple-900 dark:text-purple-400 dark:hover:text-purple-300">
-                            <Settings className="h-4 w-4" />
-                          </button>
                         </div>
-                      </td>
-                    </tr>
+                      )}
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <button 
+                          onClick={() => handleShowAssign(kiosk)}
+                          className="flex items-center justify-center space-x-1 px-2 py-2 text-xs bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200 dark:bg-indigo-900 dark:text-indigo-300 dark:hover:bg-indigo-800 transition-colors"
+                        >
+                          <UserPlus className="h-3 w-3" />
+                          <span>Assign</span>
+                        </button>
+                        <button 
+                          onClick={() => handleAssignFolders(kiosk.id)}
+                          className="flex items-center justify-center space-x-1 px-2 py-2 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 dark:bg-green-900 dark:text-green-300 dark:hover:bg-green-800 transition-colors"
+                        >
+                          <Folder className="h-3 w-3" />
+                          <span>Folders</span>
+                        </button>
+                        <button 
+                          onClick={() => handleShowLocation(kiosk)} 
+                          className="flex items-center justify-center space-x-1 px-2 py-2 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-300 dark:hover:bg-blue-800 transition-colors"
+                        >
+                          <MapPin className="h-3 w-3" />
+                          <span>Location</span>
+                        </button>
+                        <button 
+                          onClick={() => handleShowSettings(kiosk)} 
+                          className="flex items-center justify-center space-x-1 px-2 py-2 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200 dark:bg-purple-900 dark:text-purple-300 dark:hover:bg-purple-800 transition-colors"
+                        >
+                          <Settings className="h-3 w-3" />
+                          <span>Settings</span>
+                        </button>
+                      </div>
+                    </div>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
+              </div>
+            </div>
+          </>
         )}
       </div>
 
       {/* Import Modal */}
       {showImportModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Import Kiosks</h3>
               <button
@@ -768,8 +880,8 @@ export default function KioskManagement() {
 
       {/* Location Modal */}
       {showLocationModal && selectedKiosk && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-3xl h-[70vh] mx-4 flex flex-col">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-4 lg:p-6 w-full max-w-3xl h-[70vh] flex flex-col">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Location - {selectedKiosk.name}</h3>
               <button onClick={() => { setShowLocationModal(false); setSelectedKiosk(null); }} className="text-gray-400 hover:text-gray-600">
@@ -797,15 +909,15 @@ export default function KioskManagement() {
 
       {/* Settings Modal */}
       {showSettingsModal && selectedKiosk && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-2xl mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-4 lg:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Edit Settings - {selectedKiosk.name}</h3>
               <button onClick={() => { setShowSettingsModal(false); setSelectedKiosk(null); }} className="text-gray-400 hover:text-gray-600">
                 <X className="h-6 w-6" />
               </button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
                 <input value={editForm.name || ''} onChange={(e) => setEditForm(f => ({ ...f, name: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded" />
@@ -888,8 +1000,8 @@ export default function KioskManagement() {
 
       {/* Host Assignment Modal */}
       {showAssignModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Assign Kiosk to Host</h3>
               <button onClick={() => { setShowAssignModal(false); setSelectedKiosk(null); setAssignForm({kioskId: '', hostId: '', commissionRate: 70.00}); }} className="text-gray-400 hover:text-gray-600">
@@ -976,8 +1088,8 @@ export default function KioskManagement() {
 
       {/* Create Kiosk Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-4 lg:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Create New Kiosk</h3>
               <button 
@@ -1003,7 +1115,7 @@ export default function KioskManagement() {
               </button>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Kiosk Name *</label>
                 <input

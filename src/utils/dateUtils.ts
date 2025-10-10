@@ -15,8 +15,11 @@ export function toLocalDateString(dateString: string): string {
   const [year, month, day] = dateString.split('-').map(Number);
   const localDate = new Date(year, month - 1, day);
   
-  // Return in YYYY-MM-DD format
-  return localDate.toISOString().split('T')[0];
+  // Return in YYYY-MM-DD format without timezone conversion
+  const yearStr = localDate.getFullYear();
+  const monthStr = String(localDate.getMonth() + 1).padStart(2, '0');
+  const dayStr = String(localDate.getDate()).padStart(2, '0');
+  return `${yearStr}-${monthStr}-${dayStr}`;
 }
 
 /**

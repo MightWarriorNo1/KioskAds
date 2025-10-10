@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Upload, AlertTriangle, Clock, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Upload, AlertTriangle, Clock, CheckCircle, FileText } from 'lucide-react';
 import DashboardLayout from '../components/layouts/DashboardLayout';
 import { MediaService } from '../services/mediaService';
 import { useAuth } from '../contexts/AuthContext';
-import PhonePreview from '../components/admin/PhonePreview';
+import KioskPreview from '../components/admin/KioskPreview';
+import ApprovedCustomAdModal from '../components/shared/ApprovedCustomAdModal';
 
 interface SelectedWeek {
   startDate: string;
@@ -27,6 +28,19 @@ export default function AddMediaDurationPage() {
   
   const campaignData = location.state;
   
+  const [slotsPerWeek] = useState(1);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isUploadingToSupabase, setIsUploadingToSupabase] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState(4 * 60 + 56); // 4:56 in seconds
+  const [showConfig, setShowConfig] = useState(false);
+  const [preselectedAsset, setPreselectedAsset] = useState<any | null>(null);
+  const [showCustomAdModal, setShowCustomAdModal] = useState(false);
+  const [selectedCustomAd, setSelectedCustomAd] = useState<any | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
   // Redirect if no campaign data or user not authenticated
   React.useEffect(() => {
     if (!user) {
@@ -38,36 +52,6 @@ export default function AddMediaDurationPage() {
       return;
     }
   }, [campaignData, user, navigate]);
-  
-  if (!campaignData || !user) {
-    return null; // Will redirect
-  }
-  
-  const kiosk = campaignData.kiosk;
-  const kiosks = campaignData.kiosks || (campaignData.kiosk ? [campaignData.kiosk] : []);
-  const selectedWeeks = campaignData.selectedWeeks || [];
-  const totalSlots = campaignData.totalSlots || 1;
-  const baseRate = campaignData.baseRate || 40.00;
-
-  const [slotsPerWeek, setSlotsPerWeek] = useState(1);
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [filePreview, setFilePreview] = useState<string | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [isUploadingToSupabase, setIsUploadingToSupabase] = useState(false);
-  const [timeRemaining, setTimeRemaining] = useState(4 * 60 + 56); // 4:56 in seconds
-  const [showConfig, setShowConfig] = useState(false);
-  const [backgroundColor, setBackgroundColor] = useState('#000000');
-  const [preselectedAsset, setPreselectedAsset] = useState<any | null>(null);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const steps = [
-    { number: 1, name: 'Setup Service', current: false, completed: true },
-    { number: 2, name: 'Select Kiosk', current: false, completed: true },
-    { number: 3, name: 'Choose Weeks', current: false, completed: true },
-    { number: 4, name: 'Add Media & Duration', current: true, completed: false },
-    { number: 5, name: 'Review & Submit', current: false, completed: false }
-  ];
 
   // Countdown timer
   useEffect(() => {
@@ -119,6 +103,24 @@ export default function AddMediaDurationPage() {
       }
     })();
   }, []);
+  
+  if (!campaignData || !user) {
+    return null; // Will redirect
+  }
+  
+  const kiosk = campaignData.kiosk;
+  const kiosks = campaignData.kiosks || (campaignData.kiosk ? [campaignData.kiosk] : []);
+  const selectedWeeks = campaignData.selectedWeeks || [];
+  const totalSlots = campaignData.totalSlots || 1;
+  const baseRate = campaignData.baseRate || 40.00;
+
+  const steps = [
+    { number: 1, name: 'Setup Service', current: false, completed: true },
+    { number: 2, name: 'Select Kiosk', current: false, completed: true },
+    { number: 3, name: 'Choose Weeks', current: false, completed: true },
+    { number: 4, name: 'Add Media & Duration', current: true, completed: false },
+    { number: 5, name: 'Review & Submit', current: false, completed: false }
+  ];
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -201,9 +203,21 @@ export default function AddMediaDurationPage() {
     });
   };
 
+  const handleCustomAdSelect = (customAd: any) => {
+    setSelectedCustomAd(customAd);
+    setFilePreview(customAd.url);
+    setShowConfig(true);
+    setShowCustomAdModal(false);
+  };
+
   const handleContinue = async () => {
-    if ((!uploadedFile && !preselectedAsset) || !user) {
-      console.error('Missing uploadedFile or user:', { uploadedFile: !!uploadedFile, user: !!user });
+    if ((!uploadedFile && !preselectedAsset && !selectedCustomAd) || !user) {
+      console.error('Missing uploadedFile, preselectedAsset, selectedCustomAd or user:', { 
+        uploadedFile: !!uploadedFile, 
+        preselectedAsset: !!preselectedAsset,
+        selectedCustomAd: !!selectedCustomAd,
+        user: !!user 
+      });
       return;
     }
 
@@ -213,7 +227,24 @@ export default function AddMediaDurationPage() {
 
     try {
       let uploadedMediaAsset = preselectedAsset;
-      if (!uploadedMediaAsset && uploadedFile) {
+      
+      // Handle selected custom ad
+      if (!uploadedMediaAsset && selectedCustomAd) {
+        console.log('Using selected custom ad:', selectedCustomAd);
+        // Create a media asset from the custom ad
+        uploadedMediaAsset = await MediaService.createMediaFromApprovedCustomAd({
+          userId: user.id,
+          sourceId: selectedCustomAd.proofId,
+          fileName: selectedCustomAd.fileName,
+          publicUrl: selectedCustomAd.url,
+          fileSize: selectedCustomAd.size,
+          mimeType: selectedCustomAd.type === 'video' ? 'video/mp4' : 'image/jpeg',
+          fileType: selectedCustomAd.type === 'video' ? 'video' : 'image',
+          dimensions: { width: 1080, height: 1920 }, // Default for custom ads
+          duration: selectedCustomAd.type === 'video' ? 15 : undefined
+        });
+        console.log('Created media asset from custom ad:', uploadedMediaAsset);
+      } else if (!uploadedMediaAsset && uploadedFile) {
         console.log('Getting file dimensions and duration...');
         // Get actual file dimensions and duration
         const [dimensions, duration] = await Promise.all([
@@ -273,7 +304,7 @@ export default function AddMediaDurationPage() {
     }
   };
 
-  const canContinue = uploadedFile && !isUploadingToSupabase;
+  const canContinue = (uploadedFile || preselectedAsset || selectedCustomAd) && !isUploadingToSupabase;
 
   return (
     <DashboardLayout 
@@ -488,6 +519,22 @@ export default function AddMediaDurationPage() {
                 </p>
               </div>
 
+              {/* Custom Ad Option */}
+              <div className="mb-4">
+                <button
+                  onClick={() => setShowCustomAdModal(true)}
+                  className="w-full flex items-center justify-center space-x-2 px-4 py-3 border-2 border-dashed border-blue-300 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:border-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+                >
+                  <FileText className="h-5 w-5 text-blue-600" />
+                  <span className="text-blue-700 dark:text-blue-300 font-medium">
+                    Use Approved Custom Ad
+                  </span>
+                </button>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
+                  Select from your previously approved custom ad designs
+                </p>
+              </div>
+
               {/* Upload Area */}
               <div
                 className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
@@ -569,14 +616,22 @@ export default function AddMediaDurationPage() {
                 <div>
                   <h5 className="font-medium text-gray-900 dark:text-white mb-4">Preview</h5>
                   <div className="relative">
-                    {/* Phone Preview */}
+                    {/* Kiosk Preview */}
                     {filePreview && (
                       <div className="flex justify-center mb-4">
-                        <PhonePreview
+                        <KioskPreview
                           mediaUrl={filePreview}
-                          mediaType={uploadedFile?.type.startsWith('image/') ? 'image' : 'video'}
-                          title={uploadedFile?.name || 'Ad Preview'}
-                          className="w-80 h-96"
+                          mediaType={
+                            selectedCustomAd 
+                              ? (selectedCustomAd.type === 'video' ? 'video' : 'image')
+                              : uploadedFile?.type.startsWith('image/') ? 'image' : 'video'
+                          }
+                          title={
+                            selectedCustomAd 
+                              ? selectedCustomAd.title 
+                              : uploadedFile?.name || 'Ad Preview'
+                          }
+                          className="w-48 h-96"
                         />
                       </div>
                     )}
@@ -585,10 +640,10 @@ export default function AddMediaDurationPage() {
                     <button
                       onClick={() => {
                         setUploadedFile(null);
+                        setSelectedCustomAd(null);
                         setFilePreview(null);
                         setUploadError(null);
                         setShowConfig(false);
-                        setBackgroundColor('#000000');
                       }}
                       className="mt-4 w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center space-x-2"
                     >
@@ -603,20 +658,37 @@ export default function AddMediaDurationPage() {
                   <div>
                     <h5 className="font-medium text-gray-900 dark:text-white mb-3">File Information</h5>
                     <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                      <div>{uploadedFile?.name}</div>
-                      <div>({uploadedFile ? (uploadedFile.size / 1024 / 1024).toFixed(2) : '0'} MB)</div>
-                      <div>Type: {uploadedFile?.type.startsWith('image/') ? 'Image' : 'Video'}</div>
+                      <div>
+                        {selectedCustomAd ? selectedCustomAd.title : uploadedFile?.name}
+                      </div>
+                      <div>
+                        ({selectedCustomAd 
+                          ? (selectedCustomAd.size / 1024 / 1024).toFixed(2) 
+                          : uploadedFile ? (uploadedFile.size / 1024 / 1024).toFixed(2) : '0'} MB)
+                      </div>
+                      <div>
+                        Type: {selectedCustomAd 
+                          ? (selectedCustomAd.type === 'video' ? 'Video' : 'Image')
+                          : uploadedFile?.type.startsWith('image/') ? 'Image' : 'Video'}
+                      </div>
+                      {selectedCustomAd && (
+                        <div className="text-blue-600 dark:text-blue-400">
+                          ✓ Approved Custom Ad
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   
 
                   {/* File Status */}
-                  {uploadedFile && (
+                  {(uploadedFile || selectedCustomAd) && (
                     <div className="pt-4">
                       <div className="text-green-600 flex items-center space-x-2">
                         <CheckCircle className="w-5 h-5" />
-                        <span>File ready for upload</span>
+                        <span>
+                          {selectedCustomAd ? 'Custom ad ready to use' : 'File ready for upload'}
+                        </span>
                       </div>
                     </div>
                   )}
@@ -649,6 +721,14 @@ export default function AddMediaDurationPage() {
           {isUploadingToSupabase ? 'Uploading...' : 'Continue to Review'}
         </button>
       </div>
+
+      {/* Custom Ad Modal */}
+      <ApprovedCustomAdModal
+        isOpen={showCustomAdModal}
+        onClose={() => setShowCustomAdModal(false)}
+        onSelect={handleCustomAdSelect}
+        userId={user.id}
+      />
     </DashboardLayout>
   );
 }
