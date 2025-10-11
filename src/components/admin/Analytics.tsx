@@ -79,9 +79,120 @@ export default function Analytics() {
   const loadAnalyticsData = async () => {
     try {
       setLoading(true);
-      // This will be implemented in the admin service
-      const data = await AdminService.getAnalyticsData(dateRange, selectedUserType);
-      setMetrics(data);
+      
+      // Get CSV analytics data for all users
+      const csvData = await AdminService.getCSVAnalyticsData(dateRange.start, dateRange.end);
+      
+      // Calculate metrics from CSV data
+      const totalPlays = csvData.reduce((sum, row) => sum + (row.plays || 0), 0);
+      const totalImpressions = csvData.reduce((sum, row) => sum + (row.impressions || 0), 0);
+      const totalClicks = csvData.reduce((sum, row) => sum + (row.clicks || 0), 0);
+      const totalCompletions = csvData.reduce((sum, row) => sum + (row.completions || 0), 0);
+      
+      // Get user and kiosk counts
+      const uniqueUsers = new Set(csvData.map(row => row.user_id)).size;
+      const uniqueKiosks = new Set(csvData.filter(row => row.kiosk_id).map(row => row.kiosk_id)).size;
+      
+      // Calculate growth (mock data for now)
+      const playsGrowth = 15.3;
+      const impressionsGrowth = 12.7;
+      
+      // Calculate average play duration
+      const averagePlayDuration = totalPlays > 0 ? (totalCompletions / totalPlays) * 15 : 0;
+      
+      // Group by kiosk for top performing kiosks
+      const kioskData = new Map();
+      csvData.forEach(row => {
+        if (row.kiosk_id && row.location) {
+          const key = row.kiosk_id;
+          if (!kioskData.has(key)) {
+            kioskData.set(key, {
+              kioskId: row.kiosk_id,
+              kioskName: row.location,
+              location: row.location,
+              plays: 0,
+              impressions: 0
+            });
+          }
+          const kiosk = kioskData.get(key);
+          kiosk.plays += row.plays || 0;
+          kiosk.impressions += row.impressions || 0;
+        }
+      });
+      
+      const topPerformingKiosks = Array.from(kioskData.values())
+        .sort((a, b) => b.plays - a.plays)
+        .slice(0, 5);
+      
+      // Group by user for top performing users
+      const userData = new Map();
+      csvData.forEach(row => {
+        const key = row.user_id;
+        if (!userData.has(key)) {
+          userData.set(key, {
+            userId: row.user_id,
+            userName: `User ${row.user_id.slice(0, 8)}`,
+            userType: 'client' as const,
+            plays: 0,
+            impressions: 0
+          });
+        }
+        const user = userData.get(key);
+        user.plays += row.plays || 0;
+        user.impressions += row.impressions || 0;
+      });
+      
+      const topPerformingUsers = Array.from(userData.values())
+        .sort((a, b) => b.plays - a.plays)
+        .slice(0, 5);
+      
+      // Group by day for plays by day
+      const dayData = new Map();
+      csvData.forEach(row => {
+        const date = row.data_date;
+        if (!dayData.has(date)) {
+          dayData.set(date, {
+            date,
+            plays: 0,
+            impressions: 0
+          });
+        }
+        const day = dayData.get(date);
+        day.plays += row.plays || 0;
+        day.impressions += row.impressions || 0;
+      });
+      
+      const playsByDay = Array.from(dayData.values())
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      
+      // Group by user type
+      const userTypeData = {
+        client: { userType: 'client' as const, plays: 0, impressions: 0 },
+        host: { userType: 'host' as const, plays: 0, impressions: 0 }
+      };
+      
+      csvData.forEach(row => {
+        // For now, assume all are clients (in real implementation, you'd check user role)
+        userTypeData.client.plays += row.plays || 0;
+        userTypeData.client.impressions += row.impressions || 0;
+      });
+      
+      const playsByUserType = Object.values(userTypeData);
+      
+      setMetrics({
+        totalPlays,
+        totalImpressions,
+        totalUsers: uniqueUsers,
+        totalKiosks: uniqueKiosks,
+        playsGrowth,
+        impressionsGrowth,
+        averagePlayDuration,
+        topPerformingKiosks,
+        topPerformingUsers,
+        playsByDay,
+        playsByUserType
+      });
+      
     } catch (error) {
       console.error('Error loading analytics data:', error);
       addNotification('error', 'Error', 'Failed to load analytics data');

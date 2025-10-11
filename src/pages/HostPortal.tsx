@@ -23,7 +23,7 @@ import HostBillingPage from './host/BillingPage';
 import HostCustomAdsPage from './host/CustomAdsPage';
 import HostManageMyCustomAdPage from './host/ManageMyCustomAdPage';
 import HostProfilePage from './host/ProfilePage';
-import CampaignDetailsPage from './CampaignDetailsPage';
+import HostCampaignDetailsPage from './host/HostCampaignDetailsPage';
 
 export default function HostPortal() {
   return (
@@ -46,7 +46,7 @@ export default function HostPortal() {
         <Route path="/payouts" element={<PayoutHistory />} />
         <Route path="/analytics" element={<HostAnalytics />} />
         <Route path="/campaigns" element={<HostManageCampaignsPage />} />
-        <Route path="/campaigns/:id" element={<CampaignDetailsPage />} />
+        <Route path="/campaigns/:id" element={<HostCampaignDetailsPage />} />
         <Route path="/billing" element={<HostBillingPage />} />
         <Route path="/custom-ads" element={<HostCustomAdsPage />} />
         <Route path="/manage-custom-ads" element={<HostManageMyCustomAdPage />} />

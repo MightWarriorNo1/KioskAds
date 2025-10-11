@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Monitor, MapPin, Wifi, WifiOff, Settings, Search, Download, Upload, RefreshCw, FileText, X, Folder, User, UserPlus, UserMinus, Plus } from 'lucide-react';
 import { useNotification } from '../../contexts/NotificationContext';
 import { AdminService } from '../../services/adminService';
@@ -87,12 +87,7 @@ export default function KioskManagement() {
   });
   const [creating, setCreating] = useState(false);
 
-  useEffect(() => {
-    loadKiosks();
-    loadHosts();
-  }, []);
-
-  const loadKiosks = async () => {
+  const loadKiosks = useCallback(async () => {
     try {
       setLoading(true);
       const data = await AdminService.getKiosksWithHosts();
@@ -103,9 +98,9 @@ export default function KioskManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [addNotification]);
 
-  const loadHosts = async () => {
+  const loadHosts = useCallback(async () => {
     try {
       const data = await AdminService.getAllHosts();
       setHosts(data || []);
@@ -113,7 +108,12 @@ export default function KioskManagement() {
       console.error('Error loading hosts:', error);
       addNotification('error', 'Error', 'Failed to load hosts');
     }
-  };
+  }, [addNotification]);
+
+  useEffect(() => {
+    loadKiosks();
+    loadHosts();
+  }, [loadKiosks, loadHosts]);
 
   const exportKiosks = async () => {
     try {
@@ -578,29 +578,29 @@ export default function KioskManagement() {
         ) : (
           <>
             {/* Desktop Table View */}
-            <div className="hidden lg:block overflow-x-auto">
-              <table className="w-full">
+            <div className="hidden lg:block">
+              <table className="w-full table-fixed">
                 <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <th className="w-1/6 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Kiosk
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <th className="w-1/5 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Location
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <th className="w-20 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Traffic
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <th className="w-24 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Pricing
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <th className="w-1/6 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Host
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <th className="w-20 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <th className="w-32 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
@@ -610,47 +610,44 @@ export default function KioskManagement() {
                     const StatusIcon = getStatusIcon(kiosk.status);
                     return (
                       <tr key={kiosk.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 py-3">
                           <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10">
-                              <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                                <StatusIcon className="h-5 w-5 text-purple-600" />
+                            <div className="flex-shrink-0 h-8 w-8">
+                              <div className="h-8 w-8 rounded-lg bg-purple-100 flex items-center justify-center">
+                                <StatusIcon className="h-4 w-4 text-purple-600" />
                               </div>
                             </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900 dark:text-white">{kiosk.name}</div>
-                              <div className="text-sm text-gray-500 dark:text-gray-400">{kiosk.id}</div>
+                            <div className="ml-2 min-w-0">
+                              <div className="text-sm font-medium text-gray-900 dark:text-white truncate">{kiosk.name}</div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{kiosk.id}</div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900 dark:text-white">{kiosk.location}</div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">{kiosk.city}, {kiosk.state}</div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">{kiosk.address}</div>
+                        <td className="px-3 py-3">
+                          <div className="text-sm text-gray-900 dark:text-white truncate">{kiosk.location}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{kiosk.city}, {kiosk.state}</div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 py-3">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getTrafficColor(kiosk.traffic_level)}`}>
                             {kiosk.traffic_level}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 py-3">
                           <div className="text-sm text-gray-900 dark:text-white">${kiosk.price.toFixed(2)}</div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">Base: ${kiosk.base_rate.toFixed(2)}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">Base: ${kiosk.base_rate.toFixed(2)}</div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 py-3">
                           {kiosk.host_assignments && kiosk.host_assignments.length > 0 ? (
                             <div className="space-y-1">
                               {kiosk.host_assignments.map((assignment) => (
-                                <div key={assignment.id} className="flex items-center space-x-2">
-                                  <div className="flex items-center space-x-1">
-                                    <User className="h-3 w-3 text-gray-400" />
-                                    <span className="text-sm text-gray-900 dark:text-white">
-                                      {assignment.host.full_name}
-                                    </span>
-                                  </div>
+                                <div key={assignment.id} className="flex items-center space-x-1">
+                                  <User className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                                  <span className="text-xs text-gray-900 dark:text-white truncate">
+                                    {assignment.host.full_name}
+                                  </span>
                                   <button
                                     onClick={() => handleUnassignHost(assignment.id)}
-                                    className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                                    className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 flex-shrink-0"
                                     title="Unassign host"
                                   >
                                     <UserMinus className="h-3 w-3" />
@@ -659,16 +656,16 @@ export default function KioskManagement() {
                               ))}
                             </div>
                           ) : (
-                            <div className="text-sm text-gray-500 dark:text-gray-400">No host assigned</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">No host</div>
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 py-3">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(kiosk.status)}`}>
                             {kiosk.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex space-x-2">
+                        <td className="px-3 py-3">
+                          <div className="flex flex-wrap gap-1">
                             <button 
                               onClick={() => handleShowAssign(kiosk)}
                               className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
@@ -890,7 +887,7 @@ export default function KioskManagement() {
             </div>
             <div className="flex-1">
               <LeafletMap
-                center={[selectedKiosk.coordinates.lat, selectedKiosk.coordinates.lng] as any}
+                center={[selectedKiosk.coordinates.lat, selectedKiosk.coordinates.lng] as [number, number]}
                 zoom={14}
                 kioskData={[{
                   id: selectedKiosk.id,
@@ -898,7 +895,7 @@ export default function KioskManagement() {
                   city: `${selectedKiosk.city}, ${selectedKiosk.state}`,
                   price: `$${selectedKiosk.price.toFixed(2)}`,
                   traffic: selectedKiosk.traffic_level === 'high' ? 'High Traffic' : selectedKiosk.traffic_level === 'medium' ? 'Medium Traffic' : 'Low Traffic',
-                  position: [selectedKiosk.coordinates.lat, selectedKiosk.coordinates.lng] as any,
+                  position: [selectedKiosk.coordinates.lat, selectedKiosk.coordinates.lng] as [number, number],
                   address: selectedKiosk.address
                 }]}
               />

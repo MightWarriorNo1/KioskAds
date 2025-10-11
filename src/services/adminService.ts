@@ -1,5 +1,6 @@
 /*eslint-disable */
 import { supabase } from '../lib/supabaseClient';
+import { getCurrentCaliforniaTime } from '../utils/dateUtils';
 import { GoogleDriveService } from './googleDriveService';
 
 // Types for admin operations
@@ -316,7 +317,7 @@ export class AdminService {
   }
 
   static async markInvitationSent(inviteId: string): Promise<void> {
-    const { error } = await supabase.from('invitations').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', inviteId);
+    const { error } = await supabase.from('invitations').update({ status: 'sent', sent_at: getCurrentCaliforniaTime().toISOString() }).eq('id', inviteId);
     if (error) throw error;
   }
 
@@ -382,7 +383,7 @@ export class AdminService {
         email: r.email.trim(),
         role: r.role,
         status: 'sent',
-        sent_at: now.toISOString(),
+        sent_at: getCurrentCaliforniaTime().toISOString(),
         expires_at: expires.toISOString(),
         invited_by: r.invited_by || currentUserId,
         token,
@@ -391,6 +392,46 @@ export class AdminService {
     const { error } = await supabase.from('invitations').insert(records);
     if (error) throw error;
   }
+  // Get CSV analytics data for admin
+  static async getCSVAnalyticsData(
+    startDate: string,
+    endDate: string
+  ): Promise<Array<{
+    id: string;
+    user_id: string;
+    file_name: string;
+    data_date: string;
+    campaign_id: string | null;
+    kiosk_id: string | null;
+    location: string | null;
+    impressions: number;
+    clicks: number;
+    plays: number;
+    completions: number;
+    engagement_rate: number;
+    play_rate: number;
+    completion_rate: number;
+    created_at: string;
+  }>> {
+    try {
+      const { data, error } = await supabase
+        .from('csv_analytics_data')
+        .select('*')
+        .gte('data_date', startDate)
+        .lte('data_date', endDate)
+        .order('data_date', { ascending: false });
+
+      if (error) {
+        throw new Error(`Failed to fetch CSV analytics data: ${error.message}`);
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Error getting CSV analytics data:', error);
+      throw error;
+    }
+  }
+
   // Admin Analytics Methods
   // Returns metrics for admin analytics dashboard used by src/components/admin/Analytics.tsx
   static async getAnalyticsData(
@@ -649,7 +690,7 @@ export class AdminService {
         supabase.from('media_assets').select('*', { count: 'exact', head: true }).eq('status', 'processing'),
         supabase.from('campaigns').select('*', { count: 'exact', head: true }),
         supabase.from('media_assets').select('*', { count: 'exact', head: true }),
-        supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()),
+        supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', new Date(getCurrentCaliforniaTime().getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()),
         supabase.from('host_ads').select('*', { count: 'exact', head: true }).eq('status', 'pending_review'),
         supabase.from('host_ads').select('*', { count: 'exact', head: true })
       ]);
@@ -666,8 +707,8 @@ export class AdminService {
       const { count: lastMonthUsers } = await supabase
         .from('profiles')
         .select('*', { count: 'exact', head: true })
-        .gte('created_at', new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString())
-        .lt('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+        .gte('created_at', new Date(getCurrentCaliforniaTime().getTime() - 60 * 24 * 60 * 60 * 1000).toISOString())
+        .lt('created_at', new Date(getCurrentCaliforniaTime().getTime() - 30 * 24 * 60 * 60 * 1000).toISOString());
 
       const monthlyGrowth = lastMonthUsers ? ((recentSignups || 0) - lastMonthUsers) / lastMonthUsers * 100 : 0;
 
@@ -1002,7 +1043,7 @@ export class AdminService {
         .from('media_assets')
         .update({ 
           status,
-          updated_at: new Date().toISOString(),
+          updated_at: getCurrentCaliforniaTime().toISOString(),
           ...(action === 'reject' && rejectionReason ? { validation_errors: [rejectionReason] } : {})
         })
         .eq('id', mediaAssetId)
@@ -1041,7 +1082,7 @@ export class AdminService {
         .from('host_ads')
         .update({ 
           status,
-          updated_at: new Date().toISOString(),
+          updated_at: getCurrentCaliforniaTime().toISOString(),
           ...(action === 'reject' && rejectionReason ? { rejection_reason: rejectionReason } : {})
         })
         .eq('id', hostAdId)
@@ -1124,7 +1165,7 @@ export class AdminService {
         host_id: hostAd.host_id,
         ad_id: hostAdId,
         kiosk_id: hostKiosk.kiosk_id,
-        start_date: now.toISOString().split('T')[0], // Today
+        start_date: getCurrentCaliforniaTime().toISOString().split('T')[0], // Today
         end_date: endDate.toISOString().split('T')[0], // 30 days from now
         priority: 1,
         status: 'active' // Directly active since admin approved it
@@ -1140,6 +1181,247 @@ export class AdminService {
       console.log(`Successfully assigned host ad ${hostAdId} to ${assignments.length} kiosks`);
     } catch (error) {
       console.error('Error assigning approved host ad to host kiosks:', error);
+      throw error;
+    }
+  }
+
+  // Get all host ads across all hosts for admin management
+  static async getAllHostAds(filters?: {
+    status?: string;
+    hostId?: string;
+    search?: string;
+  }): Promise<any[]> {
+    try {
+      let query = supabase
+        .from('host_ads')
+        .select(`
+          id,
+          host_id,
+          name,
+          description,
+          media_url,
+          media_type,
+          duration,
+          status,
+          rejection_reason,
+          created_at,
+          updated_at,
+          profiles!host_ads_host_id_fkey (
+            id,
+            full_name,
+            email,
+            company_name
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      // Apply filters
+      if (filters?.status && filters.status !== 'all') {
+        query = query.eq('status', filters.status);
+      }
+
+      if (filters?.hostId) {
+        query = query.eq('host_id', filters.hostId);
+      }
+
+      if (filters?.search) {
+        query = query.or(`name.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error getting all host ads:', error);
+      throw error;
+    }
+  }
+
+  // Update host ad details (admin can edit as if they were the host)
+  static async updateHostAd(hostAdId: string, updates: {
+    name?: string;
+    description?: string;
+    duration?: number;
+    media_url?: string;
+    media_type?: 'image' | 'video';
+  }): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('host_ads')
+        .update({
+          ...updates,
+          updated_at: getCurrentCaliforniaTime().toISOString()
+        })
+        .eq('id', hostAdId);
+
+      if (error) throw error;
+
+      // Log admin action
+      await this.logAdminAction('update_host_ad', 'host_ad', hostAdId, updates);
+    } catch (error) {
+      console.error('Error updating host ad:', error);
+      throw error;
+    }
+  }
+
+  // Update host ad status (admin can manage status)
+  static async updateHostAdStatus(hostAdId: string, status: string, rejectionReason?: string): Promise<void> {
+    try {
+      const updateData: any = {
+        status,
+        updated_at: getCurrentCaliforniaTime().toISOString()
+      };
+
+      if (status === 'rejected' && rejectionReason) {
+        updateData.rejection_reason = rejectionReason;
+      }
+
+      const { error } = await supabase
+        .from('host_ads')
+        .update(updateData)
+        .eq('id', hostAdId);
+
+      if (error) throw error;
+
+      // Log admin action
+      await this.logAdminAction('update_host_ad_status', 'host_ad', hostAdId, {
+        status,
+        rejection_reason: rejectionReason
+      });
+
+      // Send notifications if needed
+      if (status === 'active') {
+        try {
+          await this.sendHostAdApprovalEmail(hostAdId);
+          await this.assignApprovedHostAdToHostKiosks(hostAdId);
+          await GoogleDriveService.uploadApprovedHostAdToAssignedKiosks(hostAdId);
+        } catch (err) {
+          console.error('Error with post-approval actions:', err);
+        }
+      } else if (status === 'rejected') {
+        try {
+          await this.sendHostAdRejectionEmail(hostAdId, rejectionReason);
+        } catch (err) {
+          console.error('Error sending rejection email:', err);
+        }
+      }
+    } catch (error) {
+      console.error('Error updating host ad status:', error);
+      throw error;
+    }
+  }
+
+  // Delete host ad (admin can delete any host ad)
+  static async deleteHostAd(hostAdId: string): Promise<void> {
+    try {
+      // First delete all assignments
+      const { error: assignmentsError } = await supabase
+        .from('host_ad_assignments')
+        .delete()
+        .eq('ad_id', hostAdId);
+
+      if (assignmentsError) throw assignmentsError;
+
+      // Then delete the host ad
+      const { error } = await supabase
+        .from('host_ads')
+        .delete()
+        .eq('id', hostAdId);
+
+      if (error) throw error;
+
+      // Log admin action
+      await this.logAdminAction('delete_host_ad', 'host_ad', hostAdId, {});
+    } catch (error) {
+      console.error('Error deleting host ad:', error);
+      throw error;
+    }
+  }
+
+  // Get host ad assignments for a specific ad
+  static async getHostAdAssignments(hostAdId: string): Promise<any[]> {
+    try {
+      const { data, error } = await supabase
+        .from('host_ad_assignments')
+        .select(`
+          id,
+          kiosk_id,
+          start_date,
+          end_date,
+          priority,
+          status,
+          created_at,
+          kiosks (
+            id,
+            name,
+            location,
+            city,
+            state
+          )
+        `)
+        .eq('ad_id', hostAdId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error getting host ad assignments:', error);
+      throw error;
+    }
+  }
+
+  // Assign host ad to kiosks (admin can manage assignments)
+  static async assignHostAdToKiosks(hostAdId: string, kioskIds: string[], startDate?: string, endDate?: string): Promise<void> {
+    try {
+      const now = new Date();
+      const defaultStartDate = startDate || now.toISOString().split('T')[0];
+      const defaultEndDate = endDate || new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+      const assignments = kioskIds.map(kioskId => ({
+        ad_id: hostAdId,
+        kiosk_id: kioskId,
+        start_date: defaultStartDate,
+        end_date: defaultEndDate,
+        priority: 1,
+        status: 'active'
+      }));
+
+      const { error } = await supabase
+        .from('host_ad_assignments')
+        .insert(assignments);
+
+      if (error) throw error;
+
+      // Log admin action
+      await this.logAdminAction('assign_host_ad_to_kiosks', 'host_ad', hostAdId, {
+        kiosk_ids: kioskIds,
+        start_date: defaultStartDate,
+        end_date: defaultEndDate
+      });
+    } catch (error) {
+      console.error('Error assigning host ad to kiosks:', error);
+      throw error;
+    }
+  }
+
+  // Unassign host ad from kiosks
+  static async unassignHostAdFromKiosks(hostAdId: string, kioskIds: string[]): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('host_ad_assignments')
+        .delete()
+        .eq('ad_id', hostAdId)
+        .in('kiosk_id', kioskIds);
+
+      if (error) throw error;
+
+      // Log admin action
+      await this.logAdminAction('unassign_host_ad_from_kiosks', 'host_ad', hostAdId, {
+        kiosk_ids: kioskIds
+      });
+    } catch (error) {
+      console.error('Error unassigning host ad from kiosks:', error);
       throw error;
     }
   }
@@ -1178,7 +1460,7 @@ export class AdminService {
         .from('media_assets')
         .update({ 
           status,
-          updated_at: new Date().toISOString(),
+          updated_at: getCurrentCaliforniaTime().toISOString(),
           ...(action === 'reject' && rejectionReason ? { validation_errors: [rejectionReason] } : {})
         })
         .eq('id', mediaAssetId)
@@ -1221,7 +1503,7 @@ export class AdminService {
         .from('host_ads')
         .update({ 
           status,
-          updated_at: new Date().toISOString(),
+          updated_at: getCurrentCaliforniaTime().toISOString(),
           ...(action === 'reject' && rejectionReason ? { rejection_reason: rejectionReason } : {})
         })
         .eq('id', hostAdId)
@@ -1248,7 +1530,7 @@ export class AdminService {
 
       // If approved, check if there are active assignments and set ad to active
       if (action === 'approve') {
-        const nowIso = new Date().toISOString();
+        const nowIso = getCurrentCaliforniaTime().toISOString();
         const { data: assignments } = await supabase
           .from('host_ad_assignments')
           .select('id')
@@ -1261,7 +1543,7 @@ export class AdminService {
           // Set ad status to active
           await supabase
             .from('host_ads')
-            .update({ status: 'active', updated_at: new Date().toISOString() })
+            .update({ status: 'active', updated_at: getCurrentCaliforniaTime().toISOString() })
             .eq('id', hostAdId);
         }
       }
@@ -1282,7 +1564,7 @@ export class AdminService {
         .from('campaigns')
         .update({ 
           status,
-          updated_at: new Date().toISOString()
+          updated_at: getCurrentCaliforniaTime().toISOString()
         })
         .eq('id', campaignId)
         .select('id, selected_kiosk_ids, start_date')
@@ -1311,7 +1593,7 @@ export class AdminService {
           // Mark linked media assets as approved so scheduling can pick them up
           await supabase
             .from('media_assets')
-            .update({ status: 'approved', updated_at: new Date().toISOString() })
+            .update({ status: 'approved', updated_at: getCurrentCaliforniaTime().toISOString() })
             .eq('campaign_id', campaignId)
             .neq('status', 'approved');
 
@@ -1373,7 +1655,7 @@ export class AdminService {
         .update({ 
           status,
           final_delivery: finalDelivery,
-          updated_at: new Date().toISOString()
+          updated_at: getCurrentCaliforniaTime().toISOString()
         })
         .eq('id', orderId);
 
@@ -1622,7 +1904,7 @@ export class AdminService {
           status,
           config: config || {},
           last_sync: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: getCurrentCaliforniaTime().toISOString()
         })
         .eq('id', integrationId);
 
@@ -1675,7 +1957,7 @@ export class AdminService {
           status: 'active',
           google_drive_folder: 'active',
           restored_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: getCurrentCaliforniaTime().toISOString()
         })
         .eq('id', assetId);
 
@@ -1753,7 +2035,7 @@ export class AdminService {
         .update({ 
           campaign_id: null,
           status: 'swapped',
-          updated_at: new Date().toISOString()
+          updated_at: getCurrentCaliforniaTime().toISOString()
         })
         .eq('id', oldAssetId)
         .eq('campaign_id', campaignId);
@@ -1765,7 +2047,7 @@ export class AdminService {
         .update({ 
           campaign_id: campaignId,
           status: 'approved',
-          updated_at: new Date().toISOString()
+          updated_at: getCurrentCaliforniaTime().toISOString()
         })
         .eq('id', newAssetId);
 
@@ -1793,7 +2075,7 @@ export class AdminService {
         .update({ 
           campaign_id: campaignId,
           status: 'approved',
-          updated_at: new Date().toISOString()
+          updated_at: getCurrentCaliforniaTime().toISOString()
         })
         .eq('id', assetId);
 
@@ -1819,7 +2101,7 @@ export class AdminService {
         .update({ 
           campaign_id: null,
           status: 'swapped',
-          updated_at: new Date().toISOString()
+          updated_at: getCurrentCaliforniaTime().toISOString()
         })
         .eq('id', assetId)
         .eq('campaign_id', campaignId);
@@ -1896,7 +2178,7 @@ export class AdminService {
         .upsert({ 
           key,
           value: processedValue,
-          updated_at: new Date().toISOString()
+          updated_at: getCurrentCaliforniaTime().toISOString()
         }, {
           onConflict: 'key'
         });
@@ -1912,6 +2194,35 @@ export class AdminService {
       });
     } catch (error) {
       console.error('Error updating system setting:', error);
+      throw error;
+    }
+  }
+
+  // Get all users with optional filtering
+  static async getAllUsers(filters?: {
+    role?: 'client' | 'host' | 'designer' | 'admin';
+    search?: string;
+  }): Promise<any[]> {
+    try {
+      let query = supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (filters?.role) {
+        query = query.eq('role', filters.role);
+      }
+
+      if (filters?.search) {
+        query = query.or(`full_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%,company_name.ilike.%${filters.search}%`);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching users:', error);
       throw error;
     }
   }
@@ -3341,7 +3652,7 @@ export class AdminService {
         .from('campaigns')
         .update({ 
           status,
-          updated_at: new Date().toISOString()
+          updated_at: getCurrentCaliforniaTime().toISOString()
         })
         .eq('id', campaignId)
         .select('id')
@@ -3465,7 +3776,7 @@ export class AdminService {
         .update({ 
           start_date: startDate,
           end_date: endDate,
-          updated_at: new Date().toISOString()
+          updated_at: getCurrentCaliforniaTime().toISOString()
         })
         .eq('id', campaignId)
         .select('id')
@@ -3499,7 +3810,7 @@ export class AdminService {
         .from('campaigns')
         .update({ 
           ...updates,
-          updated_at: new Date().toISOString()
+          updated_at: getCurrentCaliforniaTime().toISOString()
         })
         .eq('id', campaignId)
         .select('id')
@@ -3525,7 +3836,7 @@ export class AdminService {
         .from('campaigns')
         .update({ 
           max_video_duration: maxDuration,
-          updated_at: new Date().toISOString()
+          updated_at: getCurrentCaliforniaTime().toISOString()
         })
         .eq('id', campaignId)
         .select('id')
@@ -3576,7 +3887,7 @@ export class AdminService {
         .from('host_ad_assignments')
         .update({ 
           status,
-          updated_at: new Date().toISOString()
+          updated_at: getCurrentCaliforniaTime().toISOString()
         })
         .eq('id', assignmentId)
         .select('id')
@@ -3605,7 +3916,7 @@ export class AdminService {
         .update({ 
           start_date: startDate,
           end_date: endDate,
-          updated_at: new Date().toISOString()
+          updated_at: getCurrentCaliforniaTime().toISOString()
         })
         .eq('id', assignmentId)
         .select('id')
@@ -3634,7 +3945,7 @@ export class AdminService {
         .from('host_ad_assignments')
         .update({ 
           priority,
-          updated_at: new Date().toISOString()
+          updated_at: getCurrentCaliforniaTime().toISOString()
         })
         .eq('id', assignmentId)
         .select('id')
@@ -4162,7 +4473,7 @@ export class AdminService {
         .from('custom_ad_orders')
         .update({ 
           status,
-          updated_at: new Date().toISOString()
+          updated_at: getCurrentCaliforniaTime().toISOString()
         })
         .eq('id', orderId);
 
@@ -4899,7 +5210,7 @@ export class AdminService {
         .upsert({
           admin_id: user.id,
           cleared_system_notices_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: getCurrentCaliforniaTime().toISOString()
         }, {
           onConflict: 'admin_id'
         });
@@ -4913,7 +5224,7 @@ export class AdminService {
         .from('system_notices')
         .update({ 
           is_active: false, 
-          updated_at: new Date().toISOString() 
+          updated_at: getCurrentCaliforniaTime().toISOString() 
         })
         .eq('is_active', true);
 
@@ -4947,7 +5258,7 @@ export class AdminService {
         .upsert({
           admin_id: user.id,
           cleared_recent_activity_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: getCurrentCaliforniaTime().toISOString()
         }, {
           onConflict: 'admin_id'
         });
@@ -4987,7 +5298,7 @@ export class AdminService {
         .upsert({
           admin_id: user.id,
           [updateField]: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: getCurrentCaliforniaTime().toISOString()
         }, {
           onConflict: 'admin_id'
         });

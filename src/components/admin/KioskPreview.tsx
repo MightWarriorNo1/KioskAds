@@ -68,7 +68,7 @@ export default function KioskPreview({
       {/* Kiosk Frame - matches the image exactly */}
       <div className="relative w-full h-full flex flex-col items-center">
         {/* Main Display Unit - Black frame with white screen */}
-        <div className="relative bg-black rounded-[0.5rem] w-full flex-1 min-h-[300px] flex flex-col">
+        <div className="relative bg-black rounded-[0.5rem] w-full flex-1 min-h-[180px] flex flex-col">
           {/* Top Bezel - Thicker than sides */}
           <div className="h-8 bg-black rounded-t-[0.5rem] flex items-center justify-center">
             {/* Two small circular dots at the top center */}
@@ -153,7 +153,7 @@ export default function KioskPreview({
         <div className="w-4/5 h-3 bg-gray-300 rounded-sm"></div>
 
         {/* Main Base - Black rectangular block with rounded corners */}
-        <div className="w-full bg-black rounded-[0.5rem] h-12 mt-1"></div>
+        <div className="w-full bg-black rounded-[0.5rem] h-6 mt-1"></div>
       </div>
     </div>
   );

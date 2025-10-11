@@ -654,6 +654,7 @@ export default function HostCustomAdsPage() {
                               onChange={(e) => handleInputChange('phone', e.target.value)}
                               className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white dark:bg-gray-800"
                               placeholder="Enter your phone number"
+                              required
                             />
                             {formErrors.phone && (
                               <p className="text-sm text-red-600 flex items-center gap-1">

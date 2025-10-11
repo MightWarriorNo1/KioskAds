@@ -21,6 +21,7 @@ import {
   TrendingUp,
   FileText,
   Building2,
+  Upload,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import NotificationToast from '../NotificationToast';
@@ -33,6 +34,7 @@ const navigation = [
   { name: 'Ad Review Queue', href: '/admin/review', icon: Shield },
   { name: 'Campaigns', href: '/admin/campaigns', icon: Target},
   { name: 'Host Ad Assignments', href: '/admin/host-ad-assignments', icon: Monitor },
+  { name: 'Host Ad Management', href: '/admin/host-ads', icon: Upload },
   { name: 'Creative Orders', href: '/admin/creative-orders', icon: Package },
   { name: 'Custom Ad Management', href: '/admin/custom-ads', icon: FileText },
   { name: 'User Management', href: '/admin/users', icon: Users },

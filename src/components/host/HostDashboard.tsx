@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Monitor, DollarSign, MapPin, TrendingUp, Eye, Upload, Calendar, Play, Clock, CheckCircle } from 'lucide-react';
+import { Monitor, DollarSign, TrendingUp, Eye, Upload, Calendar, Play, Clock, CheckCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { HostService, HostStats, HostAd } from '../../services/hostService';
+import { HostService, HostStats, HostAd, HostKiosk } from '../../services/hostService';
 import { ProofOfPlayService } from '../../services/proofOfPlayService';
 import MetricsCard from '../shared/MetricsCard';
 import RecentActivity from '../shared/RecentActivity';
 import ProofOfPlayWidget from '../shared/ProofOfPlayWidget';
+import DynamicMap from '../DynamicMap';
+import MapErrorBoundary from '../MapErrorBoundary';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 
@@ -16,6 +18,7 @@ export default function HostDashboard() {
   const [stats, setStats] = useState<HostStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [ads, setAds] = useState<HostAd[]>([]);
+  const [kiosks, setKiosks] = useState<HostKiosk[]>([]);
   const [popSummary, setPopSummary] = useState({
     totalPlays: 0,
     uniqueScreens: 0,
@@ -30,9 +33,10 @@ export default function HostDashboard() {
       
       try {
         setLoading(true);
-        const [statsData, adsData, popData] = await Promise.all([
+        const [statsData, adsData, kiosksData, popData] = await Promise.all([
           HostService.getHostStats(user.id),
           HostService.getHostAds(user.id),
+          HostService.getHostKiosks(user.id),
           ProofOfPlayService.getProofOfPlaySummary({ 
             accountId: user.id,
             startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -41,6 +45,7 @@ export default function HostDashboard() {
         ]);
         setStats(statsData);
         setAds(adsData);
+        setKiosks(kiosksData);
         setPopSummary(popData);
       } catch (error) {
         console.error('Error loading dashboard data:', error);
@@ -194,6 +199,25 @@ export default function HostDashboard() {
     navigate('/host/revenue');
   };
 
+  // Transform kiosk data for map display
+  const mapKioskData = kiosks.map(kiosk => ({
+    id: kiosk.kiosk.id,
+    name: kiosk.kiosk.name,
+    city: kiosk.kiosk.city,
+    price: `$${kiosk.kiosk.price}/month`,
+    traffic: kiosk.kiosk.traffic_level === 'high' ? 'High Traffic' : 
+             kiosk.kiosk.traffic_level === 'medium' ? 'Medium Traffic' : 'Low Traffic',
+    position: [kiosk.kiosk.coordinates.lat, kiosk.kiosk.coordinates.lng] as [number, number],
+    address: kiosk.kiosk.address,
+    description: kiosk.kiosk.description
+  }));
+
+
+  const handleKioskSelect = () => {
+    // Navigate to kiosk management page
+    navigate('/host/kiosks');
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -295,17 +319,19 @@ export default function HostDashboard() {
 
       {/* Kiosk Status Map */}
       <Card className="animate-fade-in-up" title="Kiosk Locations">
-        <div 
-          className="h-64 bg-gradient-to-br from-primary-50 to-success-50 dark:from-gray-800 dark:to-gray-800 rounded-lg flex items-center justify-center cursor-pointer hover:shadow-md transition-shadow"
-          onClick={handleChartInteraction}
-        >
-          <div className="text-center">
-            <MapPin className="h-12 w-12 text-primary-600 mx-auto mb-4" />
-            <p>Interactive map interface</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Real-time kiosk status and performance data</p>
-          </div>
+        <div className="h-96 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 map-container">
+          <MapErrorBoundary>
+            <DynamicMap
+              kioskData={mapKioskData}
+              onKioskSelect={handleKioskSelect}
+              center={mapKioskData[0]?.position || [33.5689, -117.1865]}
+              zoom={11}
+              className="h-full w-full"
+            />
+          </MapErrorBoundary>
         </div>
       </Card>
+
     </div>
   );
 }

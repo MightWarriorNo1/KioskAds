@@ -57,31 +57,36 @@ export default function Analytics() {
         setIsLoading(true);
       }
       
-      // Fetch user's campaigns
-      const userCampaigns = await CampaignService.getUserCampaigns(user!.id);
-      const activeCampaigns = userCampaigns.filter(c => c.status === 'active');
+      // Get date range based on selected time range
+      const getDateRange = (range: string) => {
+        const now = new Date();
+        const days = range === '7d' ? 7 : range === '30d' ? 30 : range === '90d' ? 90 : 365;
+        const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+        return {
+          startDate: startDate.toISOString().split('T')[0],
+          endDate: now.toISOString().split('T')[0]
+        };
+      };
+
+      const { startDate, endDate } = getDateRange(timeRange);
       
-      // Calculate total impressions across all campaigns
-      let totalImpressions = 0;
-      let totalClicks = 0;
-      let totalPlays = 0;
-      let totalCompletions = 0;
+      // Fetch CSV analytics data
+      const csvData = await AnalyticsService.getCSVAnalyticsData(user!.id, startDate, endDate);
+      const mediaData = await AnalyticsService.getMediaAnalyticsData(user!.id, startDate, endDate);
       
-      for (const campaign of userCampaigns) {
-        try {
-          const analytics = await AnalyticsService.getCampaignAnalytics(campaign.id);
-          totalImpressions += analytics.impressions;
-          totalClicks += analytics.clicks;
-          totalPlays += analytics.plays;
-          totalCompletions += analytics.completions;
-        } catch (error) {
-          console.warn(`Failed to fetch analytics for campaign ${campaign.id}:`, error);
-        }
-      }
+      // Calculate totals from CSV data
+      const totalImpressions = csvData.reduce((sum, row) => sum + (row.impressions || 0), 0);
+      const totalClicks = csvData.reduce((sum, row) => sum + (row.clicks || 0), 0);
+      const totalPlays = csvData.reduce((sum, row) => sum + (row.plays || 0), 0);
+      const totalCompletions = csvData.reduce((sum, row) => sum + (row.completions || 0), 0);
       
       // Calculate metrics
       const campaignCTR = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
       const averagePlayTime = totalPlays > 0 ? (totalCompletions / totalPlays) * 15 : 0; // Assuming 15s average video length
+      
+      // Get active campaigns count
+      const userCampaigns = await CampaignService.getUserCampaigns(user!.id);
+      const activeCampaigns = userCampaigns.filter(c => c.status === 'active');
       
       setMetrics({
         totalImpressions,
@@ -90,8 +95,14 @@ export default function Analytics() {
         activeCampaigns: activeCampaigns.length
       });
       
-      // Fetch top performing ads
-      await fetchTopPerformingAds();
+      // Set top performing ads from media data
+      setTopPerformingAds(mediaData.slice(0, 5).map(media => ({
+        mediaId: media.file_name,
+        mediaName: media.file_name,
+        impressions: media.total_impressions,
+        ctr: media.avg_engagement_rate,
+        spend: Math.floor(media.total_impressions * 0.01) // Mock spend calculation
+      })));
       
     } catch (error) {
       console.error('Error fetching analytics data:', error);
@@ -112,27 +123,6 @@ export default function Analytics() {
     }
   };
 
-  const fetchTopPerformingAds = async () => {
-    try {
-      const userMedia = await MediaService.getUserMedia(user!.id);
-      
-      // Create mock performance data for now (in real app, this would come from analytics)
-      const topAds: TopPerformingAd[] = userMedia.slice(0, 3).map((media, index) => ({
-        mediaId: media.id,
-        mediaName: media.file_name,
-        impressions: Math.floor(Math.random() * 500000) + 100000,
-        ctr: Math.random() * 5 + 1,
-        spend: Math.floor(Math.random() * 1000) + 500
-      }));
-      
-      // Sort by impressions
-      topAds.sort((a, b) => b.impressions - a.impressions);
-      setTopPerformingAds(topAds);
-      
-    } catch (error) {
-      console.error('Error fetching top performing ads:', error);
-    }
-  };
 
   const handleTimeRangeChange = (newRange: string) => {
     setTimeRange(newRange);

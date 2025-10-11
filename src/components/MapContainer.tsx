@@ -51,6 +51,19 @@ export default function LeafletMap({
   selectedKioskIds = []
 }: LeafletMapProps) {
   const [mapLayer, setMapLayer] = useState<'streets' | 'satellite'>('streets');
+  const [mapError, setMapError] = useState<string | null>(null);
+
+
+  if (mapError) {
+    return (
+      <div className="h-full w-full flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-lg">
+        <div className="text-center">
+          <div className="text-red-500 mb-2">Map Error</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">{mapError}</div>
+        </div>
+      </div>
+    );
+  }
 
   const getTileLayer = () => {
     if (mapLayer === 'satellite') {
@@ -69,39 +82,40 @@ export default function LeafletMap({
 
 
 
-  return (
-    <div className={`relative h-full w-full ${className}`}>
-      {/* Map Controls */}
-      <div className="absolute top-4 right-4 z-[1000] bg-white dark:bg-gray-800 rounded-lg shadow-lg p-2 space-y-2 border border-gray-200 dark:border-gray-700">
-        <button
-          onClick={() => setMapLayer('streets')}
-          className={`px-3 py-2 rounded text-sm font-medium transition-all duration-200 ${
-            mapLayer === 'streets'
-              ? 'bg-primary-600 text-white shadow-md'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-          }`}
-        >
-          Streets
-        </button>
-        <button
-          onClick={() => setMapLayer('satellite')}
-          className={`px-3 py-2 rounded text-sm font-medium transition-all duration-200 ${
-            mapLayer === 'satellite'
-              ? 'bg-primary-600 text-white shadow-md'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-          }`}
-        >
-          Satellite
-        </button>
-      </div>
+  try {
+    return (
+      <div className={`relative h-full w-full ${className}`}>
+        {/* Map Controls */}
+        <div className="absolute top-4 right-4 z-[1000] bg-white dark:bg-gray-800 rounded-lg shadow-lg p-2 space-y-2 border border-gray-200 dark:border-gray-700">
+          <button
+            onClick={() => setMapLayer('streets')}
+            className={`px-3 py-2 rounded text-sm font-medium transition-all duration-200 ${
+              mapLayer === 'streets'
+                ? 'bg-primary-600 text-white shadow-md'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+            }`}
+          >
+            Streets
+          </button>
+          <button
+            onClick={() => setMapLayer('satellite')}
+            className={`px-3 py-2 rounded text-sm font-medium transition-all duration-200 ${
+              mapLayer === 'satellite'
+                ? 'bg-primary-600 text-white shadow-md'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+            }`}
+          >
+            Satellite
+          </button>
+        </div>
 
-      {/* Kiosk Count */}
-      <div className="absolute top-4 left-4 z-[1000] bg-white dark:bg-gray-800 rounded-lg shadow-lg p-3 border border-gray-200 dark:border-gray-700">
-        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          <span className="text-primary-600 font-bold">{kioskData.length}</span> kiosks available
-        </p>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Click markers for details</p>
-      </div>
+        {/* Kiosk Count */}
+        <div className="absolute top-4 left-4 z-[1000] bg-white dark:bg-gray-800 rounded-lg shadow-lg p-3 border border-gray-200 dark:border-gray-700">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <span className="text-primary-600 font-bold">{kioskData.length}</span> kiosks available
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Click markers for details</p>
+        </div>
 
       <MapContainer
         center={center}
@@ -167,4 +181,16 @@ export default function LeafletMap({
       </MapContainer>
     </div>
   );
+  } catch (error) {
+    console.error('Map rendering error:', error);
+    setMapError(error instanceof Error ? error.message : 'Unknown map error');
+    return (
+      <div className="h-full w-full flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-lg">
+        <div className="text-center">
+          <div className="text-red-500 mb-2">Map Error</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">Failed to load map</div>
+        </div>
+      </div>
+    );
+  }
 }

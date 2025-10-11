@@ -1,5 +1,6 @@
 import { AdminService } from './adminService';
 import { GmailService } from './gmailService';
+import { getCurrentCaliforniaTime } from '../utils/dateUtils';
 
 export class SchedulerService {
   // Check if it's time to send daily emails based on configured time
@@ -18,8 +19,8 @@ export class SchedulerService {
       const configuredTime = timeSetting?.value || '09:00';
       const [configuredHour, configuredMinute] = configuredTime.split(':').map(Number);
 
-      // Get current time
-      const now = new Date();
+      // Get current California time
+      const now = getCurrentCaliforniaTime();
       const currentHour = now.getHours();
       const currentMinute = now.getMinutes();
 

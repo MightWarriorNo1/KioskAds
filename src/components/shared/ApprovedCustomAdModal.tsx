@@ -151,19 +151,19 @@ export default function ApprovedCustomAdModal({
                   }`}
                   onClick={() => setSelectedAd(ad)}
                 >
-                  <div className="space-y-3">
-                    {/* Preview */}
-                    <div className="flex justify-center">
+                  <div className="flex flex-col h-full">
+                    {/* Preview - Fixed height container */}
+                    <div className="flex justify-center mb-4 h-60 overflow-visible">
                       <KioskPreview
                         mediaUrl={ad.url}
                         mediaType={ad.type === 'video' ? 'video' : 'image'}
                         title={ad.title}
-                        className="w-32 h-48"
+                        className="w-32 h-56"
                       />
                     </div>
 
-                    {/* Info */}
-                    <div className="space-y-2">
+                    {/* Info - Separate section with proper spacing */}
+                    <div className="flex-1 space-y-2">
                       <div className="flex items-center space-x-2">
                         {ad.type === 'video' ? (
                           <Video className="h-4 w-4 text-blue-500" />
@@ -178,7 +178,7 @@ export default function ApprovedCustomAdModal({
                       <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
                         <div className="flex items-center space-x-1">
                           <FileText className="h-3 w-3" />
-                          <span>{ad.fileName}</span>
+                          <span className="truncate">{ad.fileName}</span>
                         </div>
                         <div className="flex items-center space-x-1">
                           <Calendar className="h-3 w-3" />
@@ -187,15 +187,15 @@ export default function ApprovedCustomAdModal({
                         <div>Size: {formatFileSize(ad.size)}</div>
                         <div>Version: {ad.versionNumber}</div>
                       </div>
-                    </div>
 
-                    {/* Selection indicator */}
-                    {selectedAd?.id === ad.id && (
-                      <div className="flex items-center justify-center space-x-2 text-blue-600">
-                        <CheckCircle className="h-4 w-4" />
-                        <span className="text-sm font-medium">Selected</span>
-                      </div>
-                    )}
+                      {/* Selection indicator */}
+                      {selectedAd?.id === ad.id && (
+                        <div className="flex items-center justify-center space-x-2 text-blue-600 mt-2">
+                          <CheckCircle className="h-4 w-4" />
+                          <span className="text-sm font-medium">Selected</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
+import { getCurrentCaliforniaTime } from '../utils/dateUtils';
 
 export interface HostKiosk {
   id: string;
@@ -297,7 +298,7 @@ export class HostService {
       }
 
       // Always update timestamp
-      allowedUpdates.updated_at = new Date().toISOString();
+      allowedUpdates.updated_at = getCurrentCaliforniaTime().toISOString();
 
       const { data, error } = await supabase
         .from('host_ads')
@@ -562,7 +563,7 @@ export class HostService {
         media_url: newMediaUrl,
         media_type: newMediaType,
         status: 'swapped',
-        updated_at: new Date().toISOString()
+        updated_at: getCurrentCaliforniaTime().toISOString()
       };
 
       if (newDuration !== undefined) {
@@ -605,7 +606,7 @@ export class HostService {
         .from('host_ads')
         .update({ 
           status: 'pending_review',
-          updated_at: new Date().toISOString()
+          updated_at: getCurrentCaliforniaTime().toISOString()
         })
         .eq('id', adId);
 
@@ -756,7 +757,7 @@ export class HostService {
       if (assignmentsError) throw assignmentsError;
 
       // Get revenue for different periods
-      const now = new Date();
+      const now = getCurrentCaliforniaTime();
       const today = now.toISOString().split('T')[0];
       const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];

@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from 'react';
+import { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
@@ -11,6 +11,38 @@ import { CustomAdsService } from '../services/customAdsService';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { MessageSquare, Send } from 'lucide-react';
+
+// Helper function to get custom ad service name based on service_key and files
+function getCustomAdServiceName(order: CustomAdOrder): string {
+  const serviceKey = (order as CustomAdOrder & { service_key?: string }).service_key;
+  
+  // Check if files indicate photo or video type
+  if (order.files && order.files.length > 0) {
+    const fileTypes = order.files.map(f => f.type?.toLowerCase() || '');
+    const hasVideo = fileTypes.some(type => type.includes('video'));
+    const hasImage = fileTypes.some(type => type.includes('image') || type.includes('photo'));
+    
+    if (hasVideo) {
+      return 'Custom Ad - Video';
+    } else if (hasImage) {
+      return 'Custom Ad - Photo';
+    }
+  }
+  
+  // Fallback to service_key based logic
+  switch (serviceKey) {
+    case 'photography':
+      return 'Custom Ad - Photo';
+    case 'videography':
+    case 'video_ad_creation':
+      return 'Custom Ad - Video';
+    case 'graphic-design':
+    case 'vertical_ad_design':
+    case 'vertical_ad_with_upload':
+    default:
+      return 'Custom Ad';
+  }
+}
 
 // Removed old inline DesignerLayout to use the shared layout
 
@@ -119,9 +151,9 @@ function DesignerDashboard() {
             {myOrders.map((o) => (
               <Card key={o.id} className="p-4 flex items-center justify-between">
                 <div>
-                  <div className="font-medium">{o.service?.name || 'Custom Ad'}</div>
-                  <div className="text-xs text-gray-600">#{o.id.slice(0, 8)} • {new Date(o.created_at).toLocaleString()}</div>
-                  <div className="text-xs mt-1">Status: {(o as any)['workflow_status'] ?? 'submitted'}</div>
+                  <div className="font-medium">{getCustomAdServiceName(o)}</div>
+                  <div className="text-xs text-gray-50">#{o.id.slice(0, 8)} • {new Date(o.created_at).toLocaleString()}</div>
+                  <div className="text-xs mt-1">Client: {o.user?.full_name || `${o.first_name} ${o.last_name}`} • Status: {(o as any)['workflow_status'] ?? 'submitted'}</div>
                 </div>
                 <button className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50" onClick={() => navigate(`/designer/orders/${o.id}`)}>Open</button>
               </Card>
@@ -139,7 +171,7 @@ function DesignerDashboard() {
             {unassigned.map((o) => (
               <Card key={o.id} className="p-4 flex items-center justify-between">
                 <div>
-                  <div className="font-medium">{o.service?.name || 'Custom Ad'}</div>
+                  <div className="font-medium">{getCustomAdServiceName(o)}</div>
                   <div className="text-xs text-gray-600">#{o.id.slice(0, 8)} • {new Date(o.created_at).toLocaleString()}</div>
                   <div className="text-xs mt-1">Client: {o.user?.full_name || `${o.first_name} ${o.last_name}`} • ${o.total_amount.toFixed(2)}</div>
                 </div>
@@ -222,8 +254,9 @@ function DesignerOrders() {
             <Card key={o.id} className="p-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-1">
-                  <div className="font-medium">{(o as any).service?.name || 'Custom Ad'}</div>
+                  <div className="font-medium">{getCustomAdServiceName(o)}</div>
                   <div className="text-xs text-gray-600">#{o.id.slice(0,8)} • {new Date(o.created_at).toLocaleString()}</div>
+                  <div className="text-xs text-gray-700">Client: {o.user?.full_name || `${o.first_name} ${o.last_name}`}</div>
                   <div className="text-xs text-gray-700"><span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${((o as any)['workflow_status']||'submitted')==='designer_assigned' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-700'}`}>{((o as any)['workflow_status']||'submitted').replace('_',' ')}</span></div>
                 </div>
                 <div className="text-right space-y-2">
@@ -250,7 +283,7 @@ function DesignerRevenue() {
           <StripeConnectSetupLazy onSetupComplete={() => {}} />
         </Suspense>
       </div>
-      {/* @ts-ignore reuse payout history list via HostService for now */}
+      {/* @ts-expect-error reuse payout history list via HostService for now */}
       <div className="text-sm text-gray-600">Payout history will appear here once connected.</div>
     </div>
   );
@@ -258,6 +291,7 @@ function DesignerRevenue() {
 
 function DesignerProfile() {
   // Reuse the main ProfilePage inside portal body
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const ProfilePage = require('../pages/ProfilePage').default;
   return <ProfilePage />;
 }
@@ -375,7 +409,7 @@ function DesignerOrderDetails() {
       <Card className="p-4">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold">{(order as any).service?.name || 'Custom Ad'} • #{order.id.slice(0,8)}</h2>
+            <h2 className="text-lg font-semibold">{getCustomAdServiceName(order)} • #{order.id.slice(0,8)}</h2>
             <div className="text-xs text-gray-300 mt-1">Created: {new Date(order.created_at).toLocaleString()}</div>
           </div>
           <div>
@@ -508,7 +542,7 @@ function DesignerOrderDetails() {
               <div key={p.id} className="border rounded p-3">
                 <div className="flex items-center justify-between">
                   <div className="text-sm font-medium">{p.title || 'Proof'} • V{p.version_number}</div>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100">{p.status.replace('_',' ')}</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full text-black bg-gray-100">{p.status.replace('_',' ')}</span>
                 </div>
                 <div className="text-xs text-gray-600">{new Date(p.created_at).toLocaleString()}</div>
                 {Array.isArray(p.files) && p.files.length > 0 && (

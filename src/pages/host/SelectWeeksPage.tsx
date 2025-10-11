@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calendar, ChevronLeft, ChevronRight, Clock, DollarSign, CheckCircle, MapPin } from 'lucide-react';
+import { getCurrentCaliforniaTime } from '../../utils/dateUtils';
 
 type BookingType = 'weekly' | 'subscription';
 
@@ -42,7 +43,7 @@ export default function HostSelectWeeksPage() {
   ];
 
   const [bookingType, setBookingType] = React.useState<BookingType>('weekly');
-  const [calendarMonth, setCalendarMonth] = React.useState<Date>(new Date());
+  const [calendarMonth, setCalendarMonth] = React.useState<Date>(getCurrentCaliforniaTime());
   const [selectedMondays, setSelectedMondays] = React.useState<string[]>([]);
   const [subSlots, setSubSlots] = React.useState<number>(1);
   const [subCommit3mo, setSubCommit3mo] = React.useState<boolean>(false);
@@ -57,7 +58,7 @@ export default function HostSelectWeeksPage() {
   };
 
   const isPastDate = (d: Date) => {
-    const today = new Date();
+    const today = getCurrentCaliforniaTime();
     today.setHours(0, 0, 0, 0);
     return d <= today;
   };

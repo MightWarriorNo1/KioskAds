@@ -545,19 +545,37 @@ export default function HostManageMyCustomAdPage() {
                           {/* Proof Files */}
                           {Array.isArray(proof.files) && proof.files.length > 0 ? (
                             <div className="grid gap-3">
-                              {proof.files.map((file: any, idx: number) => (
+                              {proof.files.map((file: { name: string; url: string; type?: string }, idx: number) => (
                                 <div key={idx} className="border border-gray-200 dark:border-gray-600 rounded p-3">
                                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
                                     <span className="text-sm font-medium text-gray-900 dark:text-white truncate">{file.name}</span>
-                                    <Button
-                                      onClick={() => window.open(file.url, '_blank')}
-                                      variant="secondary"
-                                      size="sm"
-                                      className="flex items-center space-x-1 w-full sm:w-auto"
-                                    >
-                                      <Eye className="w-4 h-4" />
-                                      <span>View</span>
-                                    </Button>
+                                    <div className="flex items-center space-x-2 w-full sm:w-auto">
+                                      <Button
+                                        onClick={() => window.open(file.url, '_blank')}
+                                        variant="secondary"
+                                        size="sm"
+                                        className="flex items-center space-x-1 flex-1 sm:flex-none"
+                                      >
+                                        <Eye className="w-4 h-4" />
+                                        <span>View</span>
+                                      </Button>
+                                      <Button
+                                        onClick={() => {
+                                          const link = document.createElement('a');
+                                          link.href = file.url;
+                                          link.download = file.name;
+                                          document.body.appendChild(link);
+                                          link.click();
+                                          document.body.removeChild(link);
+                                        }}
+                                        variant="secondary"
+                                        size="sm"
+                                        className="flex items-center space-x-1 flex-1 sm:flex-none"
+                                      >
+                                        <FileText className="w-4 h-4" />
+                                        <span>Download</span>
+                                      </Button>
+                                    </div>
                                   </div>
                                   {file.type?.startsWith('image/') ? (
                                     <img src={file.url} alt={file.name} className="max-h-[300px] rounded mx-auto" />
@@ -578,7 +596,7 @@ export default function HostManageMyCustomAdPage() {
                           )}
 
                           {/* Proof Actions */}
-                          {(proof.status === 'submitted' || proof.status === 'revision_requested') && (
+                          {(proof.status === 'submitted' || proof.status === 'revision_requested') && selectedAd.workflow_status !== 'approved' && (
                             <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-600">
                               <Button
                                 onClick={async () => {
@@ -619,6 +637,16 @@ export default function HostManageMyCustomAdPage() {
                                 <XCircle className="w-4 h-4" />
                                 <span>Request Changes</span>
                               </Button>
+                            </div>
+                          )}
+                          
+                          {/* Disabled Actions Message for Approved Orders */}
+                          {selectedAd.workflow_status === 'approved' && (proof.status === 'submitted' || proof.status === 'revision_requested') && (
+                            <div className="pt-4 border-t border-gray-200 dark:border-gray-600">
+                              <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400 text-sm">
+                                <CheckCircle className="w-4 h-4" />
+                                <span>This order has been approved. Proof actions are no longer available.</span>
+                              </div>
                             </div>
                           )}
                         </div>

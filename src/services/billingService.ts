@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
+import { getCurrentCaliforniaTime } from '../utils/dateUtils';
 import { PaymentMethod } from '../types/database';
 
 export interface BillingCampaign {
@@ -104,11 +105,11 @@ export class BillingService {
       // Check and update campaign statuses
       for (const campaign of allCampaigns || []) {
         // Check if campaign should be activated (start date reached)
-        if ((campaign.status === 'pending' || campaign.status === 'approved') && new Date(campaign.start_date) <= new Date()) {
+        if ((campaign.status === 'pending' || campaign.status === 'approved') && new Date(campaign.start_date) <= getCurrentCaliforniaTime()) {
           await this.updateCampaignStatus(campaign.id, 'active');
         }
         // Check if campaign should be completed (end date passed)
-        else if (campaign.status === 'active' && new Date(campaign.end_date) < new Date()) {
+        else if (campaign.status === 'active' && new Date(campaign.end_date) < getCurrentCaliforniaTime()) {
           await this.updateCampaignStatus(campaign.id, 'completed');
         }
       }
@@ -145,11 +146,11 @@ export class BillingService {
       // Check and update campaign statuses
       for (const campaign of allCampaigns || []) {
         // Check if campaign should be activated (start date reached)
-        if ((campaign.status === 'pending' || campaign.status === 'approved') && new Date(campaign.start_date) <= new Date()) {
+        if ((campaign.status === 'pending' || campaign.status === 'approved') && new Date(campaign.start_date) <= getCurrentCaliforniaTime()) {
           await this.updateCampaignStatus(campaign.id, 'active');
         }
         // Check if campaign should be completed (end date passed)
-        else if (campaign.status === 'active' && new Date(campaign.end_date) < new Date()) {
+        else if (campaign.status === 'active' && new Date(campaign.end_date) < getCurrentCaliforniaTime()) {
           await this.updateCampaignStatus(campaign.id, 'completed');
         }
       }
@@ -176,7 +177,7 @@ export class BillingService {
         .from('campaigns')
         .update({ 
           status, 
-          updated_at: new Date().toISOString() 
+          updated_at: getCurrentCaliforniaTime().toISOString() 
         })
         .eq('id', campaignId);
 
@@ -290,7 +291,7 @@ export class BillingService {
         .from('subscriptions')
         .update({ 
           status: 'cancelled',
-          end_date: new Date().toISOString().split('T')[0]
+          end_date: getCurrentCaliforniaTime().toISOString().split('T')[0]
         })
         .eq('id', subscriptionId);
 
@@ -323,7 +324,7 @@ export class BillingService {
           amount: paymentData.amount,
           status: paymentData.status,
           description: paymentData.description,
-          payment_date: new Date().toISOString()
+          payment_date: getCurrentCaliforniaTime().toISOString()
         }])
         .select()
         .single();
@@ -369,7 +370,7 @@ export class BillingService {
       const activeSubscriptions = subscriptions.filter(s => s.status === 'active').length;
 
       // Calculate monthly spend (last 30 days)
-      const thirtyDaysAgo = new Date();
+      const thirtyDaysAgo = getCurrentCaliforniaTime();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       
       const monthlySpend = payments

@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
+import { toCaliforniaTime, formatCaliforniaDate, formatCaliforniaTime } from '../utils/dateUtils';
 
 export interface ProofOfPlayRecord {
   reportDateUTC: string;
@@ -252,10 +253,10 @@ export class ProofOfPlayService {
       // Transform data to match CSV structure
       const proofOfPlayRecords: ProofOfPlayRecord[] = (events || []).map(event => {
         const timestamp = new Date(event.timestamp);
-        const localTime = new Date(timestamp.getTime() - (timestamp.getTimezoneOffset() * 60000));
+        const californiaTime = toCaliforniaTime(timestamp);
         
         return {
-          reportDateUTC: timestamp.toISOString().split('T')[0], // YYYY-MM-DD format
+          reportDateUTC: formatCaliforniaDate(timestamp, { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-'), // YYYY-MM-DD format in California timezone
           accountId: (event.campaigns as any)?.user_id || '',
           screenUUID: event.location || 'unknown',
           screenName: event.location || 'Unknown Screen',
@@ -264,7 +265,7 @@ export class ProofOfPlayService {
           assetName: (event.media_assets as any)?.file_name || 'Unknown Asset',
           assetTags: (event.media_assets as any)?.file_type || '',
           startTimeUTC: timestamp.toISOString(),
-          deviceLocalTime: localTime.toISOString(),
+          deviceLocalTime: californiaTime.toISOString(),
           duration: this.calculateDuration(event.device_info)
         };
       });

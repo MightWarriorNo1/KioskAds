@@ -3,6 +3,7 @@ import { BillingService, RecentSale } from '../services/billingService';
 import { useNotification } from '../contexts/NotificationContext';
 import Card from './ui/Card';
 import { ShoppingCart, MapPin, Clock, RefreshCw } from 'lucide-react';
+import { getCurrentCaliforniaTime, formatCaliforniaDate } from '../utils/dateUtils';
 
 interface RecentSalesProps {
   limit?: number;
@@ -92,7 +93,7 @@ export default function RecentSales({
   };
 
   const formatTimeAgo = (dateString: string) => {
-    const now = new Date();
+    const now = getCurrentCaliforniaTime();
     const paymentDate = new Date(dateString);
     const diffInMinutes = Math.floor((now.getTime() - paymentDate.getTime()) / (1000 * 60));
     
@@ -105,7 +106,7 @@ export default function RecentSales({
     const diffInDays = Math.floor(diffInHours / 24);
     if (diffInDays < 7) return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
     
-    return paymentDate.toLocaleDateString();
+    return formatCaliforniaDate(paymentDate);
   };
 
   if (loading) {

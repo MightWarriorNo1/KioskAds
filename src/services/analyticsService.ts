@@ -669,6 +669,113 @@ export class AnalyticsService {
     }
   }
 
+  // Get aggregated analytics data by media asset (file_name)
+  static async getMediaAnalyticsData(
+    userId: string,
+    startDate?: string,
+    endDate?: string
+  ): Promise<Array<{
+    file_name: string;
+    total_impressions: number;
+    total_clicks: number;
+    total_plays: number;
+    total_completions: number;
+    avg_engagement_rate: number;
+    avg_play_rate: number;
+    avg_completion_rate: number;
+    days_active: number;
+    date_range: string;
+  }>> {
+    try {
+      let query = supabase
+        .from('csv_analytics_data')
+        .select('file_name, impressions, clicks, plays, completions, engagement_rate, play_rate, completion_rate, data_date')
+        .eq('user_id', userId);
+
+      if (startDate) {
+        query = query.gte('data_date', startDate);
+      }
+      if (endDate) {
+        query = query.lte('data_date', endDate);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        throw new Error(`Failed to fetch media analytics data: ${error.message}`);
+      }
+
+      if (!data || data.length === 0) {
+        return [];
+      }
+
+      // Group by file_name and aggregate
+      const groupedData = new Map<string, {
+        file_name: string;
+        total_impressions: number;
+        total_clicks: number;
+        total_plays: number;
+        total_completions: number;
+        engagement_rates: number[];
+        play_rates: number[];
+        completion_rates: number[];
+        dates: string[];
+      }>();
+
+      data.forEach(row => {
+        const fileName = row.file_name;
+        if (!groupedData.has(fileName)) {
+          groupedData.set(fileName, {
+            file_name: fileName,
+            total_impressions: 0,
+            total_clicks: 0,
+            total_plays: 0,
+            total_completions: 0,
+            engagement_rates: [],
+            play_rates: [],
+            completion_rates: [],
+            dates: []
+          });
+        }
+
+        const group = groupedData.get(fileName)!;
+        group.total_impressions += row.impressions || 0;
+        group.total_clicks += row.clicks || 0;
+        group.total_plays += row.plays || 0;
+        group.total_completions += row.completions || 0;
+        group.engagement_rates.push(row.engagement_rate || 0);
+        group.play_rates.push(row.play_rate || 0);
+        group.completion_rates.push(row.completion_rate || 0);
+        group.dates.push(row.data_date);
+      });
+
+      // Convert to array and calculate averages
+      const result = Array.from(groupedData.values()).map(group => ({
+        file_name: group.file_name,
+        total_impressions: group.total_impressions,
+        total_clicks: group.total_clicks,
+        total_plays: group.total_plays,
+        total_completions: group.total_completions,
+        avg_engagement_rate: group.engagement_rates.length > 0 
+          ? group.engagement_rates.reduce((a, b) => a + b, 0) / group.engagement_rates.length 
+          : 0,
+        avg_play_rate: group.play_rates.length > 0 
+          ? group.play_rates.reduce((a, b) => a + b, 0) / group.play_rates.length 
+          : 0,
+        avg_completion_rate: group.completion_rates.length > 0 
+          ? group.completion_rates.reduce((a, b) => a + b, 0) / group.completion_rates.length 
+          : 0,
+        days_active: new Set(group.dates).size,
+        date_range: `${Math.min(...group.dates.map(d => new Date(d).getTime()))} to ${Math.max(...group.dates.map(d => new Date(d).getTime()))}`
+      }));
+
+      return result.sort((a, b) => b.total_impressions - a.total_impressions);
+    } catch (error) {
+      console.error('Error getting media analytics data:', error);
+      throw error;
+    }
+  }
+
   // Get CSV analytics summary for a user
   static async getCSVAnalyticsSummary(
     userId: string,

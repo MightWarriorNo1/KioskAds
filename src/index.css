@@ -470,6 +470,56 @@ html {
   background: #64748b;
 }
 
+/* Leaflet map specific styles */
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+  z-index: 1;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.leaflet-popup-tip {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Ensure map container has proper dimensions */
+.map-container {
+  height: 100%;
+  width: 100%;
+  min-height: 300px;
+}
+
+/* Fix for Leaflet marker icons */
+.leaflet-marker-icon {
+  background-image: none !important;
+}
+
+/* Ensure Leaflet map tiles load properly */
+.leaflet-tile {
+  filter: none !important;
+}
+
+/* Fix for Leaflet popup styling */
+.leaflet-popup-content-wrapper {
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.leaflet-popup-tip {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Ensure map container has proper dimensions */
+.leaflet-container {
+  height: 100% !important;
+  width: 100% !important;
+  min-height: 300px;
+}
+
 /* Smooth scrolling */
 .smooth-scroll {
   scroll-behavior: smooth;

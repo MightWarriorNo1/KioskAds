@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
+import { getCurrentCaliforniaTime } from '../utils/dateUtils';
 import type { Inserts } from '../types/database';
 import { CustomAdEmailService } from './customAdEmailService';
 
@@ -203,7 +204,7 @@ export class CustomAdsService {
       try {
         // Generate unique filename with better uniqueness
         const fileExt = file.name.split('.').pop();
-        const timestamp = Date.now();
+        const timestamp = getCurrentCaliforniaTime().getTime();
         const randomId = Math.random().toString(36).slice(2, 9);
         const fileHash = await this.generateFileHash(file);
         const path = `${userId}/${timestamp}-${randomId}-${fileHash}.${fileExt}`;
@@ -449,7 +450,7 @@ export class CustomAdsService {
           order_id: orderId,
           content,
           author: profile?.full_name || 'Client',
-          created_at: new Date().toISOString(),
+          created_at: getCurrentCaliforniaTime().toISOString(),
           comment_type: commentType,
           attached_files: attachedFiles || null
         });
@@ -570,7 +571,7 @@ export class CustomAdsService {
       .from('custom_ad_orders')
       .update({ 
         payment_status: paymentStatus,
-        updated_at: new Date().toISOString()
+        updated_at: getCurrentCaliforniaTime().toISOString()
       })
       .eq('id', orderId);
 
@@ -583,7 +584,7 @@ export class CustomAdsService {
       .from('custom_ad_proofs')
       .update({
         status: 'submitted',
-        submitted_at: new Date().toISOString(),
+        submitted_at: getCurrentCaliforniaTime().toISOString(),
         designer_notes: designerNotes,
       })
       .eq('id', proofId);
@@ -626,7 +627,7 @@ export class CustomAdsService {
       .from('custom_ad_proofs')
       .update({
         status: 'approved',
-        reviewed_at: new Date().toISOString(),
+        reviewed_at: getCurrentCaliforniaTime().toISOString(),
         client_feedback: clientFeedback,
       })
       .eq('id', proofId);
@@ -666,7 +667,7 @@ export class CustomAdsService {
       .from('custom_ad_proofs')
       .update({
         status: 'revision_requested',
-        reviewed_at: new Date().toISOString(),
+        reviewed_at: getCurrentCaliforniaTime().toISOString(),
         client_feedback: clientFeedback,
       })
       .eq('id', proofId);
@@ -759,7 +760,7 @@ export class CustomAdsService {
       .from('custom_ad_notifications')
       .update({
         is_read: true,
-        read_at: new Date().toISOString(),
+        read_at: getCurrentCaliforniaTime().toISOString(),
       })
       .eq('id', notificationId);
 
@@ -774,7 +775,7 @@ export class CustomAdsService {
         .update({
           workflow_status: 'approved',
           client_notes: clientFeedback,
-          updated_at: new Date().toISOString()
+          updated_at: getCurrentCaliforniaTime().toISOString()
         })
         .eq('id', orderId);
 
@@ -813,7 +814,7 @@ export class CustomAdsService {
           if (!user) throw new Error('User not authenticated');
 
           for (const file of attachedFiles) {
-            const path = `${user.id}/${orderId}/change-request/${Date.now()}-${Math.random().toString(36).slice(2)}-${file.name}`;
+            const path = `${user.id}/${orderId}/change-request/${getCurrentCaliforniaTime().getTime()}-${Math.random().toString(36).slice(2)}-${file.name}`;
             const { error: uploadError } = await supabase.storage
               .from('custom-ad-uploads')
               .upload(path, file, {
@@ -838,7 +839,7 @@ export class CustomAdsService {
         .update({
           workflow_status: 'designer_assigned', // Move back to designer for changes
           client_notes: changeRequest,
-          updated_at: new Date().toISOString()
+          updated_at: getCurrentCaliforniaTime().toISOString()
         })
         .eq('id', orderId);
 
@@ -1067,7 +1068,7 @@ export class CustomAdsService {
     }
 
     if (status === 'completed') {
-      updateData.actual_completion_date = new Date().toISOString();
+      updateData.actual_completion_date = getCurrentCaliforniaTime().toISOString();
     }
 
     const { error } = await supabase

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Play, Pause, RotateCcw, Monitor, MapPin, Calendar, Clock, Eye, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Play, Pause, RotateCcw, Monitor, MapPin, Calendar, Clock, Eye, TrendingUp, Edit } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../contexts/NotificationContext';
 import { HostService, HostAd } from '../../services/hostService';

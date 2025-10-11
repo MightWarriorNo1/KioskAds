@@ -1,15 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calendar, MapPin, DollarSign, Activity, Eye, Play, Pause, Edit, Trash2, Save, X, Upload, Image as ImageIcon, Video } from 'lucide-react';
-import DashboardLayout from '../components/layouts/DashboardLayout';
-import { CampaignService, Campaign } from '../services/campaignService';
-import { useAuth } from '../contexts/AuthContext';
-import { useNotification } from '../contexts/NotificationContext';
-import { MediaService } from '../services/mediaService';
-import { validateFile } from '../utils/fileValidation';
-import { formatCaliforniaDate, getCurrentCaliforniaTime } from '../utils/dateUtils';
+import { ArrowLeft, Calendar, MapPin, DollarSign, Activity, Eye, Play, Pause, Edit, Trash2, Save, X, Upload, Image as ImageIcon, Video, Users, TrendingUp } from 'lucide-react';
+import { CampaignService, Campaign } from '../../services/campaignService';
+import { useAuth } from '../../contexts/AuthContext';
+import { useNotification } from '../../contexts/NotificationContext';
+import { MediaService } from '../../services/mediaService';
+import { validateFile } from '../../utils/fileValidation';
+import { formatCaliforniaDate, getCurrentCaliforniaTime } from '../../utils/dateUtils';
+import Button from '../../components/ui/Button';
+import Card from '../../components/ui/Card';
 
-export default function CampaignDetailsPage() {
+export default function HostCampaignDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -49,12 +50,7 @@ export default function CampaignDetailsPage() {
         }
       } else {
         addNotification('error', 'Campaign Not Found', 'The requested campaign could not be found.');
-        // Navigate based on user role
-        if (user.role === 'host') {
-          navigate('/host/campaigns');
-        } else {
-          navigate('/client/campaigns');
-        }
+        navigate('/host/campaigns');
       }
     } catch (error) {
       console.error('Error loading campaign details:', error);
@@ -86,8 +82,6 @@ export default function CampaignDetailsPage() {
 
       const media = await MediaService.uploadMediaToCampaign(file, validation, user.id, campaign.id);
       setCampaignAssets(prev => [media, ...prev]);
-      // Submitted media goes into processing; admin review queue already fetches uploading/processing
-      // Notify user
       addNotification('success', 'Asset Submitted', 'Your asset was uploaded and sent for review.');
     } catch (error) {
       console.error('Asset upload failed:', error);
@@ -217,12 +211,7 @@ export default function CampaignDetailsPage() {
         const success = await CampaignService.deleteCampaign(campaign.id);
         if (success) {
           addNotification('success', 'Deleted', 'Draft campaign deleted.');
-          // Navigate based on user role
-          if (user?.role === 'host') {
-            navigate('/host/campaigns');
-          } else {
-            navigate('/client/campaigns');
-          }
+          navigate('/host/campaigns');
         } else {
           addNotification('error', 'Deletion Failed', 'Failed to delete draft campaign.');
         }
@@ -264,7 +253,7 @@ export default function CampaignDetailsPage() {
 
   if (loading) {
     return (
-      <DashboardLayout title="Campaign Details" subtitle="">
+      <div className="space-y-6">
         <div className="animate-pulse">
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
             <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
@@ -275,42 +264,36 @@ export default function CampaignDetailsPage() {
             </div>
           </div>
         </div>
-      </DashboardLayout>
+      </div>
     );
   }
 
   if (!campaign) {
     return (
-      <DashboardLayout title="Campaign Details" subtitle="">
+      <div className="space-y-6">
         <div className="text-center py-12">
           <div className="text-gray-500 dark:text-gray-400">Campaign not found.</div>
         </div>
-      </DashboardLayout>
+      </div>
     );
   }
 
   return (
-    <DashboardLayout title="Campaign Details" subtitle="">
+    <div className="space-y-6">
       {/* Back Button */}
       <div className="mb-6">
-        <button
-          onClick={() => {
-            // Navigate based on user role
-            if (user?.role === 'host') {
-              navigate('/host/campaigns');
-            } else {
-              navigate('/client/campaigns');
-            }
-          }}
-          className="inline-flex items-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+        <Button
+          onClick={() => navigate('/host/campaigns')}
+          variant="secondary"
+          className="inline-flex items-center"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Campaigns
-        </button>
+        </Button>
       </div>
 
       {/* Campaign Header */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
+      <Card className="p-6">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-4">
           <div className="flex-1 min-w-0">
             {isEditing ? (
@@ -360,74 +343,86 @@ export default function CampaignDetailsPage() {
             <div className="flex flex-wrap gap-2">
               {isEditing ? (
                 <>
-                  <button
+                  <Button
                     onClick={handleSaveEdit}
                     disabled={actionLoading === 'edit'}
-                    className="p-2 text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
-                    title="Save Changes"
+                    variant="secondary"
+                    size="sm"
+                    className="flex items-center gap-1"
                   >
-                    <Save className="h-5 w-5" />
-                  </button>
-                  <button
+                    <Save className="h-4 w-4" />
+                    Save
+                  </Button>
+                  <Button
                     onClick={handleCancelEdit}
-                    className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                    title="Cancel Edit"
+                    variant="secondary"
+                    size="sm"
+                    className="flex items-center gap-1"
                   >
-                    <X className="h-5 w-5" />
-                  </button>
+                    <X className="h-4 w-4" />
+                    Cancel
+                  </Button>
                 </>
               ) : (
                 <>
                   {campaign.status === 'active' && (
-                    <button
+                    <Button
                       onClick={() => handleStatusChange('paused')}
                       disabled={actionLoading === 'paused'}
-                      className="p-2 text-yellow-600 dark:text-yellow-400 hover:text-yellow-800 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors"
-                      title="Pause Campaign"
+                      variant="secondary"
+                      size="sm"
+                      className="flex items-center gap-1"
                     >
-                      <Pause className="h-5 w-5" />
-                    </button>
+                      <Pause className="h-4 w-4" />
+                      Pause
+                    </Button>
                   )}
                   
                   {campaign.status === 'paused' && (
-                    <button
+                    <Button
                       onClick={() => handleStatusChange('active')}
                       disabled={actionLoading === 'active'}
-                      className="p-2 text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
-                      title="Resume Campaign"
+                      variant="secondary"
+                      size="sm"
+                      className="flex items-center gap-1"
                     >
-                      <Play className="h-5 w-5" />
-                    </button>
+                      <Play className="h-4 w-4" />
+                      Resume
+                    </Button>
                   )}
                   
                   {campaign.status === 'draft' && (
-                    <button
+                    <Button
                       onClick={handleEdit}
-                      className="p-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                      title="Edit Draft"
+                      variant="secondary"
+                      size="sm"
+                      className="flex items-center gap-1"
                     >
-                      <Edit className="h-5 w-5" />
-                    </button>
+                      <Edit className="h-4 w-4" />
+                      Edit
+                    </Button>
                   )}
                   
-                  <button
+                  <Button
                     onClick={handleDelete}
-                    className="p-2 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50"
-                    title={campaign.status === 'draft' ? 'Delete Draft' : 'Only drafts can be deleted'}
+                    variant="secondary"
+                    size="sm"
+                    className="flex items-center gap-1 text-red-600 hover:text-red-700"
                     disabled={campaign.status !== 'draft' || actionLoading === 'delete'}
                   >
-                    <Trash2 className="h-5 w-5" />
-                  </button>
+                    <Trash2 className="h-4 w-4" />
+                    Delete
+                  </Button>
                 </>
               )}
             </div>
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* Campaign Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6">
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+        <Card className="p-6">
           <div className="flex items-center">
             <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
               <Calendar className="h-6 w-6 text-blue-600 dark:text-blue-400" />
@@ -439,9 +434,9 @@ export default function CampaignDetailsPage() {
               </p>
             </div>
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <Card className="p-6">
           <div className="flex items-center">
             <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
               <MapPin className="h-6 w-6 text-green-600 dark:text-green-400" />
@@ -451,9 +446,9 @@ export default function CampaignDetailsPage() {
               <p className="text-lg font-semibold text-gray-900 dark:text-white">{campaign.kiosk_count}</p>
             </div>
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <Card className="p-6">
           <div className="flex items-center">
             <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
               <DollarSign className="h-6 w-6 text-purple-600 dark:text-purple-400" />
@@ -463,9 +458,9 @@ export default function CampaignDetailsPage() {
               <p className="text-lg font-semibold text-gray-900 dark:text-white">{formatCurrency(campaign.total_cost)}</p>
             </div>
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <Card className="p-6">
           <div className="flex items-center">
             <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
               <Activity className="h-6 w-6 text-orange-600 dark:text-orange-400" />
@@ -475,13 +470,13 @@ export default function CampaignDetailsPage() {
               <p className="text-lg font-semibold text-gray-900 dark:text-white">{campaign.total_slots * 15}s</p>
             </div>
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* Campaign Details */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Campaign Information */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <Card className="p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Campaign Information</h3>
           <div className="space-y-4">
             {isEditing ? (
@@ -576,10 +571,10 @@ export default function CampaignDetailsPage() {
               </>
             )}
           </div>
-        </div>
+        </Card>
 
         {/* Ad Assets (Active Campaigns) */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <Card className="p-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Ad Assets</h3>
             {campaign.status === 'active' && (
@@ -619,10 +614,10 @@ export default function CampaignDetailsPage() {
           {campaign.status !== 'active' && (
             <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">Asset uploads are available when the campaign is active.</div>
           )}
-        </div>
+        </Card>
 
         {/* Performance Metrics */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <Card className="p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Performance Metrics</h3>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -635,8 +630,8 @@ export default function CampaignDetailsPage() {
               </span>
             </div>
           </div>
-        </div>
+        </Card>
       </div>
-    </DashboardLayout>
+    </div>
   );
 }

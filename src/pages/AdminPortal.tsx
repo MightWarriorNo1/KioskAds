@@ -19,6 +19,7 @@ import Analytics from '../components/admin/Analytics';
 import CustomAdManagement from '../components/admin/CustomAdManagement';
 import PartnersManagement from '../components/admin/PartnersManagement';
 import PhonePreviewDemo from '../components/admin/PhonePreviewDemo';
+import AdminHostAdManagement from '../components/admin/AdminHostAdManagement';
 
 export default function AdminPortal() {
   return (
@@ -29,6 +30,7 @@ export default function AdminPortal() {
         <Route path="/review" element={<AdReviewQueue />} />
         <Route path="/campaigns" element={<AdminCampaigns />} />
         <Route path="/host-ad-assignments" element={<AdminHostAdAssignments />} />
+        <Route path="/host-ads" element={<AdminHostAdManagement />} />
         <Route path="/creative-orders" element={<CreativeOrdersManagement />} />
         <Route path="/custom-ads" element={<CustomAdManagement />} />
         <Route path="/users" element={<UserManagement />} />
