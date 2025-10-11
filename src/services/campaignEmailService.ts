@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabaseClient';
 import { GmailService } from './gmailService';
 
-type CampaignEmailStatus = 'purchased' | 'submitted' | 'approved' | 'rejected' | 'active' | 'expiring' | 'expired' | 'paused' | 'resumed';
+type CampaignEmailStatus = 'purchased' | 'submitted' | 'approved' | 'rejected' | 'active' | 'expiring' | 'expired' | 'paused' | 'resumed' | 'cancelled';
 
 interface CampaignEmailData {
   campaign_id: string;

@@ -1076,7 +1076,7 @@ export class AdminService {
   // Approve or reject host ad
   static async reviewHostAd(hostAdId: string, action: 'approve' | 'reject', rejectionReason?: string): Promise<void> {
     try {
-      const status = action === 'approve' ? 'active' : 'rejected';
+      const status = action === 'approve' ? 'approved' : 'rejected';
       
       const { error, data } = await supabase
         .from('host_ads')
@@ -1103,22 +1103,7 @@ export class AdminService {
       // Send email notification to host
       if (action === 'approve') {
         await this.sendHostAdApprovalEmail(hostAdId);
-
-        // Automatically assign approved host ad to all host's kiosks
-        try {
-          await this.assignApprovedHostAdToHostKiosks(hostAdId);
-        } catch (err) {
-          console.error('Error assigning approved host ad to kiosks:', err);
-          // Don't throw; approval should not be blocked by assignment issues
-        }
-
-        // Upload the approved host ad to all currently active kiosk assignments' Google Drive folders
-        try {
-          await GoogleDriveService.uploadApprovedHostAdToAssignedKiosks(hostAdId);
-        } catch (err) {
-          console.error('Error uploading host ad to Google Drive after approval:', err);
-          // Don't throw; approval should not be blocked by Drive upload issues
-        }
+        // Note: No automatic assignment - host must manually assign to kiosks
       } else {
         await this.sendHostAdRejectionEmail(hostAdId, rejectionReason);
       }
@@ -2525,6 +2510,155 @@ export class AdminService {
           });
     } catch (error) {
       console.error('Error sending ad rejection email:', error);
+    }
+  }
+
+  // Send host ad submission notification to admin
+  static async sendHostAdSubmissionNotification(hostAdId: string): Promise<void> {
+    try {
+      // Get host ad details with host information
+      const { data: hostAd, error: hostAdError } = await supabase
+        .from('host_ads')
+        .select(`
+          id,
+          name,
+          description,
+          media_type,
+          duration,
+          created_at,
+          host_id,
+          profiles!host_ads_host_id_fkey(full_name, email, company_name)
+        `)
+        .eq('id', hostAdId)
+        .single();
+
+      if (hostAdError || !hostAd) {
+        throw new Error('Host ad not found');
+      }
+
+      // Get admin email recipients
+      const { data: adminEmails, error: adminError } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('role', 'admin');
+
+      if (adminError || !adminEmails || adminEmails.length === 0) {
+        console.warn('No admin emails found for host ad submission notification');
+        return;
+      }
+
+      // Get or create email template
+      let { data: template, error: templateError } = await supabase
+        .from('email_templates')
+        .select('*')
+        .eq('type', 'host_ad_submission')
+        .eq('is_active', true)
+        .single();
+
+      if (templateError || !template) {
+        // Create default template if it doesn't exist
+        const { data: newTemplate, error: createError } = await supabase
+          .from('email_templates')
+          .insert({
+            name: 'Host Ad Submission Notification',
+            type: 'host_ad_submission',
+            subject: 'New Host Ad Submitted for Review - {{ad_name}}',
+            body_html: `
+              <!DOCTYPE html>
+              <html>
+              <head>
+                <meta charset="utf-8">
+                <title>Host Ad Submission</title>
+              </head>
+              <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                  <h2 style="color: #007bff;">New Host Ad Submitted for Review</h2>
+                  <p>A host has submitted a new ad for review.</p>
+                  
+                  <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                    <h3 style="margin-top: 0;">Ad Details</h3>
+                    <p><strong>Ad Name:</strong> {{ad_name}}</p>
+                    <p><strong>Host:</strong> {{host_name}} ({{host_email}})</p>
+                    <p><strong>Company:</strong> {{company_name}}</p>
+                    <p><strong>Media Type:</strong> {{media_type}}</p>
+                    <p><strong>Duration:</strong> {{duration}} seconds</p>
+                    <p><strong>Description:</strong> {{description}}</p>
+                    <p><strong>Submitted:</strong> {{submitted_at}}</p>
+                  </div>
+                  
+                  <p>Please review this ad in the Admin Portal under the Ad Review Queue.</p>
+                  
+                  <p>Best regards,<br>Ad Management System</p>
+                </div>
+              </body>
+              </html>
+            `,
+            body_text: `New Host Ad Submitted for Review
+
+Ad Details:
+- Ad Name: {{ad_name}}
+- Host: {{host_name}} ({{host_email}})
+- Company: {{company_name}}
+- Media Type: {{media_type}}
+- Duration: {{duration}} seconds
+- Description: {{description}}
+- Submitted: {{submitted_at}}
+
+Please review this ad in the Admin Portal under the Ad Review Queue.
+
+Best regards,
+Ad Management System`,
+            variables: '["ad_name", "host_name", "host_email", "company_name", "media_type", "duration", "description", "submitted_at"]',
+            is_active: true
+          })
+          .select()
+          .single();
+
+        if (createError || !newTemplate) {
+          throw new Error('Failed to create host ad submission email template');
+        }
+        template = newTemplate;
+      }
+
+      // Prepare variables
+      const variables = {
+        ad_name: hostAd.name,
+        host_name: hostAd.profiles.full_name,
+        host_email: hostAd.profiles.email,
+        company_name: hostAd.profiles.company_name || 'N/A',
+        media_type: hostAd.media_type,
+        duration: hostAd.duration.toString(),
+        description: hostAd.description || 'No description provided',
+        submitted_at: new Date(hostAd.created_at).toLocaleString()
+      };
+
+      // Replace template variables
+      const subject = this.replaceVariables(template.subject, variables);
+      const bodyHtml = this.replaceVariables(template.body_html, variables);
+      const bodyText = template.body_text ? this.replaceVariables(template.body_text, variables) : undefined;
+
+      // Queue emails for all admin recipients
+      const emailQueue = adminEmails.map(admin => ({
+        template_id: template.id,
+        recipient_email: admin.email,
+        recipient_name: 'Admin',
+        subject,
+        body_html: bodyHtml,
+        body_text: bodyText
+      }));
+
+      await supabase
+        .from('email_queue')
+        .insert(emailQueue);
+
+      // Trigger email processor
+      try { await supabase.functions.invoke('email-queue-processor'); } catch (_) {}
+
+      console.log(`Host ad submission notification sent to ${adminEmails.length} admin(s)`);
+
+    } catch (error) {
+      console.error('Error sending host ad submission notification:', error);
+      throw error;
     }
   }
 

@@ -379,6 +379,14 @@ export class HostService {
         .eq('id', adId);
 
       if (error) throw error;
+
+      // Send immediate notification to admin
+      try {
+        await AdminService.sendHostAdSubmissionNotification(adId);
+      } catch (emailError) {
+        console.error('Error sending host ad submission notification:', emailError);
+        // Don't throw error - submission should succeed even if email fails
+      }
     } catch (error) {
       console.error('Error submitting ad for review:', error);
       throw error;
@@ -445,22 +453,16 @@ export class HostService {
         throw new Error('You do not have permission to assign this ad');
       }
 
-      // Check if the ad is already approved and automatically assigned
-      if (adOwnership.status === 'active') {
-        // Check if there are existing active assignments for this ad
-        const { data: existingAssignments, error: existingError } = await supabase
-          .from('host_ad_assignments')
-          .select('id, status')
-          .eq('ad_id', assignmentData.adId)
-          .eq('status', 'active');
-
-        if (existingError) throw existingError;
-
-        if (existingAssignments && existingAssignments.length > 0) {
-          throw new Error('This ad has already been approved and automatically assigned to your kiosks. You cannot manually assign it again.');
-        }
+      // Check if the ad is approved (either 'approved' or 'active' status)
+      if (adOwnership.status !== 'approved' && adOwnership.status !== 'active') {
+        throw new Error('This ad must be approved before it can be assigned to kiosks.');
       }
 
+      // Determine assignment status based on start date
+      const startDate = new Date(assignmentData.startDate);
+      const now = new Date();
+      const isImmediate = startDate <= now;
+      
       const { data, error } = await supabase
         .from('host_ad_assignments')
         .insert({
@@ -470,7 +472,7 @@ export class HostService {
           start_date: assignmentData.startDate,
           end_date: assignmentData.endDate,
           priority: assignmentData.priority || 1,
-          status: 'pending'
+          status: isImmediate ? 'active' : 'pending'
         })
         .select(`
           *,
@@ -481,6 +483,22 @@ export class HostService {
 
       if (error) throw error;
 
+      // If assignment is active immediately, update the ad status to active
+      if (isImmediate) {
+        try {
+          await supabase
+            .from('host_ads')
+            .update({ 
+              status: 'active',
+              updated_at: getCurrentCaliforniaTime().toISOString()
+            })
+            .eq('id', assignmentData.adId);
+        } catch (updateError) {
+          console.error('Error updating ad status to active:', updateError);
+          // Don't throw error - assignment was successful
+        }
+      }
+
       return {
         ...data,
         ad: data.ad,
@@ -488,6 +506,73 @@ export class HostService {
       };
     } catch (error) {
       console.error('Error creating ad assignment:', error);
+      throw error;
+    }
+  }
+
+  // Process scheduled assignments (should be called by a cron job)
+  static async processScheduledAssignments(): Promise<void> {
+    try {
+      const now = getCurrentCaliforniaTime().toISOString();
+      
+      // Find assignments that should become active
+      const { data: assignmentsToActivate, error: fetchError } = await supabase
+        .from('host_ad_assignments')
+        .select(`
+          id,
+          ad_id,
+          start_date,
+          host_ads!inner(id, status)
+        `)
+        .eq('status', 'pending')
+        .lte('start_date', now);
+
+      if (fetchError) throw fetchError;
+
+      if (!assignmentsToActivate || assignmentsToActivate.length === 0) {
+        return; // No assignments to process
+      }
+
+      // Update assignments to active
+      const assignmentIds = assignmentsToActivate.map(a => a.id);
+      const { error: updateError } = await supabase
+        .from('host_ad_assignments')
+        .update({ status: 'active' })
+        .in('id', assignmentIds);
+
+      if (updateError) throw updateError;
+
+      // Update ad statuses to active for ads that now have active assignments
+      const adIds = [...new Set(assignmentsToActivate.map(a => a.ad_id))];
+      const { error: adUpdateError } = await supabase
+        .from('host_ads')
+        .update({ 
+          status: 'active',
+          updated_at: now
+        })
+        .in('id', adIds)
+        .eq('status', 'approved'); // Only update approved ads
+
+      if (adUpdateError) {
+        console.error('Error updating ad statuses:', adUpdateError);
+        // Don't throw - assignment updates were successful
+      }
+
+      // Upload to Google Drive for newly active assignments
+      try {
+        const { GoogleDriveService } = await import('./googleDriveService');
+        for (const adId of adIds) {
+          await GoogleDriveService.uploadApprovedHostAdToAssignedKiosks(adId);
+        }
+      } catch (driveError) {
+        console.error('Error uploading to Google Drive:', driveError);
+        // Don't throw - assignment processing was successful
+      }
+
+      console.log(`Processed ${assignmentsToActivate.length} scheduled assignments`);
+
+    } catch (error) {
+      console.error('Error processing scheduled assignments:', error);
       throw error;
     }
   }

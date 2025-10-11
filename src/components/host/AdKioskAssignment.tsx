@@ -53,12 +53,11 @@ export default function AdKioskAssignment() {
           return;
         }
         
-        // Check if this ad is already approved and auto-assigned
+        // Check if this ad is approved and can be assigned
         const adAssignments = assignmentsData.filter(assignment => assignment.ad_id === id);
-        const hasActiveAssignments = adAssignments.some(assignment => assignment.status === 'active');
         
-        if (foundAd.status === 'active' && hasActiveAssignments) {
-          addNotification('error', 'Ad Already Assigned', 'This ad has been approved and automatically assigned to your kiosks. You cannot manually assign it again.');
+        if (foundAd.status !== 'approved' && foundAd.status !== 'active') {
+          addNotification('error', 'Ad Not Approved', 'This ad must be approved before it can be assigned to kiosks.');
           navigate('/host/ads');
           return;
         }

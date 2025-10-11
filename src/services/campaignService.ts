@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
+import { CampaignEmailService } from './campaignEmailService';
 
 export interface Campaign {
   id: string;
@@ -275,6 +276,34 @@ export class CampaignService {
         }
       }
 
+      // Send email notifications for new campaign
+      try {
+        const { data: user } = await supabase
+          .from('profiles')
+          .select('email, full_name, role')
+          .eq('id', campaignData.user_id)
+          .single();
+
+        if (user) {
+          await CampaignEmailService.sendCampaignStatusNotification({
+            campaign_id: campaign.id,
+            campaign_name: campaign.name,
+            user_id: campaignData.user_id,
+            user_email: user.email,
+            user_name: user.full_name,
+            user_role: user.role,
+            status: campaign.status,
+            start_date: campaign.start_date,
+            end_date: campaign.end_date,
+            budget: campaign.budget,
+            target_locations: campaign.target_locations?.join(', ')
+          }, 'submitted');
+        }
+      } catch (error) {
+        console.warn('Failed to send campaign notification:', error);
+        // Don't fail the campaign creation if email fails
+      }
+
       return campaign;
     } catch (error) {
       console.error('Error creating campaign:', error);
@@ -345,16 +374,39 @@ export class CampaignService {
 
   static async deleteCampaign(campaignId: string): Promise<boolean> {
     try {
-      // Only delete if campaign is in draft status
-      const { data: campaign, error: fetchError } = await supabase
+      // Get campaign data before deletion for email notifications
+      const { data: campaignData, error: fetchError } = await supabase
         .from('campaigns')
-        .select('status')
+        .select(`
+          *,
+          profiles!inner(email, full_name, role)
+        `)
         .eq('id', campaignId)
         .single();
 
       if (fetchError) throw fetchError;
-      if (!campaign || campaign.status !== 'draft') {
+      if (!campaignData || campaignData.status !== 'draft') {
         throw new Error('Only draft campaigns can be deleted');
+      }
+
+      // Send email notifications for campaign deletion
+      try {
+        await CampaignEmailService.sendCampaignStatusNotification({
+          campaign_id: campaignData.id,
+          campaign_name: campaignData.name,
+          user_id: campaignData.user_id,
+          user_email: campaignData.profiles.email,
+          user_name: campaignData.profiles.full_name,
+          user_role: campaignData.profiles.role,
+          status: campaignData.status,
+          start_date: campaignData.start_date,
+          end_date: campaignData.end_date,
+          budget: campaignData.budget,
+          target_locations: campaignData.target_locations?.join(', ')
+        }, 'cancelled');
+      } catch (emailError) {
+        console.warn('Failed to send campaign deletion notification:', emailError);
+        // Don't fail the deletion if email fails
       }
 
       // Delete related mappings first (if any)
@@ -370,6 +422,63 @@ export class CampaignService {
       return true;
     } catch (error) {
       console.error('Error deleting campaign:', error);
+      return false;
+    }
+  }
+
+  // Cancel an active campaign (set status to cancelled)
+  static async cancelCampaign(campaignId: string, reason?: string): Promise<boolean> {
+    try {
+      // Get campaign data before cancellation
+      const { data: campaignData, error: fetchError } = await supabase
+        .from('campaigns')
+        .select(`
+          *,
+          profiles!inner(email, full_name, role)
+        `)
+        .eq('id', campaignId)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (!campaignData) {
+        throw new Error('Campaign not found');
+      }
+
+      // Update campaign status to cancelled
+      const { error: updateError } = await supabase
+        .from('campaigns')
+        .update({ 
+          status: 'cancelled',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', campaignId);
+
+      if (updateError) throw updateError;
+
+      // Send email notifications for campaign cancellation
+      try {
+        await CampaignEmailService.sendCampaignStatusNotification({
+          campaign_id: campaignData.id,
+          campaign_name: campaignData.name,
+          user_id: campaignData.user_id,
+          user_email: campaignData.profiles.email,
+          user_name: campaignData.profiles.full_name,
+          user_role: campaignData.profiles.role,
+          status: 'cancelled',
+          start_date: campaignData.start_date,
+          end_date: campaignData.end_date,
+          budget: campaignData.budget,
+          target_locations: campaignData.target_locations?.join(', '),
+          rejection_reason: reason
+        }, 'cancelled');
+      } catch (emailError) {
+        console.warn('Failed to send campaign cancellation notification:', emailError);
+        // Don't fail the cancellation if email fails
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error cancelling campaign:', error);
       return false;
     }
   }
