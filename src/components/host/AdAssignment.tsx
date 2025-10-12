@@ -357,8 +357,8 @@ export default function AdAssignment() {
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
                     <div>
-                      <div>{new Date(assignment.start_date).toLocaleDateString()}</div>
-                      <div className="text-gray-500 dark:text-gray-400">to {new Date(assignment.end_date).toLocaleDateString()}</div>
+                      <div>{assignment.start_date}</div>
+                      <div className="text-gray-500 dark:text-gray-400">to {assignment.end_date}</div>
                     </div>
                   </td>
                   <td className="px-6 py-4">

@@ -443,7 +443,7 @@ export default function AdminCampaigns() {
                       <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
                         <div className="flex items-center gap-2">
                           <Calendar className="h-4 w-4 flex-shrink-0" />
-                          <span>{new Date(c.start_date).toLocaleDateString()} - {new Date(c.end_date).toLocaleDateString()}</span>
+                          <span>{c.start_date} - {c.end_date}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <DollarSign className="h-4 w-4 flex-shrink-0" />

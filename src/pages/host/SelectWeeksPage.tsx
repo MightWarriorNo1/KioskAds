@@ -317,7 +317,7 @@ export default function HostSelectWeeksPage() {
                   {selectedMondays.length > 0 && (
                     <button
                       onClick={() => setSelectedMondays([])}
-                      className="hidden md:inline-flex items-center px-4 py-2 rounded-xl bg-red-600 text-white hover:bg-red-700 transition-colors shadow-soft ml-2"
+                      className="inline-flex items-center px-3 py-2 rounded-xl bg-red-600 text-white hover:bg-red-700 transition-colors shadow-soft ml-2 text-sm"
                     >
                       Clear All
                     </button>

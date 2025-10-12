@@ -361,14 +361,14 @@ export default function SelectWeeksPage() {
                   >
                     <ChevronRight className="h-4 w-4 md:h-5 md:w-5" />
                   </button>
-                {selectedMondays.length > 0 && (
-                  <button
-                    onClick={() => setSelectedMondays([])}
-                    className="hidden md:inline-flex items-center px-4 py-2 rounded-xl bg-red-600 text-white hover:bg-red-700 transition-colors shadow-soft ml-2"
-                  >
-                    Clear All
-                  </button>
-                )}
+                  {selectedMondays.length > 0 && (
+                    <button
+                      onClick={() => setSelectedMondays([])}
+                      className="inline-flex items-center px-3 py-2 rounded-xl bg-red-600 text-white hover:bg-red-700 transition-colors shadow-soft ml-2 text-sm"
+                    >
+                      Clear All
+                    </button>
+                  )}
                 </div>
               </div>
               

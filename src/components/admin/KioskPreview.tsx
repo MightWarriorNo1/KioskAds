@@ -25,7 +25,6 @@ export default function KioskPreview({
   
   // Check if mediaUrl is valid
   const isValidUrl = mediaUrl && (mediaUrl.startsWith('http') || mediaUrl.startsWith('blob:') || mediaUrl.startsWith('data:'));
-  console.log('Is Valid URL:', isValidUrl, 'URL:', mediaUrl);
 
   // Auto-play video when component mounts (muted)
   useEffect(() => {

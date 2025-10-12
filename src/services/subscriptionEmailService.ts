@@ -136,7 +136,7 @@ export class SubscriptionEmailService {
     const variables: Record<string, any> = {
       client_name: data.user_name,
       amount: data.amount.toFixed(2),
-      payment_date: new Date(data.payment_date).toLocaleDateString(),
+      payment_date: new Date(data.payment_date).toISOString().split('T')[0],
       subscription_id: data.subscription_id
     };
 
@@ -144,7 +144,7 @@ export class SubscriptionEmailService {
       variables.decline_reason = data.decline_reason || 'Payment processing failed';
     } else {
       variables.next_billing_date = data.next_billing_date 
-        ? new Date(data.next_billing_date).toLocaleDateString() 
+        ? new Date(data.next_billing_date).toISOString().split('T')[0] 
         : 'N/A';
     }
 

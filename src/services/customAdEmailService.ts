@@ -34,7 +34,7 @@ export class CustomAdEmailService {
       if (!service) return;
 
       const estimatedCompletion = order.estimated_completion_date 
-        ? new Date(order.estimated_completion_date).toLocaleDateString()
+        ? new Date(order.estimated_completion_date).toISOString().split('T')[0]
         : 'TBD';
 
       const clientName = order.user?.full_name || order.user?.full_name || `${order.first_name} ${order.last_name}`;
@@ -103,7 +103,7 @@ export class CustomAdEmailService {
       if (!service) return;
 
       const estimatedCompletion = order.estimated_completion_date 
-        ? new Date(order.estimated_completion_date).toLocaleDateString()
+        ? new Date(order.estimated_completion_date).toISOString().split('T')[0]
         : 'TBD';
 
       const variables = {
@@ -142,7 +142,7 @@ export class CustomAdEmailService {
       if (!service) return;
 
       const estimatedCompletion = order.estimated_completion_date 
-        ? new Date(order.estimated_completion_date).toLocaleDateString()
+        ? new Date(order.estimated_completion_date).toISOString().split('T')[0]
         : 'TBD';
 
       const variables = {
@@ -286,8 +286,8 @@ export class CustomAdEmailService {
       if (!service) return;
 
       const completionDate = order.actual_completion_date 
-        ? new Date(order.actual_completion_date).toLocaleDateString()
-        : new Date().toLocaleDateString();
+        ? new Date(order.actual_completion_date).toISOString().split('T')[0]
+        : new Date().toISOString().split('T')[0];
 
       const variables = {
         order_id: order.id,
@@ -323,7 +323,7 @@ export class CustomAdEmailService {
       if (!service) return;
 
       const estimatedCompletion = order.estimated_completion_date 
-        ? new Date(order.estimated_completion_date).toLocaleDateString()
+        ? new Date(order.estimated_completion_date).toISOString().split('T')[0]
         : 'TBD';
 
       const clientDetails = `${order.first_name} ${order.last_name} (${order.email}) - ${order.details}`;
@@ -578,7 +578,7 @@ export class CustomAdEmailService {
       if (!service) return;
 
       const estimatedCompletion = order.estimated_completion_date 
-        ? new Date(order.estimated_completion_date).toLocaleDateString()
+        ? new Date(order.estimated_completion_date).toISOString().split('T')[0]
         : 'TBD';
 
       const variables = {
@@ -617,7 +617,7 @@ export class CustomAdEmailService {
       if (!service) return;
 
       const estimatedCompletion = order.estimated_completion_date 
-        ? new Date(order.estimated_completion_date).toLocaleDateString()
+        ? new Date(order.estimated_completion_date).toISOString().split('T')[0]
         : 'TBD';
 
       const variables = {

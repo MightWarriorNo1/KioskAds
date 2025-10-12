@@ -269,7 +269,7 @@ export default function AdKioskAssignment() {
                           <div className="flex items-center gap-2">
                             <Calendar className="h-4 w-4 text-gray-400" />
                             <span className="text-gray-600 dark:text-gray-400">
-                              {new Date(assignment.start_date).toLocaleDateString()} - {new Date(assignment.end_date).toLocaleDateString()}
+                              {assignment.start_date} - {assignment.end_date}
                             </span>
                           </div>
                           

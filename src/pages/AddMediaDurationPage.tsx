@@ -432,11 +432,7 @@ export default function AddMediaDurationPage() {
                 <div className="space-y-2">
                   {selectedWeeks.map((week, index) => (
                     <div key={index} className="text-xs md:text-sm text-gray-600 dark:text-gray-300">
-                      Week of {new Date(week.startDate).toLocaleDateString('en-US', { 
-                        month: 'short', 
-                        day: 'numeric', 
-                        year: 'numeric' 
-                      })}: {week.slots} slot{week.slots > 1 ? 's' : ''}
+                      Week of {week.startDate} - {week.endDate}: {week.slots} slot{week.slots > 1 ? 's' : ''}
                     </div>
                   ))}
                 </div>
@@ -482,11 +478,7 @@ export default function AddMediaDurationPage() {
               <div className="font-medium text-yellow-800 dark:text-yellow-200">
                 {selectedWeeks.map((week, index) => (
                   <div key={index}>
-                    {new Date(week.startDate).toLocaleDateString('en-US', { 
-                      month: 'short', 
-                      day: 'numeric', 
-                      year: 'numeric' 
-                    })}: {week.slots} slot
+                    {week.startDate}: {week.slots} slot
                   </div>
                 ))}
               </div>

@@ -343,10 +343,10 @@ export default function CouponManager() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900 dark:text-white">
-                        {new Date(coupon.valid_from).toLocaleDateString()}
+                        {coupon.valid_from}
                       </div>
                       <div className="text-sm text-gray-500 dark:text-gray-400">
-                        to {new Date(coupon.valid_until).toLocaleDateString()}
+                        to {coupon.valid_until}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

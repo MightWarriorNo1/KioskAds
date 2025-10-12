@@ -309,7 +309,7 @@ export default function AdminHostAdAssignments() {
                       <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
                         <span className="inline-flex items-center gap-1">
                           <Calendar className="h-4 w-4" />
-                          Assigned: {new Date(assignment.assigned_at).toLocaleDateString()}
+                          Assigned: {new Date(assignment.assigned_at).toISOString().split('T')[0]}
                         </span>
                         <span className="inline-flex items-center gap-1">
                           📺 {assignment.kiosk.name} ({assignment.kiosk.city}, {assignment.kiosk.state})

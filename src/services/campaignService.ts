@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient';
 import { CampaignEmailService } from './campaignEmailService';
+import { AdminNotificationService } from './adminNotificationService';
 
 export interface Campaign {
   id: string;
@@ -128,7 +129,7 @@ export class CampaignService {
       // Transform the data to match our interface
       return finalData?.map(campaign => ({
         id: campaign.id,
-        name: campaign.name || `Campaign ${new Date(campaign.start_date).toLocaleDateString()} - ${new Date(campaign.end_date).toLocaleDateString()}`,
+        name: campaign.name || `Campaign ${campaign.start_date} - ${campaign.end_date}`,
         description: campaign.description,
         status: campaign.status,
         start_date: campaign.start_date,
@@ -285,6 +286,7 @@ export class CampaignService {
           .single();
 
         if (user) {
+          // Send notification to campaign creator
           await CampaignEmailService.sendCampaignStatusNotification({
             campaign_id: campaign.id,
             campaign_name: campaign.name,
@@ -298,6 +300,18 @@ export class CampaignService {
             budget: campaign.budget,
             target_locations: campaign.target_locations?.join(', ')
           }, 'submitted');
+
+          // Send admin notification
+          await AdminNotificationService.sendCampaignCreatedNotification({
+            type: 'campaign_created',
+            user_id: campaignData.user_id,
+            user_name: user.full_name,
+            user_email: user.email,
+            user_role: user.role as 'client' | 'host',
+            campaign_id: campaign.id,
+            campaign_name: campaign.name,
+            created_at: campaign.created_at
+          });
         }
       } catch (error) {
         console.warn('Failed to send campaign notification:', error);

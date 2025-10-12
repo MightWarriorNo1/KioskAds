@@ -27,7 +27,6 @@ export default function PhonePreview({
   
   // Check if mediaUrl is valid
   const isValidUrl = mediaUrl && (mediaUrl.startsWith('http') || mediaUrl.startsWith('blob:') || mediaUrl.startsWith('data:'));
-  console.log('Is Valid URL:', isValidUrl, 'URL:', mediaUrl);
   
   // Additional validation for common URL patterns
   const isSupabaseUrl = mediaUrl && mediaUrl.includes('supabase');

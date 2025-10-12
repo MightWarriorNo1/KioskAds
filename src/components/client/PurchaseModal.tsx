@@ -128,7 +128,7 @@ export default function PurchaseModal({ isOpen, onClose, package: pkg, onPurchas
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="text-sm text-gray-600">
                       <span className="font-medium text-gray-800">Dates: </span>
-                      <span>{new Date(campaignDetails.startDate).toLocaleDateString()} - {new Date(campaignDetails.endDate).toLocaleDateString()}</span>
+                      <span>{campaignDetails.startDate} - {campaignDetails.endDate}</span>
                     </div>
                     <div className="text-sm text-gray-600">
                       <span className="font-medium text-gray-800">Total slots: </span>

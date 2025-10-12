@@ -119,8 +119,8 @@ export class CampaignEmailService {
       client_name: c.user_name,
       campaign_name: c.campaign_name,
       budget: c.budget ?? 0,
-      start_date: c.start_date ? new Date(c.start_date).toLocaleDateString() : '',
-      end_date: c.end_date ? new Date(c.end_date).toLocaleDateString() : '',
+      start_date: c.start_date ? new Date(c.start_date).toISOString().split('T')[0] : '',
+      end_date: c.end_date ? new Date(c.end_date).toISOString().split('T')[0] : '',
       target_locations: c.target_locations || 'All Locations',
       rejection_reason: c.rejection_reason || 'N/A'
     };
@@ -128,17 +128,17 @@ export class CampaignEmailService {
     switch (status) {
       case 'purchased':
       case 'submitted':
-        variables.start_date = variables.start_date || new Date().toLocaleDateString();
+        variables.start_date = variables.start_date || new Date().toISOString().split('T')[0];
         break;
       case 'approved':
       case 'active':
-        variables.start_date = variables.start_date || new Date().toLocaleDateString();
+        variables.start_date = variables.start_date || new Date().toISOString().split('T')[0];
         break;
       case 'expiring':
         variables.days_remaining = c.end_date ? Math.ceil((new Date(c.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 0;
         break;
       case 'expired':
-        variables.end_date = variables.end_date || new Date().toLocaleDateString();
+        variables.end_date = variables.end_date || new Date().toISOString().split('T')[0];
         break;
     }
     return variables;

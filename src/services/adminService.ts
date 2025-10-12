@@ -432,6 +432,68 @@ export class AdminService {
     }
   }
 
+  // Get CSV import job status for admin
+  static async getCSVImportJobs(
+    limit: number = 50
+  ): Promise<Array<{
+    id: string;
+    user_id: string;
+    file_name: string;
+    file_path: string;
+    file_size: number;
+    status: string;
+    records_processed: number;
+    records_total: number;
+    started_at: string;
+    completed_at: string | null;
+    error_message: string | null;
+  }>> {
+    try {
+      const { data, error } = await supabase
+        .from('csv_import_jobs')
+        .select('*')
+        .order('started_at', { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        throw new Error(`Failed to fetch CSV import jobs: ${error.message}`);
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Error getting CSV import jobs:', error);
+      throw error;
+    }
+  }
+
+  // Trigger manual CSV import (admin)
+  static async triggerManualCSVImport(): Promise<{ success: boolean; message: string }> {
+    try {
+      // Call the scheduled CSV import edge function
+      const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || '';
+      const response = await fetch(`${supabaseUrl}/functions/v1/scheduled-csv-import`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.REACT_APP_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error('Error triggering manual CSV import:', error);
+      return {
+        success: false,
+        message: `Failed to trigger CSV import: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
+
   // Admin Analytics Methods
   // Returns metrics for admin analytics dashboard used by src/components/admin/Analytics.tsx
   static async getAnalyticsData(
@@ -2444,8 +2506,8 @@ export class AdminService {
       // Queue email
         const variables = {
           campaign_name: mediaAsset.campaign.name,
-          start_date: new Date(mediaAsset.campaign.start_date).toLocaleDateString(),
-          end_date: new Date(mediaAsset.campaign.end_date).toLocaleDateString(),
+          start_date: mediaAsset.campaign.start_date,
+          end_date: mediaAsset.campaign.end_date,
           budget: mediaAsset.campaign.budget.toString()
         };
 
@@ -2797,8 +2859,8 @@ Ad Management System`,
       // Queue email
         const variables = {
           campaign_name: campaign.name,
-          start_date: new Date(campaign.start_date).toLocaleDateString(),
-          end_date: new Date(campaign.end_date).toLocaleDateString(),
+          start_date: campaign.start_date,
+          end_date: campaign.end_date,
           budget: campaign.budget.toString()
         };
 

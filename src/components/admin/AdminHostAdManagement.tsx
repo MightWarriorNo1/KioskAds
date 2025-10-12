@@ -544,7 +544,7 @@ export default function AdminHostAdManagement() {
                 <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
                   <div className="flex items-center gap-1">
                     <Calendar className="h-4 w-4" />
-                    <span>{new Date(ad.created_at).toLocaleDateString()}</span>
+                    <span>{ad.created_at}</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <Building className="h-4 w-4" />

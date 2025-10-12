@@ -307,7 +307,7 @@ export default function AssetLifecycleManagement() {
                           <div>
                             <div className="text-sm text-gray-900 dark:text-white">{asset.campaign.name}</div>
                             <div className="text-sm text-gray-500 dark:text-gray-400">
-                              Ended: {new Date(asset.campaign.end_date).toLocaleDateString()}
+                              Ended: {asset.campaign.end_date}
                             </div>
                           </div>
                         ) : (
@@ -509,7 +509,7 @@ export default function AssetLifecycleManagement() {
                           {selectedAsset.campaign.name}
                         </p>
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                          Ends: {new Date(selectedAsset.campaign.end_date).toLocaleDateString()}
+                          Ends: {selectedAsset.campaign.end_date}
                         </p>
                       </div>
                     )}

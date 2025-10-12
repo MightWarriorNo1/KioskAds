@@ -40,6 +40,7 @@ export default function AnalyticsPage() {
   const [csvAnalyticsSummary, setCsvAnalyticsSummary] = useState<CSVAnalyticsSummary | null>(null);
   const [csvLoading, setCsvLoading] = useState(true);
   const [csvError, setCsvError] = useState<string | null>(null);
+  const [lastImportTime, setLastImportTime] = useState<string | null>(null);
 
   const dateRanges = ['7 Days', '30 Days', '90 Days'];
 
@@ -94,6 +95,14 @@ export default function AnalyticsPage() {
 
       setCsvAnalyticsData(csvData);
       setCsvAnalyticsSummary(csvSummary);
+
+      // Get the most recent import time
+      if (csvData.length > 0) {
+        const mostRecentImport = csvData.reduce((latest, current) => 
+          new Date(current.created_at) > new Date(latest.created_at) ? current : latest
+        );
+        setLastImportTime(mostRecentImport.created_at);
+      }
 
     } catch (error) {
       console.error('Error fetching CSV analytics data:', error);
@@ -200,6 +209,36 @@ export default function AnalyticsPage() {
               {range}
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Scheduled Import Information */}
+      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-8">
+        <div className="flex items-start">
+          <div className="flex-shrink-0">
+            <svg className="h-5 w-5 text-blue-400 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <div className="ml-3">
+            <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">
+              Automated CSV Import Schedule
+            </h3>
+            <div className="mt-2 text-sm text-blue-700 dark:text-blue-300">
+              <p>• CSV files are automatically pulled from AWS S3 every night at 1:15 AM Los Angeles time</p>
+              <p>• Data is processed and displayed on this analytics dashboard</p>
+              {lastImportTime && (
+                <p>• Last import: {new Date(lastImportTime).toLocaleString('en-US', { 
+                  timeZone: 'America/Los_Angeles',
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })} LA time</p>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 

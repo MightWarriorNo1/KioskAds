@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabaseClient';
 import { getCurrentCaliforniaTime } from '../utils/dateUtils';
 import type { Inserts } from '../types/database';
 import { CustomAdEmailService } from './customAdEmailService';
+import { AdminNotificationService } from './adminNotificationService';
 
 export interface CustomAdOrderInput {
   userId: string;
@@ -338,6 +339,34 @@ export class CustomAdsService {
           await CustomAdEmailService.sendOrderSubmittedNotification(order);
           // Send order purchased notification (client confirmation)
           await CustomAdEmailService.sendOrderPurchasedNotification(order);
+
+          // Send admin notification
+          const { data: user } = await supabase
+            .from('profiles')
+            .select('email, full_name, role')
+            .eq('id', input.userId)
+            .single();
+
+          if (user) {
+            // Get service name for admin notification
+            const { data: service } = await supabase
+              .from('custom_ad_services')
+              .select('name')
+              .eq('service_key', input.serviceKey)
+              .single();
+
+            await AdminNotificationService.sendCustomAdPurchasedNotification({
+              type: 'custom_ad_purchased',
+              user_id: input.userId,
+              user_name: user.full_name,
+              user_email: user.email,
+              user_role: user.role as 'client' | 'host',
+              order_id: data.id as string,
+              service_name: service?.name || input.serviceKey,
+              total_amount: input.totalAmount,
+              created_at: new Date().toISOString()
+            });
+          }
         }
       } catch (emailError) {
         console.error('Error sending order notifications:', emailError);

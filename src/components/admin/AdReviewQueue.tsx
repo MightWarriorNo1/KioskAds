@@ -4,6 +4,7 @@ import { useNotification } from '../../contexts/NotificationContext';
 import { AdminService, AdReviewItem } from '../../services/adminService';
 import { MediaService } from '../../services/mediaService';
 import KioskPreview from './KioskPreview';
+import { formatLocalDate } from '../../utils/dateUtils';
 
 export default function AdReviewQueue() {
   const [ads, setAds] = useState<AdReviewItem[]>([]);
@@ -463,7 +464,7 @@ export default function AdReviewQueue() {
                                   ${item.budget}
                                 </span>
                                 <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                                  {new Date(item.start_date).toLocaleDateString()} - {new Date(item.end_date).toLocaleDateString()}
+                                  {item.start_date} - {item.end_date}
                                 </span>
                               </>
                             ) : (
@@ -663,7 +664,7 @@ export default function AdReviewQueue() {
                     <div>
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Duration:</span>
                       <p className="text-sm text-gray-900 dark:text-white">
-                        {new Date(selectedCampaign!.start_date).toLocaleDateString()} - {new Date(selectedCampaign!.end_date).toLocaleDateString()}
+                        {formatLocalDate(selectedCampaign!.start_date)} - {formatLocalDate(selectedCampaign!.end_date)}
                       </p>
                     </div>
                     {selectedCampaign!.description && (
@@ -695,7 +696,7 @@ export default function AdReviewQueue() {
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Campaign:</span>
                         <p className="text-sm text-gray-900 dark:text-white">{selectedAd.campaign.name}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {new Date(selectedAd.campaign.start_date).toLocaleDateString()} - {new Date(selectedAd.campaign.end_date).toLocaleDateString()}
+                          {selectedAd.campaign.start_date} - {selectedAd.campaign.end_date}
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">Budget: ${selectedAd.campaign.budget}</p>
                       </div>

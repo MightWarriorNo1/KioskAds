@@ -303,7 +303,7 @@ export default function CampaignManager() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-900">
-                        {new Date(campaign.start_date).toLocaleDateString()} - {new Date(campaign.end_date).toLocaleDateString()}
+                        {campaign.start_date} - {campaign.end_date}
                       </div>
                     </td>
                     <td className="px-6 py-4">

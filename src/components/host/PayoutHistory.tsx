@@ -358,7 +358,7 @@ Thank you for using EZ Kiosk Ads!
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
-                    {new Date(payout.period_start).toLocaleDateString()} - {new Date(payout.period_end).toLocaleDateString()}
+                    {payout.period_start} - {payout.period_end}
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center space-x-2">
@@ -441,13 +441,13 @@ Thank you for using EZ Kiosk Ads!
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600 dark:text-gray-400">Start Date:</span>
                   <span className="text-sm font-medium">
-                    {new Date(selectedPayout.period_start).toLocaleDateString()}
+                    {selectedPayout.period_start}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600 dark:text-gray-400">End Date:</span>
                   <span className="text-sm font-medium">
-                    {new Date(selectedPayout.period_end).toLocaleDateString()}
+                    {selectedPayout.period_end}
                   </span>
                 </div>
                 {selectedPayout.stripe_transfer_id && (

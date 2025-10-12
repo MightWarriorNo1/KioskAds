@@ -669,6 +669,112 @@ export class AnalyticsService {
     }
   }
 
+  // Get CSV analytics data for all users (admin)
+  static async getAllCSVAnalyticsData(
+    startDate?: string,
+    endDate?: string
+  ): Promise<Array<{
+    id: string;
+    user_id: string;
+    file_name: string;
+    data_date: string;
+    campaign_id: string | null;
+    kiosk_id: string | null;
+    location: string | null;
+    impressions: number;
+    clicks: number;
+    plays: number;
+    completions: number;
+    engagement_rate: number;
+    play_rate: number;
+    completion_rate: number;
+    created_at: string;
+  }>> {
+    try {
+      let query = supabase
+        .from('csv_analytics_data')
+        .select('*')
+        .order('data_date', { ascending: false });
+
+      if (startDate) {
+        query = query.gte('data_date', startDate);
+      }
+      if (endDate) {
+        query = query.lte('data_date', endDate);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        throw new Error(`Failed to fetch all CSV analytics data: ${error.message}`);
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Error getting all CSV analytics data:', error);
+      throw error;
+    }
+  }
+
+  // Get CSV import job status
+  static async getCSVImportJobs(
+    limit: number = 50
+  ): Promise<Array<{
+    id: string;
+    user_id: string;
+    file_name: string;
+    file_path: string;
+    file_size: number;
+    status: string;
+    records_processed: number;
+    records_total: number;
+    started_at: string;
+    completed_at: string | null;
+    error_message: string | null;
+  }>> {
+    try {
+      const { data, error } = await supabase
+        .from('csv_import_jobs')
+        .select('*')
+        .order('started_at', { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        throw new Error(`Failed to fetch CSV import jobs: ${error.message}`);
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Error getting CSV import jobs:', error);
+      throw error;
+    }
+  }
+
+  // Trigger manual CSV import (for testing)
+  static async triggerManualCSVImport(): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await fetch('/api/trigger-csv-import', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error('Error triggering manual CSV import:', error);
+      return {
+        success: false,
+        message: `Failed to trigger CSV import: ${error.message}`
+      };
+    }
+  }
+
   // Get aggregated analytics data by media asset (file_name)
   static async getMediaAnalyticsData(
     userId: string,
