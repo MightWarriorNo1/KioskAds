@@ -62,7 +62,7 @@ export default function DashboardLayout({
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
   return (
-    <div className="min-h-screen bg-[rgb(var(--surface))] dark:bg-gradient-to-br dark:from-slate-900 dark:via-blue-900 dark:to-slate-800 flex pt-16">
+    <div className="min-h-screen bg-[rgb(var(--surface))] dark:bg-gradient-to-br dark:from-slate-900 dark:via-blue-900 dark:to-slate-800 pt-16">
       {/* Mobile sidebar overlay */}
       {mobileOpen && (
         <div className="fixed left-0 right-0 top-16 bottom-0 z-40 bg-black/40 lg:hidden" onClick={() => setMobileOpen(false)} />
