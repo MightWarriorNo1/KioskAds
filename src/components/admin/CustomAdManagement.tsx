@@ -408,13 +408,18 @@ export default function CustomAdManagement() {
                         value={selectedDesignerId}
                         onChange={(e) => setSelectedDesignerId(e.target.value)}
                         className="input text-sm"
+                        disabled={selectedOrder.workflow_status === 'approved'}
                       >
                         <option value="">Assign Designer…</option>
                         {designers.map(d => (
                           <option key={d.id} value={d.id}>{d.full_name} ({d.email})</option>
                         ))}
                       </select>
-                      <Button size="sm" onClick={handleAssignDesigner} disabled={!selectedDesignerId || assigning}>
+                      <Button 
+                        size="sm" 
+                        onClick={handleAssignDesigner} 
+                        disabled={!selectedDesignerId || assigning || selectedOrder.workflow_status === 'approved'}
+                      >
                         {assigning ? 'Assigning…' : 'Assign'}
                       </Button>
                     </>
@@ -477,7 +482,7 @@ export default function CustomAdManagement() {
                       {selectedOrder.files.map((file, index) => (
                         <div key={index} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded">
                           <div className="flex items-center gap-2">
-                            {file.type.startsWith('video/') ? (
+                            {file.type?.startsWith('video/') ? (
                               <Video className="w-4 h-4 text-blue-500" />
                             ) : (
                               <Image className="w-4 h-4 text-green-500" />
@@ -505,6 +510,7 @@ export default function CustomAdManagement() {
                     <Button
                       size="sm"
                       onClick={() => setShowCommentModal(true)}
+                      disabled={selectedOrder.workflow_status === 'approved'}
                     >
                       <Plus className="w-4 h-4 mr-1" />
                       Add Comment
@@ -530,6 +536,7 @@ export default function CustomAdManagement() {
                     <Button
                       size="sm"
                       onClick={() => setShowProofModal(true)}
+                      disabled={selectedOrder.workflow_status === 'approved'}
                     >
                       <Upload className="w-4 h-4 mr-1" />
                       Submit Proof
@@ -539,7 +546,7 @@ export default function CustomAdManagement() {
                     {selectedOrder.proofs?.map((proof) => (
                       <div key={proof.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded text-sm">
                         <div className="flex items-center gap-2">
-                          {proof.file_type.startsWith('video/') ? (
+                          {proof.file_type?.startsWith('video/') ? (
                             <Video className="w-4 h-4 text-blue-500" />
                           ) : (
                             <Image className="w-4 h-4 text-green-500" />

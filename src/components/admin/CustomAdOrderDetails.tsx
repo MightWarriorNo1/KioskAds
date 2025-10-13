@@ -384,6 +384,7 @@ const CustomAdOrderDetails: React.FC<CustomAdOrderDetailsProps> = ({ order, onUp
               variant="outline"
               onClick={() => setIsAddingComment(true)}
               className="w-full"
+              disabled={order.workflow_status === 'approved'}
             >
               <MessageSquare className="h-4 w-4 mr-2" />
               Add Comment
@@ -469,6 +470,7 @@ const CustomAdOrderDetails: React.FC<CustomAdOrderDetailsProps> = ({ order, onUp
               variant="outline"
               onClick={() => setIsSubmittingProof(true)}
               className="w-full"
+              disabled={order.workflow_status === 'approved'}
             >
               <Upload className="h-4 w-4 mr-2" />
               Submit New Proof

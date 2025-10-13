@@ -328,10 +328,10 @@ export default function CampaignsPage({ wrapInDashboard = true, basePath = '/cli
                   <div className="flex items-start justify-between mb-4">
                     <div>
                       <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
-                        {campaign.name || `Campaign ${formatDate(campaign.start_date)} - ${formatDate(campaign.end_date)}`}
+                        {campaign.name || `Campaign ${campaign.start_date} - ${campaign.end_date}`}
                       </h3>
                       <p className="text-sm text-gray-600 dark:text-gray-300">
-                        {formatDate(campaign.start_date)} - {formatDate(campaign.end_date)}
+                        {campaign.start_date} - {campaign.end_date}
                       </p>
                     </div>
                     <span className={`${getStatusColor(campaign.status)} text-white text-xs px-2 py-1 rounded capitalize`}>
@@ -426,10 +426,10 @@ export default function CampaignsPage({ wrapInDashboard = true, basePath = '/cli
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex-1 min-w-0">
                               <h4 className="font-medium text-gray-900 dark:text-white truncate">
-                                {campaign.name || `Campaign ${formatDate(campaign.start_date)} - ${formatDate(campaign.end_date)}`}
+                                {campaign.name || `Campaign ${campaign.start_date} - ${campaign.end_date}`}
                               </h4>
                               <p className="text-sm text-gray-600 dark:text-gray-300">
-                                {formatDate(campaign.start_date)} - {formatDate(campaign.end_date)}
+                                {campaign.start_date} - {campaign.end_date}
                               </p>
                             </div>
                             <span className={`${getStatusColor(campaign.status)} text-white text-xs px-2 py-1 rounded capitalize ml-2 flex-shrink-0`}>

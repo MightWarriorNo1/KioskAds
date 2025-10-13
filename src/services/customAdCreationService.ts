@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabaseClient';
 import { Database, Inserts, Updates } from '../types/database';
 import { validateCustomAdFile, validateCustomAdFiles, getAspectRatio } from '../utils/customAdFileValidation';
+import { CustomAdCreationEmailService, CustomAdCreationEmailData } from './customAdCreationEmailService';
 
 export type CustomAdCreation = Database['public']['Tables']['custom_ad_creations']['Row'];
 export type CustomAdMediaFile = Database['public']['Tables']['custom_ad_media_files']['Row'];
@@ -350,10 +351,43 @@ export class CustomAdCreationService {
           submitted_at: new Date().toISOString()
         })
         .eq('id', id)
-        .select()
+        .select(`
+          *,
+          user:profiles!custom_ad_creations_user_id_fkey(
+            id,
+            full_name,
+            email,
+            company_name
+          )
+        `)
         .single();
 
       if (error) throw error;
+
+      // Send email notification for purchased status
+      try {
+        const emailData: CustomAdCreationEmailData = {
+          id: data.id,
+          title: data.title,
+          description: data.description,
+          category: data.category,
+          priority: data.priority,
+          budget_range: data.budget_range,
+          deadline: data.deadline,
+          special_requirements: data.special_requirements,
+          target_audience: data.target_audience,
+          brand_guidelines: data.brand_guidelines,
+          status: data.status,
+          created_at: data.created_at,
+          updated_at: data.updated_at,
+          user: data.user
+        };
+        
+        await CustomAdCreationEmailService.sendPurchasedNotification(emailData);
+      } catch (emailError) {
+        console.error('Error sending purchased notification:', emailError);
+        // Don't throw error here as the main operation succeeded
+      }
 
       return data;
     } catch (error) {
@@ -420,6 +454,75 @@ export class CustomAdCreationService {
       return data;
     } catch (error) {
       console.error('Error assigning custom ad creation:', error);
+      throw error;
+    }
+  }
+
+  // Assign custom ad creation to designer and send notification
+  static async assignToDesigner(
+    customAdCreationId: string,
+    designerId: string,
+    assignedById: string
+  ): Promise<CustomAdCreation> {
+    try {
+      // Update the custom ad creation with assigned designer
+      const { data, error } = await supabase
+        .from('custom_ad_creations')
+        .update({
+          assigned_designer_id: designerId,
+          status: 'in_review'
+        })
+        .eq('id', customAdCreationId)
+        .select(`
+          *,
+          user:profiles!custom_ad_creations_user_id_fkey(
+            id,
+            full_name,
+            email,
+            company_name
+          ),
+          designer:profiles!custom_ad_creations_assigned_designer_id_fkey(
+            id,
+            full_name,
+            email
+          )
+        `)
+        .single();
+
+      if (error) throw error;
+
+      // Create assignment record
+      await this.assignToUser(customAdCreationId, designerId, 'designer', assignedById);
+
+      // Send email notification for assigned status
+      try {
+        const emailData: CustomAdCreationEmailData = {
+          id: data.id,
+          title: data.title,
+          description: data.description,
+          category: data.category,
+          priority: data.priority,
+          budget_range: data.budget_range,
+          deadline: data.deadline,
+          special_requirements: data.special_requirements,
+          target_audience: data.target_audience,
+          brand_guidelines: data.brand_guidelines,
+          status: data.status,
+          created_at: data.created_at,
+          updated_at: data.updated_at,
+          user: data.user,
+          designer: data.designer
+        };
+        
+        await CustomAdCreationEmailService.sendAssignedNotification(emailData);
+      } catch (emailError) {
+        console.error('Error sending assigned notification:', emailError);
+        // Don't throw error here as the main operation succeeded
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error assigning custom ad creation to designer:', error);
       throw error;
     }
   }
@@ -564,7 +667,20 @@ export class CustomAdCreationService {
         .from('custom_ad_creations')
         .update(updates)
         .eq('id', id)
-        .select()
+        .select(`
+          *,
+          user:profiles!custom_ad_creations_user_id_fkey(
+            id,
+            full_name,
+            email,
+            company_name
+          ),
+          designer:profiles!custom_ad_creations_assigned_designer_id_fkey(
+            id,
+            full_name,
+            email
+          )
+        `)
         .single();
 
       if (error) throw error;
@@ -580,9 +696,142 @@ export class CustomAdCreationService {
         );
       }
 
+      // Send email notifications based on status
+      try {
+        const emailData: CustomAdCreationEmailData = {
+          id: data.id,
+          title: data.title,
+          description: data.description,
+          category: data.category,
+          priority: data.priority,
+          budget_range: data.budget_range,
+          deadline: data.deadline,
+          special_requirements: data.special_requirements,
+          target_audience: data.target_audience,
+          brand_guidelines: data.brand_guidelines,
+          status: data.status,
+          created_at: data.created_at,
+          updated_at: data.updated_at,
+          user: data.user,
+          designer: data.designer
+        };
+
+        if (status === 'approved') {
+          await CustomAdCreationEmailService.sendApprovedNotification(emailData);
+        } else if (status === 'rejected') {
+          await CustomAdCreationEmailService.sendRequestChangesNotification(emailData);
+        }
+      } catch (emailError) {
+        console.error('Error sending status notification:', emailError);
+        // Don't throw error here as the main operation succeeded
+      }
+
       return data;
     } catch (error) {
       console.error('Error updating custom ad creation status:', error);
+      throw error;
+    }
+  }
+
+  // Submit proof for custom ad creation
+  static async submitProof(
+    creationId: string,
+    designerId: string,
+    proofData: {
+      title: string;
+      description?: string;
+      file: File;
+    }
+  ): Promise<void> {
+    try {
+      // Upload proof file
+      const fileExt = proofData.file.name.split('.').pop();
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substr(2, 9);
+      const fileName = `${creationId}/proofs/${timestamp}-${randomId}.${fileExt}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('custom-ad-media')
+        .upload(fileName, proofData.file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: proofData.file.type
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('custom-ad-media')
+        .getPublicUrl(fileName);
+
+      // Create proof record
+      const { error: proofError } = await supabase
+        .from('custom_ad_creation_proofs')
+        .insert({
+          creation_id: creationId,
+          designer_id: designerId,
+          title: proofData.title,
+          description: proofData.description,
+          file_url: urlData.publicUrl,
+          file_type: proofData.file.type.startsWith('image/') ? 'image' : 
+                    proofData.file.type.startsWith('video/') ? 'video' : 'document',
+          file_size: proofData.file.size,
+          status: 'pending'
+        });
+
+      if (proofError) throw proofError;
+
+      // Update creation status to indicate proof is ready
+      const { data: creationData, error: updateError } = await supabase
+        .from('custom_ad_creations')
+        .update({ status: 'in_review' })
+        .eq('id', creationId)
+        .select(`
+          *,
+          user:profiles!custom_ad_creations_user_id_fkey(
+            id,
+            full_name,
+            email,
+            company_name
+          ),
+          designer:profiles!custom_ad_creations_assigned_designer_id_fkey(
+            id,
+            full_name,
+            email
+          )
+        `)
+        .single();
+
+      if (updateError) throw updateError;
+
+      // Send email notification for proof submitted
+      try {
+        const emailData: CustomAdCreationEmailData = {
+          id: creationData.id,
+          title: creationData.title,
+          description: creationData.description,
+          category: creationData.category,
+          priority: creationData.priority,
+          budget_range: creationData.budget_range,
+          deadline: creationData.deadline,
+          special_requirements: creationData.special_requirements,
+          target_audience: creationData.target_audience,
+          brand_guidelines: creationData.brand_guidelines,
+          status: creationData.status,
+          created_at: creationData.created_at,
+          updated_at: creationData.updated_at,
+          user: creationData.user,
+          designer: creationData.designer
+        };
+        
+        await CustomAdCreationEmailService.sendProofSubmittedNotification(emailData);
+      } catch (emailError) {
+        console.error('Error sending proof submitted notification:', emailError);
+        // Don't throw error here as the main operation succeeded
+      }
+    } catch (error) {
+      console.error('Error submitting proof:', error);
       throw error;
     }
   }

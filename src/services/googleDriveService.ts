@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabaseClient';
 import { GoogleDriveConfig, KioskGDriveFolder, UploadJob, SyncJob } from '../types/database';
 import { GoogleDriveApiServiceBrowser as GoogleDriveApiService } from './googleDriveApiServiceBrowser';
+import { getCurrentCaliforniaTime } from '../utils/dateUtils';
 
 // Define Kiosk interface since it's not in database types
 export interface Kiosk {
@@ -584,7 +585,7 @@ export class GoogleDriveService {
     filesActivated: number;
   }> {
     try {
-      const now = new Date();
+      const now = getCurrentCaliforniaTime();
       
       // Get all campaigns for this kiosk (regardless of status)
       const { data: allCampaigns } = await supabase

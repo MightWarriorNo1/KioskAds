@@ -64,10 +64,27 @@ export default function HostSelectWeeksPage() {
   };
 
   const isDateBlocked = (d: Date) => {
+    // Don't block dates that are part of the current selection
+    if (isDateInSelectedWeek(d)) {
+      return false;
+    }
+    
     return selectedMondays.some(selectedDate => {
       const selected = new Date(selectedDate + 'T00:00:00');
       const diffTime = d.getTime() - selected.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays >= 0 && diffDays < 7;
+    });
+  };
+
+  // Check if a date is part of a selected week
+  const isDateInSelectedWeek = (d: Date) => {
+    return selectedMondays.some(selectedDate => {
+      const selected = new Date(selectedDate + 'T00:00:00');
+      const diffTime = d.getTime() - selected.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      
+      // Check if date is within the selected week (0-6 days from Monday)
       return diffDays >= 0 && diffDays < 7;
     });
   };
@@ -338,8 +355,8 @@ export default function HostSelectWeeksPage() {
                         ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed bg-gray-100 dark:bg-gray-800'
                         : isDateBlocked(c)
                         ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed bg-red-100 dark:bg-red-900/20'
-                        : selectedMondays.includes(fmt(c))
-                          ? 'bg-blue-500 text-white shadow-lg scale-105 ring-2 ring-blue-200 dark:ring-blue-800' 
+                        : isDateInSelectedWeek(c)
+                          ? 'bg-red-500 text-white shadow-lg scale-105 ring-2 ring-blue-200 dark:ring-blue-800' 
                           : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 border border-transparent'
                     }`}
                   >

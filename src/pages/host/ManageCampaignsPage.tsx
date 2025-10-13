@@ -226,7 +226,7 @@ export default function HostManageCampaignsPage() {
                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm text-gray-600 dark:text-gray-400 mb-4 w-full max-w-full">
                      <div className="flex items-center gap-1 min-w-0 w-full max-w-full">
                        <Calendar className="w-4 h-4 flex-shrink-0" />
-                       <span className="text-xs sm:text-sm truncate w-full">{formatDate(campaign.start_date)} - {formatDate(campaign.end_date)}</span>
+                       <span className="text-xs sm:text-sm truncate w-full">{campaign.start_date} - {campaign.end_date}</span>
                      </div>
                      <div className="flex items-center gap-1 min-w-0 w-full max-w-full">
                        <DollarSign className="w-4 h-4 flex-shrink-0" />

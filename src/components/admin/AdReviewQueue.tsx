@@ -4,7 +4,7 @@ import { useNotification } from '../../contexts/NotificationContext';
 import { AdminService, AdReviewItem } from '../../services/adminService';
 import { MediaService } from '../../services/mediaService';
 import KioskPreview from './KioskPreview';
-import { formatLocalDate } from '../../utils/dateUtils';
+import FullScreenAssetModal from './FullScreenAssetModal';
 
 export default function AdReviewQueue() {
   const [ads, setAds] = useState<AdReviewItem[]>([]);
@@ -20,11 +20,44 @@ export default function AdReviewQueue() {
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectionModal, setShowRejectionModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'client' | 'host' | 'swapped' | 'all'>('client');
+  const [fullScreenAsset, setFullScreenAsset] = useState<{
+    isOpen: boolean;
+    mediaUrl: string;
+    mediaType: 'image' | 'video';
+    title: string;
+    fileName: string;
+  }>({
+    isOpen: false,
+    mediaUrl: '',
+    mediaType: 'image',
+    title: '',
+    fileName: ''
+  });
   const { addNotification } = useNotification();
 
   // Helper function to determine if an item is a campaign
   const isCampaign = (item: any): boolean => {
     return !!(item.budget && item.start_date && item.end_date && !item.file_name);
+  };
+
+  const openFullScreenAsset = (mediaUrl: string, mediaType: 'image' | 'video', title: string, fileName: string) => {
+    setFullScreenAsset({
+      isOpen: true,
+      mediaUrl,
+      mediaType,
+      title,
+      fileName
+    });
+  };
+
+  const closeFullScreenAsset = () => {
+    setFullScreenAsset({
+      isOpen: false,
+      mediaUrl: '',
+      mediaType: 'image',
+      title: '',
+      fileName: ''
+    });
   };
 
   // Determine if an item is a host ad (vs client media asset or campaign)
@@ -117,6 +150,21 @@ export default function AdReviewQueue() {
     }
   };
 
+  const handleApproveSwappedAsset = async (assetId: string, assetType: 'media_asset' | 'host_ad') => {
+    try {
+      setReviewing(assetId);
+      await AdminService.reviewSwappedAsset(assetId, assetType, 'approve');
+      setSwappedAssets(prev => prev.filter(asset => asset.id !== assetId));
+      addNotification('success', 'Asset Approved', 'The swapped asset has been approved and is now active. User has been notified via email.');
+      setSelectedHostAd(null);
+    } catch (error) {
+      console.error('Error approving swapped asset:', error);
+      addNotification('error', 'Error', 'Failed to approve swapped asset');
+    } finally {
+      setReviewing(null);
+    }
+  };
+
   const handleRejectHostAd = async (hostAdId: string, reason?: string) => {
     try {
       setReviewing(hostAdId);
@@ -129,6 +177,23 @@ export default function AdReviewQueue() {
     } catch (error) {
       console.error('Error rejecting host ad:', error);
       addNotification('error', 'Error', 'Failed to reject host ad');
+    } finally {
+      setReviewing(null);
+    }
+  };
+
+  const handleRejectSwappedAsset = async (assetId: string, assetType: 'media_asset' | 'host_ad', reason?: string) => {
+    try {
+      setReviewing(assetId);
+      await AdminService.reviewSwappedAsset(assetId, assetType, 'reject', reason);
+      setSwappedAssets(prev => prev.filter(asset => asset.id !== assetId));
+      addNotification('success', 'Asset Rejected', 'The swapped asset has been rejected. User has been notified via email.');
+      setSelectedHostAd(null);
+      setShowRejectionModal(false);
+      setRejectionReason('');
+    } catch (error) {
+      console.error('Error rejecting swapped asset:', error);
+      addNotification('error', 'Error', 'Failed to reject swapped asset');
     } finally {
       setReviewing(null);
     }
@@ -546,12 +611,17 @@ export default function AdReviewQueue() {
                         console.log('Campaign Asset URL:', assetUrl);
                         
                         return (
-                          <KioskPreview
-                            mediaUrl={assetUrl}
-                            mediaType={assetType}
-                            title={assetTitle}
-                            className="w-48 h-96"
-                          />
+                          <div 
+                            className="cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => openFullScreenAsset(assetUrl, assetType, assetTitle, assetMedia.file_name || 'Campaign Asset')}
+                          >
+                            <KioskPreview
+                              mediaUrl={assetUrl}
+                              mediaType={assetType}
+                              title={assetTitle}
+                              className="w-48 h-96"
+                            />
+                          </div>
                         );
                       }
                     }
@@ -602,22 +672,32 @@ export default function AdReviewQueue() {
                     const placeholderUrl = 'https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=400&h=800&fit=crop';
                     console.log('No media URL found, using placeholder:', placeholderUrl);
                     return (
-                      <KioskPreview
-                        mediaUrl={placeholderUrl}
-                        mediaType="image"
-                        title="Preview not available - showing placeholder"
-                        className="w-48 h-96"
-                      />
+                      <div 
+                        className="cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => openFullScreenAsset(placeholderUrl, 'image', 'Preview not available - showing placeholder', 'placeholder')}
+                      >
+                        <KioskPreview
+                          mediaUrl={placeholderUrl}
+                          mediaType="image"
+                          title="Preview not available - showing placeholder"
+                          className="w-48 h-96"
+                        />
+                      </div>
                     );
                   }
 
                   return (
-                    <KioskPreview
-                      mediaUrl={mediaUrl}
-                      mediaType={mediaType}
-                      title={title}
-                      className="w-48 h-96"
-                    />
+                    <div 
+                      className="cursor-pointer hover:opacity-90 transition-opacity"
+                      onClick={() => openFullScreenAsset(mediaUrl, mediaType, title, title)}
+                    >
+                      <KioskPreview
+                        mediaUrl={mediaUrl}
+                        mediaType={mediaType}
+                        title={title}
+                        className="w-48 h-96"
+                      />
+                    </div>
                   );
                 })()}
               </div>
@@ -664,7 +744,7 @@ export default function AdReviewQueue() {
                     <div>
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Duration:</span>
                       <p className="text-sm text-gray-900 dark:text-white">
-                        {formatLocalDate(selectedCampaign!.start_date)} - {formatLocalDate(selectedCampaign!.end_date)}
+                        {selectedCampaign!.start_date} - {selectedCampaign!.end_date}
                       </p>
                     </div>
                     {selectedCampaign!.description && (
@@ -754,8 +834,10 @@ export default function AdReviewQueue() {
                           handleApproveCampaign(selectedCampaign.id);
                         } else if (activeTab === 'client' && selectedAd) {
                           handleApprove(selectedAd.id);
-                        } else if ((activeTab === 'host' || activeTab === 'swapped') && selectedHostAd) {
+                        } else if (activeTab === 'host' && selectedHostAd) {
                           handleApproveHostAd(selectedHostAd.id);
+                        } else if (activeTab === 'swapped' && selectedHostAd) {
+                          handleApproveSwappedAsset(selectedHostAd.id, selectedHostAd.type);
                         }
                       }}
                       disabled={isDisabled}
@@ -826,8 +908,10 @@ export default function AdReviewQueue() {
                     handleRejectCampaign(selectedCampaign!.id, rejectionReason);
                   } else if (activeTab === 'client') {
                     handleReject(selectedAd!.id, rejectionReason);
-                  } else {
+                  } else if (activeTab === 'host') {
                     handleRejectHostAd(selectedHostAd!.id, rejectionReason);
+                  } else if (activeTab === 'swapped') {
+                    handleRejectSwappedAsset(selectedHostAd!.id, selectedHostAd!.type, rejectionReason);
                   }
                 }}
                 disabled={!rejectionReason.trim() || reviewing === (selectedCampaign ? selectedCampaign!.id :
@@ -846,6 +930,16 @@ export default function AdReviewQueue() {
           </div>
         </div>
       )}
+
+      {/* Full Screen Asset Modal */}
+      <FullScreenAssetModal
+        isOpen={fullScreenAsset.isOpen}
+        onClose={closeFullScreenAsset}
+        mediaUrl={fullScreenAsset.mediaUrl}
+        mediaType={fullScreenAsset.mediaType}
+        title={fullScreenAsset.title}
+        fileName={fullScreenAsset.fileName}
+      />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { Calendar, Play, PauseCircle, XCircle, RefreshCw, Search, Edit, Save, X,
 import { AdminService, AdminCampaignItem } from '../../services/adminService';
 import { MediaService } from '../../services/mediaService';
 import KioskPreview from './KioskPreview';
+import FullScreenAssetModal from './FullScreenAssetModal';
 import { useNotification } from '../../contexts/NotificationContext';
 import { supabase } from '../../lib/supabaseClient';
 
@@ -41,6 +42,19 @@ export default function AdminCampaigns() {
   const [swapping, setSwapping] = useState(false);
   const [mediaPreviews, setMediaPreviews] = useState<Record<string, { url: string; type: 'image' | 'video' }>>({});
   const [loadingPreviews, setLoadingPreviews] = useState(false);
+  const [fullScreenAsset, setFullScreenAsset] = useState<{
+    isOpen: boolean;
+    mediaUrl: string;
+    mediaType: 'image' | 'video';
+    title: string;
+    fileName: string;
+  }>({
+    isOpen: false,
+    mediaUrl: '',
+    mediaType: 'image',
+    title: '',
+    fileName: ''
+  });
 
   useEffect(() => {
     loadCampaigns();
@@ -250,6 +264,26 @@ export default function AdminCampaigns() {
   const openAssetManager = (campaignId: string) => {
     setShowAssetManager(campaignId);
     loadAvailableAssets(campaignId);
+  };
+
+  const openFullScreenAsset = (mediaUrl: string, mediaType: 'image' | 'video', title: string, fileName: string) => {
+    setFullScreenAsset({
+      isOpen: true,
+      mediaUrl,
+      mediaType,
+      title,
+      fileName
+    });
+  };
+
+  const closeFullScreenAsset = () => {
+    setFullScreenAsset({
+      isOpen: false,
+      mediaUrl: '',
+      mediaType: 'image',
+      title: '',
+      fileName: ''
+    });
   };
 
   const now = new Date();
@@ -482,7 +516,18 @@ export default function AdminCampaigns() {
                     {['draft', 'pending', 'active'].includes(c.status) && (mediaPreviews[c.id]?.url || (loadingPreviews && !mediaPreviews[c.id])) && (
                       <div className="flex-shrink-0 flex justify-center xl:justify-end mb-4 xl:mb-0">
                         {mediaPreviews[c.id]?.url ? (
-                          <div className="w-32 h-80">
+                          <div 
+                            className="w-32 h-80 cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => {
+                              const asset = c.assets?.[0];
+                              openFullScreenAsset(
+                                mediaPreviews[c.id].url,
+                                mediaPreviews[c.id].type,
+                                `${c.name} - Ad Preview`,
+                                asset?.file_name || 'asset'
+                              );
+                            }}
+                          >
                             <KioskPreview
                               mediaUrl={mediaPreviews[c.id].url}
                               mediaType={mediaPreviews[c.id].type}
@@ -591,7 +636,18 @@ export default function AdminCampaigns() {
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                           {c.assets.slice(0, 6).map((asset: any, index: number) => (
                             <div key={asset.id || index} className="relative group">
-                              <div className="w-full h-16 bg-gray-200 dark:bg-gray-600 rounded-lg overflow-hidden">
+                              <div 
+                                className="w-full h-16 bg-gray-200 dark:bg-gray-600 rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+                                onClick={() => {
+                                  const assetUrl = asset.metadata?.publicUrl || MediaService.getMediaPreviewUrl(asset.file_path);
+                                  openFullScreenAsset(
+                                    assetUrl,
+                                    asset.file_type || 'image',
+                                    `${c.name} - ${asset.file_name || `Asset ${index + 1}`}`,
+                                    asset.file_name || `Asset ${index + 1}`
+                                  );
+                                }}
+                              >
                                 {asset.file_type === 'video' ? (
                                   <div className="w-full h-full flex items-center justify-center bg-gray-300 dark:bg-gray-500">
                                     <Video className="h-6 w-6 text-gray-600 dark:text-gray-400" />
@@ -602,10 +658,10 @@ export default function AdminCampaigns() {
                                   </div>
                                 )}
                               </div>
-                              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-opacity rounded-lg flex items-center justify-center">
-                                <button className="opacity-0 group-hover:opacity-100 bg-white bg-opacity-90 rounded-full p-1">
+                              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-opacity rounded-lg flex items-center justify-center pointer-events-none">
+                                <div className="opacity-0 group-hover:opacity-100 bg-white bg-opacity-90 rounded-full p-1">
                                   <Eye className="h-3 w-3 text-gray-700" />
-                                </button>
+                                </div>
                               </div>
                               <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 truncate">
                                 {asset.file_name || `Asset ${index + 1}`}
@@ -742,14 +798,24 @@ export default function AdminCampaigns() {
                       {campaignAssets.map((asset) => (
                         <div 
                           key={asset.id} 
-                          className={`border rounded-lg p-3 cursor-pointer transition-all ${
+                          className={`border rounded-lg p-3 transition-all ${
                             selectedAssetForSwap === asset.id 
                               ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
                               : 'border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
                           }`}
-                          onClick={() => setSelectedAssetForSwap(selectedAssetForSwap === asset.id ? null : asset.id)}
                         >
-                          <div className="w-full h-20 bg-gray-200 dark:bg-gray-600 rounded-lg overflow-hidden mb-2">
+                          <div 
+                            className="w-full h-20 bg-gray-200 dark:bg-gray-600 rounded-lg overflow-hidden mb-2 cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => {
+                              const assetUrl = asset.metadata?.publicUrl || MediaService.getMediaPreviewUrl(asset.file_path);
+                              openFullScreenAsset(
+                                assetUrl,
+                                asset.file_type || 'image',
+                                asset.file_name || 'Campaign Asset',
+                                asset.file_name || 'asset'
+                              );
+                            }}
+                          >
                             {asset.file_type === 'video' ? (
                               <div className="w-full h-full flex items-center justify-center bg-gray-300 dark:bg-gray-500">
                                 <Video className="h-8 w-8 text-gray-600 dark:text-gray-400" />
@@ -766,6 +832,18 @@ export default function AdminCampaigns() {
                           <p className="text-xs text-gray-500 dark:text-gray-500">
                             by {asset.user?.full_name || 'Unknown'}
                           </p>
+                          <div className="flex gap-1 mt-2">
+                            <button
+                              onClick={() => setSelectedAssetForSwap(selectedAssetForSwap === asset.id ? null : asset.id)}
+                              className={`flex-1 px-2 py-1 text-xs rounded ${
+                                selectedAssetForSwap === asset.id 
+                                  ? 'bg-blue-600 text-white' 
+                                  : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500'
+                              }`}
+                            >
+                              {selectedAssetForSwap === asset.id ? 'Selected' : 'Select for Swap'}
+                            </button>
+                          </div>
                           {selectedAssetForSwap === asset.id && (
                             <div className="mt-2 p-2 bg-blue-100 dark:bg-blue-900 rounded text-xs text-blue-800 dark:text-blue-200">
                               Selected for swap
@@ -791,7 +869,18 @@ export default function AdminCampaigns() {
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                       {availableAssets.map((asset) => (
                         <div key={asset.id} className="border border-gray-200 dark:border-gray-600 rounded-lg p-3 hover:bg-gray-50 dark:hover:bg-gray-700">
-                          <div className="w-full h-20 bg-gray-200 dark:bg-gray-600 rounded-lg overflow-hidden mb-2">
+                          <div 
+                            className="w-full h-20 bg-gray-200 dark:bg-gray-600 rounded-lg overflow-hidden mb-2 cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => {
+                              const assetUrl = asset.metadata?.publicUrl || MediaService.getMediaPreviewUrl(asset.file_path);
+                              openFullScreenAsset(
+                                assetUrl,
+                                asset.file_type || 'image',
+                                asset.file_name || 'Available Asset',
+                                asset.file_name || 'asset'
+                              );
+                            }}
+                          >
                             {asset.file_type === 'video' ? (
                               <div className="w-full h-full flex items-center justify-center bg-gray-300 dark:bg-gray-500">
                                 <Video className="h-8 w-8 text-gray-600 dark:text-gray-400" />
@@ -836,7 +925,18 @@ export default function AdminCampaigns() {
                                 Add
                               </button>
                             )}
-                            <button className="px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700">
+                            <button 
+                              onClick={() => {
+                                const assetUrl = asset.metadata?.publicUrl || MediaService.getMediaPreviewUrl(asset.file_path);
+                                openFullScreenAsset(
+                                  assetUrl,
+                                  asset.file_type || 'image',
+                                  asset.file_name || 'Available Asset',
+                                  asset.file_name || 'asset'
+                                );
+                              }}
+                              className="px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700"
+                            >
                               <Eye className="h-3 w-3" />
                             </button>
                           </div>
@@ -867,6 +967,16 @@ export default function AdminCampaigns() {
           </div>
         </div>
       )}
+
+      {/* Full Screen Asset Modal */}
+      <FullScreenAssetModal
+        isOpen={fullScreenAsset.isOpen}
+        onClose={closeFullScreenAsset}
+        mediaUrl={fullScreenAsset.mediaUrl}
+        mediaType={fullScreenAsset.mediaType}
+        title={fullScreenAsset.title}
+        fileName={fullScreenAsset.fileName}
+      />
     </div>
   );
 }

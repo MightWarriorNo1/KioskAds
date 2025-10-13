@@ -2752,7 +2752,11 @@ Ad Management System`,
       if (!template) return;
 
       // Queue email (align with campaign approval path)
-      const variables = { ad_name: hostAd.name };
+      const variables = { 
+        ad_name: hostAd.name,
+        host_name: hostAd.host.full_name,
+        duration: hostAd.duration || 'N/A'
+      };
       const subject = this.replaceVariables(template.subject, variables);
       const bodyHtml = this.replaceVariables(template.body_html, variables);
       const bodyText = template.body_text ? this.replaceVariables(template.body_text, variables) : undefined;
@@ -2812,20 +2816,42 @@ Ad Management System`,
 
       if (!template) return;
 
-      // Send email
+      // Queue email (align with other email functions)
       const variables = {
         ad_name: hostAd.name,
+        host_name: hostAd.host.full_name,
+        duration: hostAd.duration || 'N/A',
         rejection_reason: rejectionReason || 'Content does not meet our guidelines'
       };
+      const subject = this.replaceVariables(template.subject, variables);
+      const bodyHtml = this.replaceVariables(template.body_html, variables);
+      const bodyText = template.body_text ? this.replaceVariables(template.body_text, variables) : undefined;
 
-      await supabase.functions.invoke('send-email', {
-        body: {
-          to: hostAd.host.email,
-          subject: this.replaceVariables(template.subject, variables),
-          body_html: this.replaceVariables(template.body_html, variables),
-          body_text: template.body_text ? this.replaceVariables(template.body_text, variables) : undefined
+      await supabase
+        .from('email_queue')
+        .insert({
+          template_id: template.id,
+          recipient_email: hostAd.host.email,
+          recipient_name: hostAd.host.full_name,
+          subject,
+          body_html: bodyHtml,
+          body_text: bodyText,
+          status: 'pending',
+          retry_count: 0,
+          max_retries: 3
+        });
+
+      // Try local Gmail processor; if unavailable, invoke edge function
+      try {
+        const { GmailService } = await import('./gmailService');
+        if (GmailService?.isConfigured?.()) {
+          await GmailService.processEmailQueue();
+        } else {
+          try { await supabase.functions.invoke('email-queue-processor'); } catch (_) {}
         }
-      });
+      } catch {
+        try { await supabase.functions.invoke('email-queue-processor'); } catch (_) {}
+      }
     } catch (error) {
       console.error('Error sending host ad rejection email:', error);
     }

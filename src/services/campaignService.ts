@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabaseClient';
 import { CampaignEmailService } from './campaignEmailService';
 import { AdminNotificationService } from './adminNotificationService';
+import { getCurrentCaliforniaTime } from '../utils/dateUtils';
 
 export interface Campaign {
   id: string;
@@ -82,12 +83,12 @@ export class CampaignService {
 
       for (const campaign of data || []) {
         // Check if campaign should be activated (start date reached)
-        if ((campaign.status === 'pending' || campaign.status === 'approved') && new Date(campaign.start_date) <= new Date()) {
+        if ((campaign.status === 'pending' || campaign.status === 'approved') && new Date(campaign.start_date) <= getCurrentCaliforniaTime()) {
           campaignsToUpdate.push(campaign.id);
           await this.updateCampaignStatus(campaign.id, 'active');
         }
         // Check if campaign should be completed (end date passed)
-        else if (campaign.status === 'active' && new Date(campaign.end_date) < new Date()) {
+        else if (campaign.status === 'active' && new Date(campaign.end_date) < getCurrentCaliforniaTime()) {
           campaignsToUpdate.push(campaign.id);
           await this.updateCampaignStatus(campaign.id, 'completed');
         }
@@ -286,7 +287,22 @@ export class CampaignService {
           .single();
 
         if (user) {
-          // Send notification to campaign creator
+          // Send purchase confirmation email to campaign creator
+          await CampaignEmailService.sendCampaignStatusNotification({
+            campaign_id: campaign.id,
+            campaign_name: campaign.name,
+            user_id: campaignData.user_id,
+            user_email: user.email,
+            user_name: user.full_name,
+            user_role: user.role,
+            status: campaign.status,
+            start_date: campaign.start_date,
+            end_date: campaign.end_date,
+            budget: campaign.budget,
+            target_locations: campaign.target_locations?.join(', ')
+          }, 'purchased');
+
+          // Send submitted notification to campaign creator
           await CampaignEmailService.sendCampaignStatusNotification({
             campaign_id: campaign.id,
             campaign_name: campaign.name,

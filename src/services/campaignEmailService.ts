@@ -75,6 +75,26 @@ export class CampaignEmailService {
     return this.sendCampaignStatusNotification(dummy, status);
   }
 
+  // Test method to verify template variables are properly formatted
+  static testTemplateVariables(): Record<string, any> {
+    const testData: CampaignEmailData = {
+      campaign_id: 'TEST123',
+      campaign_name: 'Murrieta Town Center - 1 week campaign',
+      user_id: 'USER123',
+      user_email: 'test@example.com',
+      user_name: 'John Doe',
+      user_role: 'client',
+      status: 'submitted',
+      start_date: new Date().toISOString(),
+      end_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
+      budget: 500.00,
+      target_locations: 'Murrieta, CA',
+      rejection_reason: null
+    };
+
+    return this.prepareTemplateVariables(testData, 'purchased');
+  }
+
   private static async getRecipients(
     campaignData: CampaignEmailData,
     status: CampaignEmailStatus
@@ -118,9 +138,9 @@ export class CampaignEmailService {
     const variables: Record<string, any> = {
       client_name: c.user_name,
       campaign_name: c.campaign_name,
-      budget: c.budget ?? 0,
-      start_date: c.start_date ? new Date(c.start_date).toISOString().split('T')[0] : '',
-      end_date: c.end_date ? new Date(c.end_date).toISOString().split('T')[0] : '',
+      budget: c.budget ? c.budget.toFixed(2) : '0.00',
+      start_date: c.start_date ? new Date(c.start_date).toLocaleDateString() : '',
+      end_date: c.end_date ? new Date(c.end_date).toLocaleDateString() : '',
       target_locations: c.target_locations || 'All Locations',
       rejection_reason: c.rejection_reason || 'N/A'
     };
@@ -128,17 +148,26 @@ export class CampaignEmailService {
     switch (status) {
       case 'purchased':
       case 'submitted':
-        variables.start_date = variables.start_date || new Date().toISOString().split('T')[0];
+        // For purchased/submitted campaigns, ensure we have proper dates
+        if (!variables.start_date) {
+          variables.start_date = new Date().toLocaleDateString();
+        }
+        if (!variables.end_date && c.start_date) {
+          // If we have a start date but no end date, calculate a reasonable end date
+          const startDate = new Date(c.start_date);
+          const endDate = new Date(startDate.getTime() + (7 * 24 * 60 * 60 * 1000)); // 7 days from start
+          variables.end_date = endDate.toLocaleDateString();
+        }
         break;
       case 'approved':
       case 'active':
-        variables.start_date = variables.start_date || new Date().toISOString().split('T')[0];
+        variables.start_date = variables.start_date || new Date().toLocaleDateString();
         break;
       case 'expiring':
         variables.days_remaining = c.end_date ? Math.ceil((new Date(c.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 0;
         break;
       case 'expired':
-        variables.end_date = variables.end_date || new Date().toISOString().split('T')[0];
+        variables.end_date = variables.end_date || new Date().toLocaleDateString();
         break;
     }
     return variables;
