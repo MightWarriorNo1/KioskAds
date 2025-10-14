@@ -18,7 +18,8 @@ export class CustomAdEmailTester {
       'custom_ad_proof_rejected',
       'custom_ad_completed',
       'custom_ad_designer_assignment',
-      'custom_ad_designer_rejection'
+      'custom_ad_designer_rejection',
+      'custom_ad_admin_approval'
     ];
 
     const results: { template: string; success: boolean; error?: string }[] = [];

@@ -89,6 +89,21 @@ export class CustomAdEmailNotificationTester {
     }
   }
 
+  // Test admin approval notification specifically
+  static async testAdminApprovalNotification(): Promise<void> {
+    console.log('Testing Custom Ad Creation Admin Approval Notification...');
+    
+    try {
+      const testData = this.getTestCreationData();
+      testData.status = 'approved';
+      await CustomAdCreationEmailService.sendApprovedNotification(testData);
+      console.log('✅ Admin approval notification test completed successfully');
+      console.log('📧 Admin should receive email with campaign creation instructions');
+    } catch (error) {
+      console.error('❌ Admin approval notification test failed:', error);
+    }
+  }
+
   // Test request changes notification (Client/Host to Designer with Admin copy)
   static async testRequestChangesNotification(): Promise<void> {
     console.log('Testing Custom Ad Creation Request Changes Notification...');
@@ -116,6 +131,9 @@ export class CustomAdEmailNotificationTester {
     console.log('');
     
     await this.testApprovedNotification();
+    console.log('');
+    
+    await this.testAdminApprovalNotification();
     console.log('');
     
     await this.testRequestChangesNotification();

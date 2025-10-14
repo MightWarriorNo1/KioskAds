@@ -24,6 +24,7 @@ import HostCustomAdsPage from './host/CustomAdsPage';
 import HostManageMyCustomAdPage from './host/ManageMyCustomAdPage';
 import HostProfilePage from './host/ProfilePage';
 import HostCampaignDetailsPage from './host/HostCampaignDetailsPage';
+import AssignApprovedAdsPage from './host/AssignApprovedAdsPage';
 
 export default function HostPortal() {
   return (
@@ -33,6 +34,7 @@ export default function HostPortal() {
         <Route path="/kiosks" element={<KioskManager />} />
         <Route path="/ads" element={<AdManagement />} />
         <Route path="/ads/upload" element={<AdUpload />} />
+        <Route path="/ads/assign-approved" element={<AssignApprovedAdsPage />} />
         <Route path="/ads/:id/preview" element={<AdPreview />} />
         <Route path="/ads/:id/assign" element={<AdKioskAssignment />} />
         <Route path="/ads/:id/edit" element={<AdEdit />} />

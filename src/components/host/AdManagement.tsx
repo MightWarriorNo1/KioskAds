@@ -256,17 +256,28 @@ export default function AdManagement() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Ad Management</h1>
           <p className="text-gray-600 dark:text-gray-400">Manage your uploaded advertisements</p>
         </div>
-        <Button
-          onClick={() => navigate('/host/ads/upload')}
-          className="flex items-center gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          Upload New Ad
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-3">
+          {ads.filter(ad => ad.status === 'approved').length > 0 && (
+            <Button
+              onClick={() => navigate('/host/ads/assign-approved')}
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+            >
+              <CheckCircle className="h-4 w-4" />
+              Assign Approved Ads
+            </Button>
+          )}
+          <Button
+            onClick={() => navigate('/host/ads/upload')}
+            className="flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Upload New Ad
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <div className="flex items-center justify-between">
             <div>
@@ -274,6 +285,18 @@ export default function AdManagement() {
               <p className="text-2xl font-bold text-gray-900 dark:text-white">{ads.length}</p>
             </div>
             <Upload className="h-8 w-8 text-blue-500" />
+          </div>
+        </Card>
+        
+        <Card>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Approved</p>
+              <p className="text-2xl font-bold text-green-600">
+                {ads.filter(ad => ad.status === 'approved').length}
+              </p>
+            </div>
+            <CheckCircle className="h-8 w-8 text-green-500" />
           </div>
         </Card>
         
@@ -441,7 +464,17 @@ export default function AdManagement() {
                     Preview
                   </Button>
                   
-                  <div className="relative" ref={dropdownRef}>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => navigate(`/host/ads/${ad.id}/assign`)}
+                    className="flex-1"
+                  >
+                    <Monitor className="h-4 w-4 mr-1" />
+                    Assign to Kiosk
+                  </Button>
+                  
+                  {/* <div className="relative" ref={dropdownRef}>
                     <Button
                       variant="secondary"
                       size="sm"
@@ -502,16 +535,6 @@ export default function AdManagement() {
                           
                           <button
                             onClick={() => {
-                              navigate(`/host/ads/${ad.id}/assign`);
-                              setOpenDropdownId(null);
-                            }}
-                            className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                          >
-                            Assign to Kiosks
-                          </button>
-                          
-                          <button
-                            onClick={() => {
                               navigate(`/host/ads/${ad.id}/edit`);
                               setOpenDropdownId(null);
                             }}
@@ -535,7 +558,7 @@ export default function AdManagement() {
                         </div>
                       </div>
                     )}
-                  </div>
+                  </div> */}
                 </div>
               </div>
             </Card>

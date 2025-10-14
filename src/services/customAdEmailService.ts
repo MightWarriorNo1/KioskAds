@@ -42,7 +42,7 @@ export class CustomAdEmailService {
         order_id: order.id,
         client_name: clientName,
         service_name: service.name,
-        total_amount: order.total_amount.toFixed(2),
+        total_amount: (order.total_amount || 0).toFixed(2),
         estimated_completion: estimatedCompletion
       };
 
@@ -74,7 +74,7 @@ export class CustomAdEmailService {
         order_id: order.id,
         client_name: order.user?.full_name || order.user?.full_name || `${order.first_name} ${order.last_name}`,
         service_name: service.name,
-        total_amount: order.total_amount.toFixed(2),
+        total_amount: (order.total_amount || 0).toFixed(2),
         rejection_reason: order.rejection_reason || 'No reason provided'
       };
 
@@ -110,16 +110,15 @@ export class CustomAdEmailService {
         order_id: order.id,
         client_name: order.user?.full_name || order.user?.full_name || `${order.first_name} ${order.last_name}`,
         service_name: service.name,
-        total_amount: order.total_amount.toFixed(2),
+        total_amount: (order.total_amount || 0).toFixed(2),
         estimated_completion: estimatedCompletion
       };
 
       // Send to client
       await this.sendEmail(template, client.email, client.user?.full_name || `${client.first_name} ${client.last_name}`, variables);
 
-      // Send to admins
-      await this.sendNotificationToAdmins(order, 'order_approved', 'Custom Ad Order Approved', 
-        `Custom ad order #${order.id} has been approved`);
+      // Send to admins with campaign creation instructions
+      await this.sendAdminApprovalNotification(order, client, service);
 
     } catch (error) {
       console.error('Error sending order approved notification:', error);
@@ -346,7 +345,7 @@ export class CustomAdEmailService {
   }
 
   // Send designer assignment notification
-  private static async sendDesignerAssignmentNotification(order: CustomAdOrder, designer: any): Promise<void> {
+  private static async sendDesignerAssignmentNotification(order: CustomAdOrder, designer: { email: string; full_name: string; first_name: string; last_name: string }): Promise<void> {
     try {
       console.log('🎨 Starting designer assignment notification for designer:', designer.email);
       
@@ -398,7 +397,7 @@ export class CustomAdEmailService {
   }
 
   // Send designer rejection notification
-  private static async sendDesignerRejectionNotification(order: CustomAdOrder, proof: CustomAdProof, designer: any): Promise<void> {
+  private static async sendDesignerRejectionNotification(order: CustomAdOrder, proof: CustomAdProof, designer: { email: string; full_name: string; first_name: string; last_name: string }): Promise<void> {
     try {
       const template = await this.getEmailTemplate('custom_ad_designer_rejection');
       if (!template) return;
@@ -432,6 +431,42 @@ export class CustomAdEmailService {
       }
     } catch (error) {
       console.error('Error sending admin notifications:', error);
+    }
+  }
+
+  // Send admin approval notification with campaign creation instructions
+  private static async sendAdminApprovalNotification(order: CustomAdOrder, client: { email: string; full_name: string; first_name: string; last_name: string }, service: { name: string }): Promise<void> {
+    try {
+      const template = await this.getEmailTemplate('custom_ad_admin_approval');
+      if (!template) {
+        // Create a default admin approval template if it doesn't exist
+        await this.createDefaultAdminApprovalTemplate();
+        return this.sendAdminApprovalNotification(order, client, service);
+      }
+
+      const admins = await this.getAdminUsers();
+      if (admins.length === 0) return;
+
+      const clientName = order.user?.full_name || order.user?.full_name || `${order.first_name} ${order.last_name}`;
+      const variables = {
+        order_id: order.id,
+        client_name: clientName,
+        client_email: client.email,
+        service_name: service.name,
+        total_amount: (order.total_amount || 0).toFixed(2),
+        estimated_completion: order.estimated_completion_date 
+          ? new Date(order.estimated_completion_date).toISOString().split('T')[0]
+          : 'TBD'
+      };
+
+      // Send to all admins
+      for (const admin of admins) {
+        await this.sendEmail(template, admin.email, admin.full_name, variables);
+      }
+
+      console.log(`Admin approval notification sent to ${admins.length} admin(s)`);
+    } catch (error) {
+      console.error('Error sending admin approval notification:', error);
     }
   }
 
@@ -476,7 +511,7 @@ export class CustomAdEmailService {
   }
 
   // Get user profile
-  private static async getUserProfile(userId: string): Promise<any> {
+  private static async getUserProfile(userId: string): Promise<{ email: string; full_name: string; first_name: string; last_name: string; user?: { full_name: string } } | null> {
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -493,7 +528,7 @@ export class CustomAdEmailService {
   }
 
   // Get custom ad service
-  private static async getCustomAdService(serviceKey: string): Promise<any> {
+  private static async getCustomAdService(serviceKey: string): Promise<{ name: string } | null> {
     try {
       const { data, error } = await supabase
         .from('custom_ad_services')
@@ -511,7 +546,7 @@ export class CustomAdEmailService {
   }
 
   // Get admin users
-  private static async getAdminUsers(): Promise<any[]> {
+  private static async getAdminUsers(): Promise<{ id: string; email: string; full_name: string }[]> {
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -580,9 +615,13 @@ export class CustomAdEmailService {
         if (GmailService.isConfigured()) {
           await GmailService.processEmailQueue();
         } else {
-          try { await supabase.functions.invoke('email-queue-processor'); } catch (_) {}
+          try { await supabase.functions.invoke('email-queue-processor'); } catch (error) {
+            console.error('Error invoking email queue processor:', error);
+          }
         }
-      } catch (_) {}
+      } catch (error) {
+        console.error('Error processing email queue:', error);
+      }
     } catch (error) {
       console.error('Error queuing email:', error);
     }
@@ -644,7 +683,7 @@ export class CustomAdEmailService {
         client_name: order.user?.full_name || order.user?.full_name || `${order.first_name} ${order.last_name}`,
         order_id: order.id,
         service_name: service.name,
-        total_amount: order.total_amount.toFixed(2),
+        total_amount: (order.total_amount || 0).toFixed(2),
         estimated_completion: estimatedCompletion
       };
 
@@ -704,7 +743,7 @@ export class CustomAdEmailService {
   }
 
   // Send email notification for designer proof submitted (Admin Courtesy Copy)
-  static async sendProofSubmittedNotification(order: CustomAdOrder, proof: CustomAdProof): Promise<void> {
+  static async sendProofSubmittedNotification(order: CustomAdOrder, _proof: CustomAdProof): Promise<void> {
     try {
       const template = await this.getEmailTemplate('custom_ad_proof_submitted');
       if (!template) return;
@@ -799,6 +838,90 @@ export class CustomAdEmailService {
     } catch (error) {
       console.error('Error sending test email:', error);
       return false;
+    }
+  }
+
+  // Create default admin approval template
+  private static async createDefaultAdminApprovalTemplate(): Promise<void> {
+    try {
+      const template = {
+        type: 'custom_ad_admin_approval',
+        subject: 'Custom Ad Approved - Client Ready for Campaign Creation',
+        body_html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #2563eb; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">
+              Custom Ad Approved - Client Ready for Campaign Creation
+            </h2>
+            
+            <p>Hello Admin,</p>
+            
+            <p>A custom ad order has been approved by the client and is now ready for campaign creation.</p>
+            
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h3 style="color: #1e293b; margin-top: 0;">Order Details</h3>
+              <p><strong>Order ID:</strong> {{order_id}}</p>
+              <p><strong>Client:</strong> {{client_name}} ({{client_email}})</p>
+              <p><strong>Service:</strong> {{service_name}}</p>
+              <p><strong>Total Amount:</strong> ${{total_amount}}</p>
+              <p><strong>Estimated Completion:</strong> {{estimated_completion}}</p>
+            </div>
+            
+            <div style="background: #ecfdf5; border: 1px solid #10b981; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h3 style="color: #065f46; margin-top: 0;">Next Steps for Client</h3>
+              <p>The client has been notified that their custom ad is approved. They should now:</p>
+              <ol style="color: #065f46;">
+                <li>Go to the Create Campaign dashboard</li>
+                <li>Choose "Select Custom Created Vertical Ad"</li>
+                <li>Start their ad campaign today</li>
+              </ol>
+            </div>
+            
+            <p style="color: #64748b; font-size: 14px;">
+              This is an automated notification for admin awareness. The client has been provided with instructions to proceed with campaign creation.
+            </p>
+            
+            <p>Best regards,<br>Ad Management Platform</p>
+          </div>
+        `,
+        body_text: `
+Custom Ad Approved - Client Ready for Campaign Creation
+
+Hello Admin,
+
+A custom ad order has been approved by the client and is now ready for campaign creation.
+
+Order Details:
+- Order ID: {{order_id}}
+- Client: {{client_name}} ({{client_email}})
+- Service: {{service_name}}
+- Total Amount: ${{total_amount}}
+- Estimated Completion: {{estimated_completion}}
+
+Next Steps for Client:
+The client has been notified that their custom ad is approved. They should now:
+1. Go to the Create Campaign dashboard
+2. Choose "Select Custom Created Vertical Ad"
+3. Start their ad campaign today
+
+This is an automated notification for admin awareness. The client has been provided with instructions to proceed with campaign creation.
+
+Best regards,
+Ad Management Platform
+        `,
+        is_active: true
+      };
+
+      const { error } = await supabase
+        .from('email_templates')
+        .insert(template);
+
+      if (error) {
+        console.error('Error creating admin approval template:', error);
+      } else {
+        console.log('Admin approval template created successfully');
+      }
+    } catch (error) {
+      console.error('Error creating default admin approval template:', error);
     }
   }
 }

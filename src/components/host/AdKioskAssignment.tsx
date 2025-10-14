@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calendar, MapPin, Clock, CheckCircle, AlertCircle, Plus, X } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, Clock, CheckCircle, AlertCircle, Plus, X, Play } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../contexts/NotificationContext';
 import { HostService, HostAd, HostKiosk, HostAdAssignment } from '../../services/hostService';
@@ -28,11 +28,12 @@ export default function AdKioskAssignment() {
   const [showAssignmentForm, setShowAssignmentForm] = useState(false);
   const [assignmentForm, setAssignmentForm] = useState<AssignmentForm>({
     kioskId: '',
-    startDate: '',
+    startDate: getCurrentLocalDate(),
     endDate: '',
     priority: 1
   });
   const [submitting, setSubmitting] = useState(false);
+  const [quickAssignMode, setQuickAssignMode] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -107,9 +108,10 @@ export default function AdKioskAssignment() {
       
       setAssignments(prev => [...prev, newAssignment]);
       setShowAssignmentForm(false);
+      setQuickAssignMode(false);
       setAssignmentForm({
         kioskId: '',
-        startDate: '',
+        startDate: getCurrentLocalDate(),
         endDate: '',
         priority: 1
       });
@@ -118,6 +120,37 @@ export default function AdKioskAssignment() {
     } catch (error) {
       console.error('Error creating assignment:', error);
       addNotification('error', 'Assignment Failed', 'Failed to assign ad to kiosk');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleQuickAssign = async (kioskId: string) => {
+    if (!ad || !user?.id) return;
+    
+    try {
+      setSubmitting(true);
+      
+      // Set end date to 30 days from now for quick assignment
+      const endDate = new Date();
+      endDate.setDate(endDate.getDate() + 30);
+      
+      const newAssignment = await HostService.createAdAssignment({
+        hostId: user.id,
+        adId: ad.id,
+        kioskId: kioskId,
+        startDate: getCurrentLocalDate(),
+        endDate: endDate.toISOString().split('T')[0],
+        priority: 1
+      });
+      
+      setAssignments(prev => [...prev, newAssignment]);
+      setQuickAssignMode(false);
+      
+      addNotification('success', 'Quick Assignment Created', 'Ad has been assigned to kiosk immediately for 30 days');
+    } catch (error) {
+      console.error('Error creating quick assignment:', error);
+      addNotification('error', 'Quick Assignment Failed', 'Failed to assign ad to kiosk');
     } finally {
       setSubmitting(false);
     }
@@ -238,10 +271,16 @@ export default function AdKioskAssignment() {
                 <p className="text-gray-600 dark:text-gray-400 mb-6">
                   This ad hasn't been assigned to any kiosks yet.
                 </p>
-                <Button onClick={() => setShowAssignmentForm(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Assign to Kiosk
-                </Button>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Button onClick={() => setQuickAssignMode(true)}>
+                    <Play className="h-4 w-4 mr-2" />
+                    Quick Assign (30 days)
+                  </Button>
+                  <Button variant="secondary" onClick={() => setShowAssignmentForm(true)}>
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Custom Schedule
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="space-y-4">
@@ -284,14 +323,91 @@ export default function AdKioskAssignment() {
                 ))}
                 
                 <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <Button onClick={() => setShowAssignmentForm(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Assign to Another Kiosk
-                  </Button>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Button onClick={() => setQuickAssignMode(true)}>
+                      <Play className="h-4 w-4 mr-2" />
+                      Quick Assign (30 days)
+                    </Button>
+                    <Button variant="secondary" onClick={() => setShowAssignmentForm(true)}>
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Custom Schedule
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
           </Card>
+
+          {/* Quick Assignment Modal */}
+          {quickAssignMode && (
+            <Card title="Quick Assign to Kiosk">
+              <div className="space-y-4">
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <Play className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+                    <div>
+                      <h4 className="font-medium text-blue-900 dark:text-blue-100">Quick Assignment</h4>
+                      <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                        This will assign your ad to the selected kiosk immediately for 30 days.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Select Kiosk *
+                  </label>
+                  <select
+                    value={assignmentForm.kioskId}
+                    onChange={(e) => setAssignmentForm(prev => ({ ...prev, kioskId: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
+                    required
+                  >
+                    <option value="">Choose a kiosk...</option>
+                    {getAvailableKiosks().map((kiosk) => (
+                      <option key={kiosk.kiosk.id} value={kiosk.kiosk.id}>
+                        {kiosk.kiosk.name} - {kiosk.kiosk.location}
+                      </option>
+                    ))}
+                  </select>
+                  {getAvailableKiosks().length === 0 && (
+                    <p className="mt-2 text-sm text-yellow-600 dark:text-yellow-400 flex items-center gap-1">
+                      <AlertCircle className="h-4 w-4" />
+                      All your kiosks are already assigned to this ad
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      setQuickAssignMode(false);
+                      setAssignmentForm({
+                        kioskId: '',
+                        startDate: getCurrentLocalDate(),
+                        endDate: '',
+                        priority: 1
+                      });
+                    }}
+                    disabled={submitting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() => handleQuickAssign(assignmentForm.kioskId)}
+                    disabled={submitting || !assignmentForm.kioskId || getAvailableKiosks().length === 0}
+                    loading={submitting}
+                  >
+                    <Play className="h-4 w-4 mr-2" />
+                    Quick Assign Now
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          )}
 
           {/* Assignment Form */}
           {showAssignmentForm && (
@@ -378,7 +494,7 @@ export default function AdKioskAssignment() {
                       setShowAssignmentForm(false);
                       setAssignmentForm({
                         kioskId: '',
-                        startDate: '',
+                        startDate: getCurrentLocalDate(),
                         endDate: '',
                         priority: 1
                       });

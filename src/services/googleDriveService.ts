@@ -189,26 +189,41 @@ export class GoogleDriveService {
     try {
       console.log('Ensuring scheduled folders exist for all kiosks...');
       
-      // Get all kiosks with their Google Drive folder mappings
-      const { data: kioskFolders, error: foldersError } = await supabase
-        .from('kiosk_gdrive_folders')
-        .select(`
-          *,
-          kiosks!kiosk_id(name, location),
-          google_drive_configs!gdrive_config_id(name, is_active)
-        `)
-        .eq('google_drive_configs.is_active', true);
+      // Get active Google Drive configuration
+      const gdriveConfig = await this.getGoogleDriveConfig();
+      if (!gdriveConfig) {
+        throw new Error('No active Google Drive configuration found');
+      }
 
-      if (foldersError) throw foldersError;
+      // Get all kiosks
+      const { data: kiosks, error: kiosksError } = await supabase
+        .from('kiosks')
+        .select('id, name, location')
+        .order('name');
 
-      if (!kioskFolders || kioskFolders.length === 0) {
-        console.log('No kiosk folders found');
+      if (kiosksError) throw kiosksError;
+
+      if (!kiosks || kiosks.length === 0) {
+        console.log('No kiosks found');
         return;
       }
 
-      // Check which kiosks are missing scheduled folders
-      const kiosksNeedingScheduledFolders = kioskFolders.filter(folder => !folder.scheduled_folder_id);
-      
+      console.log(`Found ${kiosks.length} kiosks`);
+
+      // Get existing kiosk folder mappings
+      const { data: existingMappings, error: mappingsError } = await supabase
+        .from('kiosk_gdrive_folders')
+        .select('kiosk_id, scheduled_folder_id')
+        .eq('gdrive_config_id', gdriveConfig.id);
+
+      if (mappingsError) throw mappingsError;
+
+      // Find kiosks that need scheduled folders
+      const kiosksNeedingScheduledFolders = kiosks.filter(kiosk => {
+        const mapping = existingMappings?.find(m => m.kiosk_id === kiosk.id);
+        return !mapping || !mapping.scheduled_folder_id;
+      });
+
       if (kiosksNeedingScheduledFolders.length === 0) {
         console.log('All kiosks already have scheduled folders');
         return;
@@ -216,18 +231,111 @@ export class GoogleDriveService {
 
       console.log(`Found ${kiosksNeedingScheduledFolders.length} kiosks missing scheduled folders`);
 
+      // Create scheduled folders using the edge function
+      const { data, error } = await supabase.functions.invoke('gdrive-folder-setup', {
+        body: {
+          gdrive_config_id: gdriveConfig.id,
+          kiosks: kiosksNeedingScheduledFolders.map(k => ({ id: k.id, name: k.name })),
+          create_scheduled_only: true
+        }
+      });
+
+      if (error) {
+        console.error('Error calling gdrive-folder-setup edge function:', error);
+        throw error;
+      }
+
+      if (data?.results) {
+        console.log(`Successfully created scheduled folders for ${data.results.length} kiosks`);
+        data.results.forEach((result: any) => {
+          console.log(`Created scheduled folder for kiosk: ${result.kioskName} (ID: ${result.scheduledFolderId})`);
+        });
+      } else {
+        console.log('No results returned from edge function');
+        console.log('Edge function response:', data);
+      }
+    } catch (error) {
+      console.error('Error ensuring scheduled folders exist:', error);
+      throw error;
+    }
+  }
+
+  // Create scheduled folders for specific kiosks during campaign approval
+  static async ensureScheduledFoldersForKiosks(kioskIds: string[]): Promise<void> {
+    try {
+      console.log(`Ensuring scheduled folders exist for ${kioskIds.length} kiosks...`);
+      
+      // Get Google Drive configuration
+      const gdriveConfig = await this.getGoogleDriveConfig();
+      if (!gdriveConfig) {
+        throw new Error('No active Google Drive configuration found');
+      }
+
+      // Get kiosk folder mappings for the specified kiosks
+      const { data: kioskFolders, error: foldersError } = await supabase
+        .from('kiosk_gdrive_folders')
+        .select(`
+          *,
+          kiosks!kiosk_id(name, location)
+        `)
+        .eq('gdrive_config_id', gdriveConfig.id)
+        .in('kiosk_id', kioskIds);
+
+      if (foldersError) {
+        console.error('Error fetching kiosk folder mappings:', foldersError);
+        throw foldersError;
+      }
+
+      console.log(`Found ${kioskFolders?.length || 0} kiosk folder mappings for the specified kiosks`);
+
+      if (!kioskFolders || kioskFolders.length === 0) {
+        console.log('No kiosk folder mappings found for the specified kiosks');
+        return;
+      }
+
+      // Check which kiosks are missing scheduled folders
+      const kiosksNeedingScheduledFolders = kioskFolders.filter(folder => !folder.scheduled_folder_id);
+      
+      console.log(`Kiosk folder status:`, kioskFolders.map(f => ({
+        kioskId: f.kiosk_id,
+        kioskName: f.kiosks?.name,
+        hasScheduledFolder: !!f.scheduled_folder_id,
+        scheduledFolderId: f.scheduled_folder_id
+      })));
+      
+      if (kiosksNeedingScheduledFolders.length === 0) {
+        console.log('All specified kiosks already have scheduled folders');
+        return;
+      }
+
+      console.log(`Found ${kiosksNeedingScheduledFolders.length} kiosks missing scheduled folders:`, 
+        kiosksNeedingScheduledFolders.map(f => f.kiosks?.name));
+
       // Create scheduled folders for kiosks that don't have them
       for (const folderMapping of kiosksNeedingScheduledFolders) {
         try {
           const kiosk = { id: folderMapping.kiosk_id, name: folderMapping.kiosks?.name || 'Unknown' };
-          const results = await this.createKioskFolders(folderMapping.gdrive_config_id, [kiosk]);
           
-          if (results.length > 0 && results[0].scheduledFolderId) {
+          // Create only the scheduled folder using the edge function
+          const { data, error } = await supabase.functions.invoke('gdrive-folder-setup', {
+            body: {
+              gdrive_config_id: gdriveConfig.id,
+              kiosks: [{ id: kiosk.id, name: kiosk.name }],
+              create_scheduled_only: true
+            }
+          });
+
+          if (error) {
+            console.error(`Error creating scheduled folder for kiosk ${kiosk.name}:`, error);
+            continue;
+          }
+
+          if (data?.results && data.results.length > 0 && data.results[0].scheduledFolderId) {
             // Update the folder mapping with the scheduled folder ID
             await supabase
               .from('kiosk_gdrive_folders')
               .update({ 
-                scheduled_folder_id: results[0].scheduledFolderId,
+                scheduled_folder_id: data.results[0].scheduledFolderId,
                 updated_at: new Date().toISOString()
               })
               .eq('id', folderMapping.id);
@@ -239,7 +347,8 @@ export class GoogleDriveService {
         }
       }
     } catch (error) {
-      console.error('Error ensuring scheduled folders exist:', error);
+      console.error('Error ensuring scheduled folders for kiosks:', error);
+      throw error;
     }
   }
 

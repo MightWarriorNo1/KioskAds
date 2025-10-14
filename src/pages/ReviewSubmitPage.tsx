@@ -305,7 +305,7 @@ export default function ReviewSubmitPage() {
                       Week {index + 1}
                     </p>
                     <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                      {formatDate(week.startDate)} - {formatDate(week.endDate)}
+                      {week.startDate} - {week.endDate}
                     </p>
                   </div>
                   <div className="sm:text-right">

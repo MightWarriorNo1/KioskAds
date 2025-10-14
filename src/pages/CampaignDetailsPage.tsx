@@ -551,11 +551,11 @@ export default function CampaignDetailsPage() {
               <>
                 <div>
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Start Date</label>
-                  <p className="text-gray-900 dark:text-white">{formatDate(campaign.start_date)}</p>
+                  <p className="text-gray-900 dark:text-white">{campaign.start_date}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">End Date</label>
-                  <p className="text-gray-900 dark:text-white">{formatDate(campaign.end_date)}</p>
+                  <p className="text-gray-900 dark:text-white">{campaign.end_date}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Budget</label>

@@ -195,12 +195,8 @@ export class CustomAdCreationEmailService {
         await this.sendEmail(template, creationData.designer.email, creationData.designer.full_name, variables);
       }
 
-      // Send to admin (copy)
-      const adminEmails = await this.getAdminEmails();
-      for (const adminEmail of adminEmails) {
-        const variables = this.prepareTemplateVariables(creationData, 'approved', adminEmail);
-        await this.sendEmail(template, adminEmail.email, adminEmail.name, variables);
-      }
+      // Send to admin with campaign creation instructions
+      await this.sendAdminApprovalNotification(creationData);
     } catch (error) {
       console.error('Error sending approved notification:', error);
     }
@@ -401,6 +397,123 @@ export class CustomAdCreationEmailService {
     result = result.replace(/\{\{[^}]+\}\}/g, '');
     
     return result;
+  }
+
+  // Send admin approval notification with campaign creation instructions
+  private static async sendAdminApprovalNotification(creationData: CustomAdCreationEmailData): Promise<void> {
+    try {
+      const template = await this.getEmailTemplate('custom_ad_creation_admin_approval');
+      if (!template) {
+        // Create a default admin approval template if it doesn't exist
+        await this.createDefaultAdminApprovalTemplate();
+        return this.sendAdminApprovalNotification(creationData);
+      }
+
+      const adminEmails = await this.getAdminEmails();
+      if (adminEmails.length === 0) return;
+
+      // Send to all admins
+      for (const adminEmail of adminEmails) {
+        const variables = this.prepareTemplateVariables(creationData, 'approved', adminEmail);
+        await this.sendEmail(template, adminEmail.email, adminEmail.name, variables);
+      }
+
+      console.log(`Admin approval notification sent to ${adminEmails.length} admin(s)`);
+    } catch (error) {
+      console.error('Error sending admin approval notification:', error);
+    }
+  }
+
+  // Create default admin approval template for custom ad creation
+  private static async createDefaultAdminApprovalTemplate(): Promise<void> {
+    try {
+      const template = {
+        type: 'custom_ad_creation_admin_approval',
+        subject: 'Custom Ad Creation Approved - Client Ready for Campaign Creation',
+        body_html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #2563eb; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">
+              Custom Ad Creation Approved - Client Ready for Campaign Creation
+            </h2>
+            
+            <p>Hello Admin,</p>
+            
+            <p>A custom ad creation has been approved by the client and is now ready for campaign creation.</p>
+            
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h3 style="color: #1e293b; margin-top: 0;">Creation Details</h3>
+              <p><strong>Title:</strong> {{creation_title}}</p>
+              <p><strong>Description:</strong> {{creation_description}}</p>
+              <p><strong>Category:</strong> {{creation_category}}</p>
+              <p><strong>Priority:</strong> {{creation_priority}}</p>
+              <p><strong>Budget Range:</strong> {{creation_budget}}</p>
+              <p><strong>Deadline:</strong> {{creation_deadline}}</p>
+              <p><strong>Client:</strong> {{client_name}} ({{client_email}})</p>
+              <p><strong>Designer:</strong> {{designer_name}}</p>
+              <p><strong>Creation ID:</strong> {{creation_id}}</p>
+            </div>
+            
+            <div style="background: #ecfdf5; border: 1px solid #10b981; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h3 style="color: #065f46; margin-top: 0;">Next Steps for Client</h3>
+              <p>The client has been notified that their custom ad is approved. They should now:</p>
+              <ol style="color: #065f46;">
+                <li>Go to the Create Campaign dashboard</li>
+                <li>Choose "Select Custom Created Vertical Ad"</li>
+                <li>Start their ad campaign today</li>
+              </ol>
+            </div>
+            
+            <p style="color: #64748b; font-size: 14px;">
+              This is an automated notification for admin awareness. The client has been provided with instructions to proceed with campaign creation.
+            </p>
+            
+            <p>Best regards,<br>Ad Management Platform</p>
+          </div>
+        `,
+        body_text: `
+Custom Ad Creation Approved - Client Ready for Campaign Creation
+
+Hello Admin,
+
+A custom ad creation has been approved by the client and is now ready for campaign creation.
+
+Creation Details:
+- Title: {{creation_title}}
+- Description: {{creation_description}}
+- Category: {{creation_category}}
+- Priority: {{creation_priority}}
+- Budget Range: {{creation_budget}}
+- Deadline: {{creation_deadline}}
+- Client: {{client_name}} ({{client_email}})
+- Designer: {{designer_name}}
+- Creation ID: {{creation_id}}
+
+Next Steps for Client:
+The client has been notified that their custom ad is approved. They should now:
+1. Go to the Create Campaign dashboard
+2. Choose "Select Custom Created Vertical Ad"
+3. Start their ad campaign today
+
+This is an automated notification for admin awareness. The client has been provided with instructions to proceed with campaign creation.
+
+Best regards,
+Ad Management Platform
+        `,
+        is_active: true
+      };
+
+      const { error } = await supabase
+        .from('email_templates')
+        .insert(template);
+
+      if (error) {
+        console.error('Error creating custom ad creation admin approval template:', error);
+      } else {
+        console.log('Custom ad creation admin approval template created successfully');
+      }
+    } catch (error) {
+      console.error('Error creating default custom ad creation admin approval template:', error);
+    }
   }
 
   // Create default email templates for custom ad creation workflow

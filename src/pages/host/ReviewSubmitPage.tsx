@@ -129,7 +129,7 @@ export default function HostReviewSubmitPage() {
         console.warn('Failed to record payment history', e);
       }
       addNotification('success', 'Campaign Created!', `Your campaign "${campaignName}" has been created successfully and is now pending approval.`);
-      navigate('/host/ads');
+      navigate('/host/campaigns');
     } catch (error) {
       console.error('Error creating campaign:', error);
       let errorMessage = 'Failed to create campaign. Please try again.';

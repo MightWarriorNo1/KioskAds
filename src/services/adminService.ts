@@ -1634,18 +1634,21 @@ export class AdminService {
 
         // Schedule Google Drive uploads for all approved campaign assets to scheduled folder
         try {
-          // First, ensure scheduled folders exist for all kiosks
-          await GoogleDriveService.ensureScheduledFoldersExist();
-
-          // Mark linked media assets as approved so scheduling can pick them up
-          await supabase
-            .from('media_assets')
-            .update({ status: 'approved', updated_at: getCurrentCaliforniaTime().toISOString() })
-            .eq('campaign_id', campaignId)
-            .neq('status', 'approved');
-
           const kioskIds: string[] = Array.isArray(data.selected_kiosk_ids) ? data.selected_kiosk_ids : [];
+          
           if (kioskIds.length > 0) {
+            // First, ensure scheduled folders exist for the campaign's kiosks
+            console.log(`Ensuring scheduled folders for campaign ${campaignId} with kiosks:`, kioskIds);
+            await GoogleDriveService.ensureScheduledFoldersForKiosks(kioskIds);
+            console.log(`Completed scheduled folder creation for campaign ${campaignId}`);
+
+            // Mark linked media assets as approved so scheduling can pick them up
+            await supabase
+              .from('media_assets')
+              .update({ status: 'approved', updated_at: getCurrentCaliforniaTime().toISOString() })
+              .eq('campaign_id', campaignId)
+              .neq('status', 'approved');
+
             // Upload to scheduled folder - assets will be moved to active when campaign starts
             const jobIds = await GoogleDriveService.scheduleImmediateUpload(campaignId, kioskIds, 'scheduled');
 

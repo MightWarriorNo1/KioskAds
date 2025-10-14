@@ -160,11 +160,14 @@ export const GoogleDriveConfiguration: React.FC<GoogleDriveConfigurationProps> =
   const handleCreateScheduledFolders = async () => {
     try {
       setIsLoading(true);
+      setSyncResult(null);
+      
       await GoogleDriveService.ensureScheduledFoldersExist();
       await loadFolderStatus();
+      
       setSyncResult({
         success: true,
-        message: 'Scheduled folders created successfully',
+        message: 'Scheduled folders created successfully for all kiosks',
         foldersSynced: 0
       });
     } catch (error) {
