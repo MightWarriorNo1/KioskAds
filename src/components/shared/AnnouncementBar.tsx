@@ -3,6 +3,7 @@ import { AdminService, MarketingTool } from '../../services/adminService';
 import { CouponEmailService } from '../../services/couponEmailService';
 import { MailchimpService } from '../../services/mailchimpService';
 import { useNotification } from '../../contexts/NotificationContext';
+import { useConfirmation } from '../../contexts/ConfirmationContext';
 
 interface AnnouncementSettings {
   position?: 'top' | 'bottom';
@@ -33,6 +34,7 @@ export default function AnnouncementBar() {
   const [dismissedId, setDismissedId] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
   const { addNotification } = useNotification();
+  const { confirmation, hideConfirmation } = useConfirmation();
 
   useEffect(() => {
     loadActiveBar();
@@ -50,6 +52,52 @@ export default function AnnouncementBar() {
       console.error(e);
     }
   };
+
+  // Show confirmation from popup if available, otherwise show regular announcement bar
+  if (confirmation.isVisible) {
+    const settings: AnnouncementSettings = {};
+    const backgroundColor = '#2563eb'; // Blue background for confirmation
+    const textColor = 'white';
+    const fontSize = 16;
+
+    return (
+      <div
+        style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 50,
+          backgroundColor,
+          color: textColor,
+          padding: '12px 0',
+        }}
+        className="w-full"
+      >
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between relative min-h-[44px]">
+            {/* Dismiss button */}
+            <button
+              onClick={hideConfirmation}
+              className="absolute right-0 top-1/2 -translate-y-1/2 text-sm opacity-80 hover:opacity-100 flex-shrink-0 z-10"
+              style={{ color: textColor }}
+              aria-label="Dismiss confirmation"
+            >
+              ✕
+            </button>
+            
+            {/* Confirmation message */}
+            <div className="flex-1 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 pr-8 sm:pr-12">
+              <div 
+                className="font-bold text-center flex-1 min-w-0 uppercase tracking-wide"
+                style={{ fontSize: `${fontSize}px` }}
+              >
+                <span className="block sm:inline">{confirmation.message}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!activeBar || dismissedId === activeBar.id) return null;
 
@@ -160,10 +208,10 @@ export default function AnnouncementBar() {
           <div className="flex-1 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 pr-8 sm:pr-12">
             {isSuccess ? (
               <div 
-                className="font-medium text-center flex-1 min-w-0"
-                style={{ fontSize: `${fontSize}px` }}
+                className="font-bold text-center flex-1 min-w-0 uppercase tracking-wide"
+                style={{ fontSize: `${fontSize + 2}px` }}
               >
-                <span className="block sm:inline">{settings.confirmationMessage || 'Check Your Email For Coupon Code'}</span>
+                <span className="block sm:inline">{settings.confirmationMessage || 'Check Your Email For Coupon Code!'}</span>
               </div>
             ) : (
               <>

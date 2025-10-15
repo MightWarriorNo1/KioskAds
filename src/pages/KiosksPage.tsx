@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { MapPin, AlertTriangle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import SiteHeader from '../components/layouts/SiteHeader';
 import LeafletMap from '../components/MapContainer';
 import { LatLngTuple } from 'leaflet';
 import { KioskService, Kiosk } from '../services/kioskService';
+import { useAuth } from '../contexts/AuthContext';
 
 interface KioskCardProps {
   name: string;
@@ -12,9 +14,10 @@ interface KioskCardProps {
   originalPrice?: string;
   traffic: 'Low Traffic' | 'Medium Traffic' | 'High Traffic';
   hasWarning?: boolean;
+  onAdvertiseClick?: () => void;
 }
 
-function KioskCard({ name, city, price, originalPrice, traffic, hasWarning }: KioskCardProps) {
+function KioskCard({ name, city, price, originalPrice, traffic, hasWarning, onAdvertiseClick }: KioskCardProps) {
   const getTrafficColor = (traffic: string) => {
     switch (traffic) {
       case 'High Traffic':
@@ -33,8 +36,8 @@ function KioskCard({ name, city, price, originalPrice, traffic, hasWarning }: Ki
       <div className="p-4">
         <div className="flex items-start justify-between mb-3">
           <div>
-            <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">{name}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">{city}</div>
+            <div className="text-base font-semibold text-gray-900 dark:text-gray-100">{name}</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">{city}</div>
           </div>
           <div className="flex items-center gap-1">
             {hasWarning && (
@@ -45,19 +48,22 @@ function KioskCard({ name, city, price, originalPrice, traffic, hasWarning }: Ki
         </div>
         
         <div className="mb-3">
-          <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${getTrafficColor(traffic)}`}>
+          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getTrafficColor(traffic)}`}>
             {traffic}
           </span>
         </div>
         
         <div className="text-right mb-4">
           {originalPrice && (
-            <div className="text-[11px] text-gray-400 dark:text-gray-500 line-through">{originalPrice}</div>
+            <div className="text-xs text-gray-400 dark:text-gray-500 line-through">{originalPrice}</div>
           )}
-          <div className="text-sm font-semibold text-green-600 dark:text-green-400">{price}</div>
+          <div className="text-base font-semibold text-green-600 dark:text-green-400">{price}</div>
         </div>
         
-        <button className="btn-primary w-full h-9 text-sm font-medium">
+        <button 
+          className="btn-primary w-full h-9 text-base font-medium"
+          onClick={onAdvertiseClick}
+        >
           Advertise Here
           <span className="inline-block ml-2">→</span>
         </button>
@@ -67,11 +73,30 @@ function KioskCard({ name, city, price, originalPrice, traffic, hasWarning }: Ki
 }
 
 function KiosksPage() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [mapCenter] = useState<LatLngTuple>([33.5689, -117.1865]); // Murrieta, CA area
   const [mapZoom] = useState(11);
   const [kiosks, setKiosks] = useState<Kiosk[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Handle advertise button click
+  const handleAdvertiseClick = (kioskId: string) => {
+    // Check if user is authenticated
+    if (!user) {
+      // Redirect to login if not authenticated
+      navigate('/signin');
+      return;
+    }
+
+    // Navigate to appropriate campaign creation flow based on user role
+    if (user.role === 'host') {
+      navigate('/host/new-campaign');
+    } else {
+      navigate('/client/new-campaign');
+    }
+  };
 
   // Fetch kiosks from database
   useEffect(() => {
@@ -108,6 +133,7 @@ function KiosksPage() {
     };
 
     return {
+      id: kiosk.id,
       name: kiosk.name,
       city: kiosk.city,
       price: `$${kiosk.price}/week`,
@@ -127,7 +153,7 @@ function KiosksPage() {
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-600 dark:text-gray-400">Loading kiosk locations...</p>
+              <p className="text-base text-gray-600 dark:text-gray-400">Loading kiosk locations...</p>
             </div>
           </div>
         </main>
@@ -146,11 +172,11 @@ function KiosksPage() {
               <div className="text-red-500 mb-4">
                 <AlertTriangle className="h-12 w-12 mx-auto" />
               </div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Error Loading Kiosks</h2>
-              <p className="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Error Loading Kiosks</h2>
+              <p className="text-base text-gray-600 dark:text-gray-400 mb-4">{error}</p>
               <button 
                 onClick={() => window.location.reload()} 
-                className="btn-primary px-4 py-2 text-sm"
+                className="btn-primary px-4 py-2 text-base"
               >
                 Try Again
               </button>
@@ -168,8 +194,8 @@ function KiosksPage() {
       <main className="max-w-7xl mx-auto px-6 py-8">
         {/* Header Section */}
         <div className="mb-6">
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Kiosk Locations</h1>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Kiosk Locations</h1>
+          <p className="mt-1 text-base text-gray-600 dark:text-gray-400">
             Browse our network of digital kiosks available for advertising.
           </p>
         </div>
@@ -190,7 +216,7 @@ function KiosksPage() {
 
         {/* Available Kiosks Section */}
         <div className="mb-6">
-          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Available Kiosks</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Available Kiosks</h2>
         </div>
         
         {kioskData.length === 0 ? (
@@ -198,8 +224,8 @@ function KiosksPage() {
             <div className="text-gray-400 mb-4">
               <MapPin className="h-12 w-12 mx-auto" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No Kiosks Available</h3>
-            <p className="text-gray-600 dark:text-gray-400">
+            <h3 className="text-xl font-medium text-gray-900 dark:text-gray-100 mb-2">No Kiosks Available</h3>
+            <p className="text-base text-gray-600 dark:text-gray-400">
               There are currently no kiosks available for advertising. Please check back later.
             </p>
           </div>
@@ -214,6 +240,7 @@ function KiosksPage() {
                 originalPrice={kiosk.originalPrice}
                 traffic={kiosk.traffic}
                 hasWarning={kiosk.hasWarning}
+                onAdvertiseClick={() => handleAdvertiseClick(kiosk.id)}
               />
             ))}
           </div>
@@ -221,7 +248,7 @@ function KiosksPage() {
 
         {/* Call to Action */}
         <div className="flex justify-center">
-          <button className="btn-primary px-6 py-3 text-sm font-medium">
+          <button className="btn-primary px-6 py-3 text-base font-medium">
             Get Started
             <span className="inline-block ml-2">→</span>
           </button>

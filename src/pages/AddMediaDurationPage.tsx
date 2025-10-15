@@ -121,7 +121,14 @@ export default function AddMediaDurationPage() {
       try {
         const id = localStorage.getItem('preselectedMediaAssetId');
         if (id) {
-          const asset = await MediaService.getMediaById(id);
+          // Clean the ID to remove any suffixes like _1
+          const cleanedId = id.split('_')[0];
+          console.log('Loading preselected media asset:', {
+            original_id: id,
+            cleaned_id: cleanedId
+          });
+          
+          const asset = await MediaService.getMediaById(cleanedId);
           if (asset) {
             setPreselectedAsset(asset);
             setFilePreview(asset.metadata?.publicUrl || null);

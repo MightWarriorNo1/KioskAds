@@ -1345,12 +1345,15 @@ export class AdminService {
           await GoogleDriveService.uploadApprovedHostAdToAssignedKiosks(hostAdId);
         } catch (err) {
           console.error('Error with post-approval actions:', err);
+          // Don't throw the error to avoid blocking the status update
+          // The status update should still succeed even if post-approval actions fail
         }
       } else if (status === 'rejected') {
         try {
           await this.sendHostAdRejectionEmail(hostAdId, rejectionReason);
         } catch (err) {
           console.error('Error sending rejection email:', err);
+          // Don't throw the error to avoid blocking the status update
         }
       }
     } catch (error) {

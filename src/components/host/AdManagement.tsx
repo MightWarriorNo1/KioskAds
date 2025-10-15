@@ -17,7 +17,9 @@ import {
   MoreVertical,
   Monitor,
   TrendingUp,
-  RefreshCw
+  RefreshCw,
+  Trash2,
+  X
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../contexts/NotificationContext';
@@ -46,6 +48,9 @@ export default function AdManagement() {
   const [selectedAdForSwap, setSelectedAdForSwap] = useState<HostAd | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingAd, setDeletingAd] = useState<string | null>(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancellingAd, setCancellingAd] = useState<string | null>(null);
+  const [removingAds, setRemovingAds] = useState<Set<string>>(new Set());
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -136,9 +141,20 @@ export default function AdManagement() {
     
     try {
       setDeletingAd(adId);
+      setRemovingAds(prev => new Set(prev).add(adId));
+      
       await HostService.deleteAd(adId);
       
-      setAds(prev => prev.filter(ad => ad.id !== adId));
+      // Add a small delay for smooth transition
+      setTimeout(() => {
+        setAds(prev => prev.filter(ad => ad.id !== adId));
+        setRemovingAds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(adId);
+          return newSet;
+        });
+      }, 300);
+      
       setShowDeleteModal(false);
       setSelectedAd(null);
       
@@ -146,8 +162,52 @@ export default function AdManagement() {
     } catch (error) {
       console.error('Error deleting ad:', error);
       addNotification('error', 'Delete Failed', 'Failed to delete ad');
+      // Remove from removing state on error
+      setRemovingAds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(adId);
+        return newSet;
+      });
     } finally {
       setDeletingAd(null);
+    }
+  };
+
+  const handleCancelAd = async (adId: string) => {
+    if (!user?.id) return;
+    
+    try {
+      setCancellingAd(adId);
+      setRemovingAds(prev => new Set(prev).add(adId));
+      
+      // For cancel, we'll just remove it from the current view without deleting from database
+      // This could be enhanced to mark as cancelled in the database if needed
+      
+      // Add a small delay for smooth transition
+      setTimeout(() => {
+        setAds(prev => prev.filter(ad => ad.id !== adId));
+        setRemovingAds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(adId);
+          return newSet;
+        });
+      }, 300);
+      
+      setShowCancelModal(false);
+      setSelectedAd(null);
+      
+      addNotification('success', 'Ad Cancelled', 'Ad has been cancelled and removed from view');
+    } catch (error) {
+      console.error('Error cancelling ad:', error);
+      addNotification('error', 'Cancel Failed', 'Failed to cancel ad');
+      // Remove from removing state on error
+      setRemovingAds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(adId);
+        return newSet;
+      });
+    } finally {
+      setCancellingAd(null);
     }
   };
 
@@ -396,7 +456,14 @@ export default function AdManagement() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredAds.map((ad) => (
-            <Card key={ad.id} className="overflow-hidden">
+            <Card 
+              key={ad.id} 
+              className={`overflow-hidden transition-all duration-300 ${
+                removingAds.has(ad.id) 
+                  ? 'opacity-0 scale-95 transform translate-x-4' 
+                  : 'opacity-100 scale-100 transform translate-x-0'
+              }`}
+            >
               <div className="aspect-[9/16] bg-gray-100 dark:bg-gray-800 rounded-lg mb-4 overflow-hidden">
                 {ad.media_type === 'image' ? (
                   <img
@@ -458,6 +525,7 @@ export default function AdManagement() {
                     variant="secondary"
                     size="sm"
                     onClick={() => navigate(`/host/ads/${ad.id}/preview`)}
+                    disabled={removingAds.has(ad.id)}
                     className="flex-1"
                   >
                     <Eye className="h-4 w-4 mr-1" />
@@ -468,10 +536,44 @@ export default function AdManagement() {
                     variant="primary"
                     size="sm"
                     onClick={() => navigate(`/host/ads/${ad.id}/assign`)}
+                    disabled={removingAds.has(ad.id)}
                     className="flex-1"
                   >
                     <Monitor className="h-4 w-4 mr-1" />
                     Assign to Kiosk
+                  </Button>
+                </div>
+                
+                {/* Delete and Cancel Buttons */}
+                <div className="flex items-center gap-2 pt-2">
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedAd(ad);
+                      setShowDeleteModal(true);
+                    }}
+                    disabled={removingAds.has(ad.id) || deletingAd === ad.id}
+                    loading={deletingAd === ad.id}
+                    className="flex-1"
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    {deletingAd === ad.id ? 'Deleting...' : 'Delete'}
+                  </Button>
+                  
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedAd(ad);
+                      setShowCancelModal(true);
+                    }}
+                    disabled={removingAds.has(ad.id) || cancellingAd === ad.id}
+                    loading={cancellingAd === ad.id}
+                    className="flex-1"
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    {cancellingAd === ad.id ? 'Cancelling...' : 'Cancel'}
                   </Button>
                   
                   {/* <div className="relative" ref={dropdownRef}>
@@ -605,6 +707,51 @@ export default function AdManagement() {
                 loading={deletingAd === selectedAd.id}
               >
                 Delete Ad
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Confirmation Modal */}
+      {showCancelModal && selectedAd && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex-shrink-0">
+                <X className="h-6 w-6 text-orange-500" />
+              </div>
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                  Cancel Ad
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  This will remove the ad from your current view.
+                </p>
+              </div>
+            </div>
+            
+            <p className="text-gray-700 dark:text-gray-300 mb-6">
+              Are you sure you want to cancel "{selectedAd.name}"? This will remove it from your current view.
+            </p>
+            
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setShowCancelModal(false);
+                  setSelectedAd(null);
+                }}
+                disabled={cancellingAd === selectedAd.id}
+              >
+                Keep Ad
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => handleCancelAd(selectedAd.id)}
+                loading={cancellingAd === selectedAd.id}
+              >
+                Cancel Ad
               </Button>
             </div>
           </div>

@@ -70,7 +70,7 @@ export const CampaignEmailNotifications: React.FC = () => {
         [templateType]: { status: 'pending', message: 'Sending test email...' }
       }));
 
-      const status = templateType.replace('campaign_', '') as 'approved' | 'rejected' | 'active' | 'expiring' | 'expired' | 'paused' | 'resumed';
+      const status = templateType.replace('campaign_', '') as 'approved' | 'rejected' | 'active' | 'expiring' | 'expired' | 'paused' | 'resumed' | 'purchased';
       const success = await CampaignEmailService.sendTestEmail(status, testEmail);
 
       setTestResults(prev => ({

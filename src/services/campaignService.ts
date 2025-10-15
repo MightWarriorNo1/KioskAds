@@ -2,6 +2,84 @@ import { supabase } from '../lib/supabaseClient';
 import { CampaignEmailService } from './campaignEmailService';
 import { AdminNotificationService } from './adminNotificationService';
 import { getCurrentCaliforniaTime } from '../utils/dateUtils';
+import { MediaService } from './mediaService';
+
+// Utility function to validate UUID format
+function isValidUUID(uuid: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid);
+}
+
+// Utility function to clean UUID (remove any suffixes like _1)
+function cleanUUID(uuid: string): string {
+  // Remove any suffixes like _1, _2, etc.
+  return uuid.split('_')[0];
+}
+
+// Helper function to validate media asset before campaign creation
+async function validateMediaAsset(mediaId: string, userId: string): Promise<void> {
+  const cleanedMediaId = cleanUUID(mediaId);
+  
+  if (!isValidUUID(cleanedMediaId)) {
+    throw new Error(`Invalid media asset ID format: ${mediaId}`);
+  }
+  
+  let { data: mediaAsset, error } = await supabase
+    .from('media_assets')
+    .select('id, user_id, status, file_name')
+    .eq('id', cleanedMediaId)
+    .single();
+
+  // If the cleaned UUID fails and it's different from the original, try with the original UUID
+  if (error && cleanedMediaId !== mediaId) {
+    console.log('Trying with original media ID:', mediaId);
+    const fallbackResult = await supabase
+      .from('media_assets')
+      .select('id, user_id, status, file_name')
+      .eq('id', mediaId)
+      .single();
+    
+    if (!fallbackResult.error && fallbackResult.data) {
+      mediaAsset = fallbackResult.data;
+      error = null;
+    }
+  }
+
+  if (error) {
+    console.error('Media asset validation error:', {
+      mediaId: cleanedMediaId,
+      originalMediaId: mediaId,
+      error: error,
+      errorCode: error.code,
+      errorMessage: error.message
+    });
+    
+    if (error.code === 'PGRST116' || error.message?.includes('406')) {
+      throw new Error(`Media asset with ID ${cleanedMediaId} not found. The media asset may not exist or may have been deleted. Please ensure the media was uploaded successfully before creating the campaign.`);
+    }
+    
+    throw new Error(`Failed to validate media asset: ${error.message}`);
+  }
+
+  if (!mediaAsset) {
+    throw new Error(`Media asset with ID ${cleanedMediaId} not found. Please ensure the media was uploaded successfully before creating the campaign.`);
+  }
+
+  if (mediaAsset.user_id !== userId) {
+    throw new Error('Media asset does not belong to the current user');
+  }
+
+  if (mediaAsset.status === 'rejected') {
+    throw new Error(`Media asset "${mediaAsset.file_name}" has been rejected and cannot be used in campaigns.`);
+  }
+
+  console.log('Media asset validation successful:', {
+    media_id: cleanedMediaId,
+    user_id: mediaAsset.user_id,
+    status: mediaAsset.status,
+    file_name: mediaAsset.file_name
+  });
+}
 
 export interface Campaign {
   id: string;
@@ -209,9 +287,16 @@ export class CampaignService {
     total_discount_amount?: number;
     status?: Campaign['status'];
   }): Promise<Campaign | null> {
+    let campaign: any = null;
+    
     try {
-      // Start a transaction
-      const { data: campaign, error: campaignError } = await supabase
+      // Validate media asset before creating campaign
+      if (campaignData.media_asset_id) {
+        await validateMediaAsset(campaignData.media_asset_id, campaignData.user_id);
+      }
+      
+      // Create campaign
+      const { data: campaignData_result, error: campaignError } = await supabase
         .from('campaigns')
         .insert([{
           name: campaignData.name,
@@ -234,6 +319,7 @@ export class CampaignService {
         .single();
 
       if (campaignError) throw campaignError;
+      campaign = campaignData_result;
 
       // Create kiosk-campaign relationships
       if (campaignData.kiosk_ids.length > 0) {
@@ -251,30 +337,38 @@ export class CampaignService {
 
       // Link media asset to campaign if provided
       if (campaignData.media_asset_id) {
+        const cleanedMediaId = cleanUUID(campaignData.media_asset_id);
+        
+        console.log('Linking media asset to campaign:', {
+          campaign_id: campaign.id,
+          media_id: cleanedMediaId
+        });
+        
         const { error: mediaError } = await supabase
           .from('campaign_media')
           .insert({
             campaign_id: campaign.id,
-            media_id: campaignData.media_asset_id,
+            media_id: cleanedMediaId,
             display_order: 0,
             weight: 1
           });
 
         if (mediaError) {
           console.error('Error linking media to campaign:', mediaError);
-          throw mediaError;
+          throw new Error(`Failed to link media to campaign: ${mediaError.message}`);
         }
 
-        // Update media asset with campaign ID only. Keep status as 'processing' until admin review.
+        // Update media asset with campaign ID
         const { error: updateMediaError } = await supabase
           .from('media_assets')
           .update({ 
             campaign_id: campaign.id
           })
-          .eq('id', campaignData.media_asset_id);
+          .eq('id', cleanedMediaId);
 
         if (updateMediaError) {
           console.warn('Campaign created but media asset linking failed:', updateMediaError.message);
+          // Don't throw here as the campaign is already created
         }
       }
 
@@ -337,6 +431,19 @@ export class CampaignService {
       return campaign;
     } catch (error) {
       console.error('Error creating campaign:', error);
+      
+      // If campaign was created but media linking failed, we should clean up the campaign
+      if (campaign && error instanceof Error && error.message.includes('Failed to link media to campaign')) {
+        console.log('Cleaning up campaign due to media linking failure:', campaign.id);
+        try {
+          // Delete the campaign to maintain data consistency
+          await supabase.from('campaigns').delete().eq('id', campaign.id);
+          console.log('Campaign cleaned up successfully');
+        } catch (cleanupError) {
+          console.error('Failed to clean up campaign:', cleanupError);
+        }
+      }
+      
       return null;
     }
   }

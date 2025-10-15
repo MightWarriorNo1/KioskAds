@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { ConfirmationProvider } from './contexts/ConfirmationContext';
 import ErrorBoundary from './components/shared/ErrorBoundary';
 import LandingPage from './pages/LandingPage';
 import HostLanding from './pages/HostLanding';
@@ -28,7 +29,8 @@ function App() {
     <ThemeProvider>
       <AuthProvider>
         <NotificationProvider>
-          <Router>
+          <ConfirmationProvider>
+            <Router>
             <ErrorBoundary>
               <div className="min-h-screen bg-[rgb(var(--surface))] dark:bg-gray-900">
                 <AnnouncementBar />
@@ -82,7 +84,8 @@ function App() {
                 </Routes>
               </div>
             </ErrorBoundary>
-          </Router>
+            </Router>
+          </ConfirmationProvider>
         </NotificationProvider>
       </AuthProvider>
     </ThemeProvider>

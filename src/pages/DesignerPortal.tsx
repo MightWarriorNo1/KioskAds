@@ -10,7 +10,7 @@ import { supabase } from '../lib/supabaseClient';
 import { CustomAdsService } from '../services/customAdsService';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { MessageSquare, Send } from 'lucide-react';
+import { MessageSquare, Send, BarChart3, Users, CheckCircle, Clock, FileText, Plus, Eye, TrendingUp, DollarSign, AlertCircle } from 'lucide-react';
 
 // Helper function to get custom ad service name based on service_key and files
 function getCustomAdServiceName(order: CustomAdOrder): string {
@@ -120,42 +120,135 @@ function DesignerDashboard() {
 
   return (
     <div className="space-y-8">
+      {/* Header */}
+      <div className="text-center lg:text-left">
+        <h1 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 bg-clip-text text-transparent mb-4 flex items-center gap-3">
+          <BarChart3 className="h-10 w-10 text-purple-600" />
+          Designer Dashboard
+        </h1>
+        <p className="text-xl text-slate-700 dark:text-slate-200 max-w-2xl">
+          Manage your design projects and track your creative workflow
+        </p>
+      </div>
+
       {/* KPI Cards */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="p-4">
-            <div className="text-xs text-gray-300">Assigned Orders</div>
-            <div className="text-2xl font-semibold">{stats.totalAssigned}</div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <Card className="p-6 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200 dark:border-blue-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Assigned Orders
+                </div>
+                <div className="text-3xl font-bold text-blue-900 dark:text-blue-100 mt-2">{stats.totalAssigned}</div>
+              </div>
+              <div className="h-12 w-12 bg-blue-500 rounded-lg flex items-center justify-center">
+                <FileText className="h-6 w-6 text-white" />
+              </div>
+            </div>
           </Card>
-          <Card className="p-4">
-            <div className="text-xs text-gray-200">Pending Client Review</div>
-            <div className="text-2xl font-semibold">{stats.pendingReviews}</div>
+          <Card className="p-6 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border-orange-200 dark:border-orange-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium text-orange-600 dark:text-orange-400 flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Pending Review
+                </div>
+                <div className="text-3xl font-bold text-orange-900 dark:text-orange-100 mt-2">{stats.pendingReviews}</div>
+              </div>
+              <div className="h-12 w-12 bg-orange-500 rounded-lg flex items-center justify-center">
+                <Clock className="h-6 w-6 text-white" />
+              </div>
+            </div>
           </Card>
-          <Card className="p-4">
-            <div className="text-xs text-gray-200">Approved This Month</div>
-            <div className="text-2xl font-semibold">{stats.approvedThisMonth}</div>
+          <Card className="p-6 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-green-200 dark:border-green-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium text-green-600 dark:text-green-400 flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4" />
+                  Approved This Month
+                </div>
+                <div className="text-3xl font-bold text-green-900 dark:text-green-100 mt-2">{stats.approvedThisMonth}</div>
+              </div>
+              <div className="h-12 w-12 bg-green-500 rounded-lg flex items-center justify-center">
+                <CheckCircle className="h-6 w-6 text-white" />
+              </div>
+            </div>
           </Card>
-          <Card className="p-4">
-            <div className="text-xs text-gray-200">Revision Requests</div>
-            <div className="text-2xl font-semibold">{stats.revisionRequests}</div>
+          <Card className="p-6 bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 border-red-200 dark:border-red-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium text-red-600 dark:text-red-400 flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  Revision Requests
+                </div>
+                <div className="text-3xl font-bold text-red-900 dark:text-red-100 mt-2">{stats.revisionRequests}</div>
+              </div>
+              <div className="h-12 w-12 bg-red-500 rounded-lg flex items-center justify-center">
+                <AlertCircle className="h-6 w-6 text-white" />
+              </div>
+            </div>
           </Card>
         </div>
       )}
 
       <section>
-        <h2 className="text-lg font-medium">Assigned to you</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3 mb-6">
+          <Users className="h-6 w-6 text-purple-600" />
+          Assigned to you
+        </h2>
         {myOrders.length === 0 ? (
-          <Card className="p-4 mt-3"><p className="text-sm text-gray-600">No orders yet.</p></Card>
+          <Card className="p-8 text-center">
+            <div className="flex flex-col items-center gap-4">
+              <div className="h-16 w-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
+                <FileText className="h-8 w-8 text-gray-400" />
+              </div>
+              <p className="text-lg text-gray-600 dark:text-gray-400">No orders assigned yet</p>
+              <p className="text-sm text-gray-500">New orders will appear here when assigned to you</p>
+            </div>
+          </Card>
         ) : (
-          <div className="mt-3 grid gap-3">
+          <div className="grid gap-4">
             {myOrders.map((o) => (
-              <Card key={o.id} className="p-4 flex items-center justify-between">
-                <div>
-                  <div className="font-medium">{getCustomAdServiceName(o)}</div>
-                  <div className="text-xs text-gray-50">#{o.id.slice(0, 8)} • {new Date(o.created_at).toLocaleString()}</div>
-                  <div className="text-xs mt-1">Client: {o.user?.full_name || `${o.first_name} ${o.last_name}`} • Status: {(o as any)['workflow_status'] ?? 'submitted'}</div>
+              <Card key={o.id} className="p-6 hover:shadow-lg transition-shadow duration-200 border-l-4 border-l-purple-500">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="h-10 w-10 bg-purple-100 dark:bg-purple-900/20 rounded-lg flex items-center justify-center">
+                        <FileText className="h-5 w-5 text-purple-600" />
+                      </div>
+                      <div>
+                        <div className="text-lg font-semibold text-gray-900 dark:text-white">{getCustomAdServiceName(o)}</div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">#{o.id.slice(0, 8)} • {new Date(o.created_at).toLocaleString()}</div>
+                      </div>
+                    </div>
+                    <div className="ml-13">
+                      <div className="text-sm text-gray-700 dark:text-gray-300 mb-1">
+                        <span className="font-medium">Client:</span> {o.user?.full_name || `${o.first_name} ${o.last_name}`}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          <span className="font-medium">Status:</span>
+                        </span>
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          ((o as any)['workflow_status'] ?? 'submitted') === 'designer_assigned' 
+                            ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400' 
+                            : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                        }`}>
+                          {((o as any)['workflow_status'] ?? 'submitted').replace('_', ' ')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={() => navigate(`/designer/orders/${o.id}`)}
+                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex items-center gap-2"
+                  >
+                    <Eye className="h-4 w-4" />
+                    Open
+                  </Button>
                 </div>
-                <button className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50" onClick={() => navigate(`/designer/orders/${o.id}`)}>Open</button>
               </Card>
             ))}
           </div>
@@ -163,23 +256,64 @@ function DesignerDashboard() {
       </section>
 
       <section>
-        <h2 className="text-lg font-medium">Unassigned queue</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3 mb-6">
+          <Plus className="h-6 w-6 text-green-600" />
+          Unassigned queue
+        </h2>
         {unassigned.length === 0 ? (
-          <Card className="p-4 mt-3"><p className="text-sm text-gray-600">No unassigned orders.</p></Card>
+          <Card className="p-8 text-center">
+            <div className="flex flex-col items-center gap-4">
+              <div className="h-16 w-16 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center">
+                <Plus className="h-8 w-8 text-green-600" />
+              </div>
+              <p className="text-lg text-gray-600 dark:text-gray-400">No unassigned orders available</p>
+              <p className="text-sm text-gray-500">New orders will appear here when they become available</p>
+            </div>
+          </Card>
         ) : (
-          <div className="mt-3 grid gap-3">
+          <div className="grid gap-4">
             {unassigned.map((o) => (
-              <Card key={o.id} className="p-4 flex items-center justify-between">
-                <div>
-                  <div className="font-medium">{getCustomAdServiceName(o)}</div>
-                  <div className="text-xs text-gray-600">#{o.id.slice(0, 8)} • {new Date(o.created_at).toLocaleString()}</div>
-                  <div className="text-xs mt-1">Client: {o.user?.full_name || `${o.first_name} ${o.last_name}`} • ${o.total_amount.toFixed(2)}</div>
+              <Card key={o.id} className="p-6 hover:shadow-lg transition-shadow duration-200 border-l-4 border-l-green-500">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="h-10 w-10 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center">
+                        <FileText className="h-5 w-5 text-green-600" />
+                      </div>
+                      <div>
+                        <div className="text-lg font-semibold text-gray-900 dark:text-white">{getCustomAdServiceName(o)}</div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">#{o.id.slice(0, 8)} • {new Date(o.created_at).toLocaleString()}</div>
+                      </div>
+                    </div>
+                    <div className="ml-13">
+                      <div className="text-sm text-gray-700 dark:text-gray-300 mb-1">
+                        <span className="font-medium">Client:</span> {o.user?.full_name || `${o.first_name} ${o.last_name}`}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          <span className="font-medium">Amount:</span> ${o.total_amount.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => handleTake(o.id)}
+                    disabled={!!taking}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {taking === o.id ? (
+                      <>
+                        <Clock className="h-4 w-4 animate-spin" />
+                        Taking...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4" />
+                        Take order
+                      </>
+                    )}
+                  </Button>
                 </div>
-                <button
-                  className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50 disabled:opacity-50"
-                  disabled={!!taking}
-                  onClick={() => handleTake(o.id)}
-                >{taking === o.id ? 'Taking…' : 'Take order'}</button>
               </Card>
             ))}
           </div>
@@ -187,18 +321,64 @@ function DesignerDashboard() {
       </section>
 
       <section>
-        <h2 className="text-lg font-medium">Recent proofs</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3 mb-6">
+          <TrendingUp className="h-6 w-6 text-blue-600" />
+          Recent proofs
+        </h2>
         {recentProofs.length === 0 ? (
-          <Card className="p-4 mt-3"><p className="text-sm text-gray-600">No recent proofs.</p></Card>
+          <Card className="p-8 text-center">
+            <div className="flex flex-col items-center gap-4">
+              <div className="h-16 w-16 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
+                <TrendingUp className="h-8 w-8 text-blue-600" />
+              </div>
+              <p className="text-lg text-gray-600 dark:text-gray-400">No recent proofs</p>
+              <p className="text-sm text-gray-500">Your submitted proofs will appear here</p>
+            </div>
+          </Card>
         ) : (
-          <div className="mt-3 grid gap-3">
+          <div className="grid gap-4">
             {recentProofs.map((p) => (
-              <Card key={p.id} className="p-3 flex items-center justify-between">
-                <div>
-                  <div className="font-medium">V{p.version_number} - {p.title || 'Untitled'}</div>
-                  <div className="text-xs text-gray-600">#{p.order_id.slice(0,8)} • {new Date(p.created_at).toLocaleString()} • {p.status.replace('_',' ')}</div>
+              <Card key={p.id} className="p-6 hover:shadow-lg transition-shadow duration-200 border-l-4 border-l-blue-500">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="h-10 w-10 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
+                        <FileText className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <div className="text-lg font-semibold text-gray-900 dark:text-white">
+                          V{p.version_number} - {p.title || 'Untitled'}
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                          #{p.order_id.slice(0,8)} • {new Date(p.created_at).toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="ml-13">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          <span className="font-medium">Status:</span>
+                        </span>
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          p.status === 'approved' 
+                            ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400' 
+                            : p.status === 'pending' 
+                            ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
+                            : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                        }`}>
+                          {p.status.replace('_', ' ')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={() => navigate(`/designer/orders/${p.order_id}`)}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2"
+                  >
+                    <Eye className="h-4 w-4" />
+                    Open Order
+                  </Button>
                 </div>
-                <button className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50" onClick={() => navigate(`/designer/orders/${p.order_id}`)}>Open Order</button>
               </Card>
             ))}
           </div>
@@ -244,24 +424,99 @@ function DesignerOrders() {
   if (loading) return <div className="text-sm text-gray-600">Loading…</div>;
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-lg font-medium">Custom Ad Orders</h2>
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="text-center lg:text-left">
+        <h1 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-4 flex items-center gap-3">
+          <FileText className="h-10 w-10 text-indigo-600" />
+          Custom Ad Orders
+        </h1>
+        <p className="text-xl text-slate-700 dark:text-slate-200 max-w-2xl">
+          Manage and track all your assigned design projects
+        </p>
+      </div>
+
+      {/* Orders List */}
       {orders.length === 0 ? (
-        <Card className="p-4"><p className="text-sm text-gray-600">No assigned orders yet.</p></Card>
+        <Card className="p-12 text-center">
+          <div className="flex flex-col items-center gap-6">
+            <div className="h-20 w-20 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-full flex items-center justify-center">
+              <FileText className="h-10 w-10 text-indigo-600" />
+            </div>
+            <div>
+              <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">No orders assigned yet</h3>
+              <p className="text-lg text-gray-600 dark:text-gray-400 mb-4">You don't have any custom ad orders assigned to you at the moment.</p>
+              <p className="text-sm text-gray-500">New orders will appear here when they are assigned to you by the system.</p>
+            </div>
+          </div>
+        </Card>
       ) : (
-        <div className="grid gap-3">
+        <div className="grid gap-6">
           {orders.map((o) => (
-            <Card key={o.id} className="p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="font-medium">{getCustomAdServiceName(o)}</div>
-                  <div className="text-xs text-gray-600">#{o.id.slice(0,8)} • {new Date(o.created_at).toLocaleString()}</div>
-                  <div className="text-xs text-gray-700">Client: {o.user?.full_name || `${o.first_name} ${o.last_name}`}</div>
-                  <div className="text-xs text-gray-700"><span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${((o as any)['workflow_status']||'submitted')==='designer_assigned' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-700'}`}>{((o as any)['workflow_status']||'submitted').replace('_',' ')}</span></div>
+            <Card key={o.id} className="p-6 hover:shadow-lg transition-all duration-200 border-l-4 border-l-indigo-500 bg-gradient-to-r from-white to-indigo-50/30 dark:from-slate-800 dark:to-indigo-900/20">
+              <div className="flex items-start justify-between gap-6">
+                <div className="flex-1">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="h-12 w-12 bg-indigo-100 dark:bg-indigo-900/20 rounded-xl flex items-center justify-center">
+                      <FileText className="h-6 w-6 text-indigo-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900 dark:text-white">{getCustomAdServiceName(o)}</h3>
+                      <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                        <span>#{o.id.slice(0,8)}</span>
+                        <span>•</span>
+                        <span>{new Date(o.created_at).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="grid md:grid-cols-2 gap-4 mb-4">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        <span className="font-medium">Client:</span> {o.user?.full_name || `${o.first_name} ${o.last_name}`}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        <span className="font-medium">Amount:</span> ${Number((o as any).total_amount || 0).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">Status:</span>
+                    <span className={`px-3 py-1.5 rounded-full text-sm font-semibold ${
+                      ((o as any)['workflow_status']||'submitted') === 'designer_assigned' 
+                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400' 
+                        : ((o as any)['workflow_status']||'submitted') === 'in_progress'
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
+                        : ((o as any)['workflow_status']||'submitted') === 'pending_review'
+                        ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
+                        : ((o as any)['workflow_status']||'submitted') === 'approved'
+                        ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                        : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                    }`}>
+                      {((o as any)['workflow_status']||'submitted').replace('_',' ')}
+                    </span>
+                  </div>
                 </div>
-                <div className="text-right space-y-2">
-                  <div className="text-sm font-semibold">${Number((o as any).total_amount || 0).toFixed(0)}</div>
-                  <button className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50" onClick={() => navigate(`/designer/orders/${o.id}`)}>Open</button>
+                
+                <div className="flex flex-col items-end gap-3">
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                      ${Number((o as any).total_amount || 0).toFixed(0)}
+                    </div>
+                    <div className="text-sm text-gray-500">Total Amount</div>
+                  </div>
+                  <Button 
+                    onClick={() => navigate(`/designer/orders/${o.id}`)}
+                    className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center gap-2 font-medium transition-colors duration-200"
+                  >
+                    <Eye className="h-4 w-4" />
+                    Open Order
+                  </Button>
                 </div>
               </div>
             </Card>

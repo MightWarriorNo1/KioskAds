@@ -108,7 +108,7 @@ export default function SystemSettings() {
     { id: 'volume-discounts', name: 'Volume Discounts', icon: TrendingUp },
     { id: 'partner-settings', name: 'Partner Settings', icon: Users },
     { id: 'payments', name: 'Payments', icon: CreditCard },
-    { id: 'notifications', name: 'Notifications', icon: Mail },
+    // { id: 'notifications', name: 'Notifications', icon: Mail },
     { id: 'security', name: 'Security', icon: Key }
   ];
 

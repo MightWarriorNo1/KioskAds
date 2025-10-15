@@ -1,7 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
-  Plus, 
-  Eye, 
   Edit, 
   Play, 
   Pause, 
@@ -15,15 +13,12 @@ import {
   Search,
   MoreVertical,
   Monitor,
-  TrendingUp,
   RefreshCw,
   Trash2,
   Save,
   X,
   User,
   Building,
-  MapPin,
-  Settings,
   Target
 } from 'lucide-react';
 import { useNotification } from '../../contexts/NotificationContext';
@@ -105,37 +100,15 @@ export default function AdminHostAdManagement() {
   });
   const [adAssignments, setAdAssignments] = useState<HostAdAssignment[]>([]);
   const [showAssignments, setShowAssignments] = useState<string | null>(null);
+  const [showAssignmentsModal, setShowAssignmentsModal] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [hosts, setHosts] = useState<Array<{id: string, full_name: string, email: string}>>([]);
-  
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  // Handle click outside to close dropdown
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setOpenDropdownId(null);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [adsData, hostsData] = await Promise.all([
-        AdminService.getAllHostAds({
-          status: statusFilter === 'all' ? undefined : statusFilter,
-          hostId: hostFilter === 'all' ? undefined : hostFilter,
-          search: searchTerm || undefined
-        }),
+        AdminService.getAllHostAds(),
         AdminService.getAllUsers({ role: 'host' })
       ]);
 
@@ -147,7 +120,12 @@ export default function AdminHostAdManagement() {
     } finally {
       setLoading(false);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Remove addNotification dependency to prevent unnecessary reloads
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const loadKiosks = async () => {
     try {
@@ -225,16 +203,29 @@ export default function AdminHostAdManagement() {
 
   const handleUpdateStatus = async (adId: string, status: string, rejectionReason?: string) => {
     try {
+      setUpdatingStatus(adId);
       await AdminService.updateHostAdStatus(adId, status, rejectionReason);
       
+      // Update local state immediately for smooth UX
       setAds(prev => prev.map(ad => 
-        ad.id === adId ? { ...ad, status, rejection_reason: rejectionReason } : ad
+        ad.id === adId ? { ...ad, status, rejection_reason: rejectionReason, updated_at: new Date().toISOString() } : ad
       ));
       
-      addNotification('success', 'Status Updated', `Host ad status changed to ${status}`);
+      // Show success message with appropriate context
+      if (status === 'active') {
+        addNotification('success', 'Ad Approved', 'Host ad has been approved and is now active');
+      } else if (status === 'paused') {
+        addNotification('success', 'Ad Paused', 'Host ad has been paused');
+      } else if (status === 'rejected') {
+        addNotification('success', 'Ad Rejected', 'Host ad has been rejected');
+      } else {
+        addNotification('success', 'Status Updated', `Host ad status changed to ${status}`);
+      }
     } catch (error) {
       console.error('Error updating status:', error);
       addNotification('error', 'Update Failed', 'Failed to update host ad status');
+    } finally {
+      setUpdatingStatus(null);
     }
   };
 
@@ -317,10 +308,9 @@ export default function AdminHostAdManagement() {
   };
 
   const openAssignments = async (adId: string) => {
-    setShowAssignments(showAssignments === adId ? null : adId);
-    if (showAssignments !== adId) {
-      await loadAdAssignments(adId);
-    }
+    setShowAssignments(adId);
+    setShowAssignmentsModal(true);
+    await loadAdAssignments(adId);
   };
 
   if (loading) {
@@ -586,7 +576,7 @@ export default function AdminHostAdManagement() {
                         Assignments
                       </Button>
                       
-                      <div className="relative" ref={dropdownRef}>
+                      <div className="relative">
                         <Button
                           variant="secondary"
                           size="sm"
@@ -596,7 +586,7 @@ export default function AdminHostAdManagement() {
                         </Button>
                         
                         {openDropdownId === ad.id && (
-                          <div className="absolute right-0 bottom-full mb-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10">
+                          <div className="absolute right-0 bottom-full mb-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50">
                             <div className="py-1">
                               <button
                                 onClick={() => {
@@ -618,55 +608,115 @@ export default function AdminHostAdManagement() {
                                 Assign to Kiosks
                               </button>
                               
-                              {ad.status === 'pending_review' && (
-                                <>
-                                  <button
-                                    onClick={() => {
-                                      handleUpdateStatus(ad.id, 'active');
-                                      setOpenDropdownId(null);
-                                    }}
-                                    className="w-full px-4 py-2 text-left text-sm text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20"
-                                  >
-                                    Approve
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      const reason = prompt('Rejection reason:');
-                                      if (reason) {
-                                        handleUpdateStatus(ad.id, 'rejected', reason);
-                                      }
-                                      setOpenDropdownId(null);
-                                    }}
-                                    className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                  >
-                                    Reject
-                                  </button>
-                                </>
-                              )}
+                               {ad.status === 'pending_review' && (
+                                 <>
+                                   <button
+                                     onClick={() => {
+                                       handleUpdateStatus(ad.id, 'active');
+                                       setOpenDropdownId(null);
+                                     }}
+                                     disabled={updatingStatus === ad.id}
+                                     className={`w-full px-4 py-2 text-left text-sm hover:bg-green-50 dark:hover:bg-green-900/20 flex items-center gap-2 ${
+                                       updatingStatus === ad.id 
+                                         ? 'text-green-500 dark:text-green-500 cursor-not-allowed opacity-50' 
+                                         : 'text-green-600 dark:text-green-400'
+                                     }`}
+                                   >
+                                     {updatingStatus === ad.id ? (
+                                       <>
+                                         <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-500"></div>
+                                         Approving...
+                                       </>
+                                     ) : (
+                                       <>
+                                         <CheckCircle className="h-3 w-3" />
+                                         Approve
+                                       </>
+                                     )}
+                                   </button>
+                                   <button
+                                     onClick={() => {
+                                       const reason = prompt('Rejection reason:');
+                                       if (reason) {
+                                         handleUpdateStatus(ad.id, 'rejected', reason);
+                                       }
+                                       setOpenDropdownId(null);
+                                     }}
+                                     disabled={updatingStatus === ad.id}
+                                     className={`w-full px-4 py-2 text-left text-sm hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 ${
+                                       updatingStatus === ad.id 
+                                         ? 'text-red-500 dark:text-red-500 cursor-not-allowed opacity-50' 
+                                         : 'text-red-600 dark:text-red-400'
+                                     }`}
+                                   >
+                                     {updatingStatus === ad.id ? (
+                                       <>
+                                         <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-500"></div>
+                                         Rejecting...
+                                       </>
+                                     ) : (
+                                       <>
+                                         <XCircle className="h-3 w-3" />
+                                         Reject
+                                       </>
+                                     )}
+                                   </button>
+                                 </>
+                               )}
                               
-                              {ad.status === 'active' && (
-                                <button
-                                  onClick={() => {
-                                    handleUpdateStatus(ad.id, 'paused');
-                                    setOpenDropdownId(null);
-                                  }}
-                                  className="w-full px-4 py-2 text-left text-sm text-yellow-600 dark:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20"
-                                >
-                                  Pause
-                                </button>
-                              )}
-                              
-                              {ad.status === 'paused' && (
-                                <button
-                                  onClick={() => {
-                                    handleUpdateStatus(ad.id, 'active');
-                                    setOpenDropdownId(null);
-                                  }}
-                                  className="w-full px-4 py-2 text-left text-sm text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20"
-                                >
-                                  Resume
-                                </button>
-                              )}
+                               {ad.status === 'active' && (
+                                 <button
+                                   onClick={() => {
+                                     handleUpdateStatus(ad.id, 'paused');
+                                     setOpenDropdownId(null);
+                                   }}
+                                   disabled={updatingStatus === ad.id}
+                                   className={`w-full px-4 py-2 text-left text-sm hover:bg-yellow-50 dark:hover:bg-yellow-900/20 flex items-center gap-2 ${
+                                     updatingStatus === ad.id 
+                                       ? 'text-yellow-500 dark:text-yellow-500 cursor-not-allowed opacity-50' 
+                                       : 'text-yellow-600 dark:text-yellow-400'
+                                   }`}
+                                 >
+                                   {updatingStatus === ad.id ? (
+                                     <>
+                                       <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-yellow-500"></div>
+                                       Pausing...
+                                     </>
+                                   ) : (
+                                     <>
+                                       <Pause className="h-3 w-3" />
+                                       Pause
+                                     </>
+                                   )}
+                                 </button>
+                               )}
+                               
+                               {ad.status === 'paused' && (
+                                 <button
+                                   onClick={() => {
+                                     handleUpdateStatus(ad.id, 'active');
+                                     setOpenDropdownId(null);
+                                   }}
+                                   disabled={updatingStatus === ad.id}
+                                   className={`w-full px-4 py-2 text-left text-sm hover:bg-green-50 dark:hover:bg-green-900/20 flex items-center gap-2 ${
+                                     updatingStatus === ad.id 
+                                       ? 'text-green-500 dark:text-green-500 cursor-not-allowed opacity-50' 
+                                       : 'text-green-600 dark:text-green-400'
+                                   }`}
+                                 >
+                                   {updatingStatus === ad.id ? (
+                                     <>
+                                       <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-500"></div>
+                                       Resuming...
+                                     </>
+                                   ) : (
+                                     <>
+                                       <Play className="h-3 w-3" />
+                                       Resume
+                                     </>
+                                   )}
+                                 </button>
+                               )}
                               
                               <hr className="my-1 border-gray-200 dark:border-gray-700" />
                               
@@ -838,63 +888,98 @@ export default function AdminHostAdManagement() {
         </div>
       )}
 
-      {/* Assignments Panel */}
-      {showAssignments && (
-        <Card>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Ad Assignments
-            </h3>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setShowAssignments(null)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-          
-          {adAssignments.length === 0 ? (
-            <p className="text-gray-600 dark:text-gray-400 text-center py-4">
-              No assignments found for this ad.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {adAssignments.map(assignment => (
-                <div key={assignment.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <div>
-                    <div className="font-medium text-gray-900 dark:text-white">
-                      {assignment.kiosks.name}
-                    </div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                      {assignment.kiosks.location} - {assignment.kiosks.city}, {assignment.kiosks.state}
-                    </div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                      {assignment.start_date} to {assignment.end_date}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      assignment.status === 'active' 
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
-                        : 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
-                    }`}>
-                      {assignment.status}
-                    </span>
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      onClick={() => handleUnassignFromKiosks(showAssignments, [assignment.kiosk_id])}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
-      )}
+       {/* Assignments Modal */}
+       {showAssignmentsModal && showAssignments && (
+         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+             <div className="flex items-center gap-3 mb-4">
+               <div className="flex-shrink-0">
+                 <Monitor className="h-6 w-6 text-blue-500" />
+               </div>
+               <div>
+                 <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                   Ad Assignments
+                 </h3>
+                 <p className="text-sm text-gray-600 dark:text-gray-400">
+                   Manage assignments for this ad
+                 </p>
+               </div>
+             </div>
+             
+             {adAssignments.length === 0 ? (
+               <div className="text-center py-8">
+                 <Monitor className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                 <p className="text-gray-600 dark:text-gray-400 text-lg">
+                   No assignments found for this ad.
+                 </p>
+                 <p className="text-gray-500 dark:text-gray-500 text-sm mt-2">
+                   This ad is not currently assigned to any kiosks.
+                 </p>
+               </div>
+             ) : (
+               <div className="space-y-3">
+                 {adAssignments.map(assignment => (
+                   <div key={assignment.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                     <div className="flex-1">
+                       <div className="font-medium text-gray-900 dark:text-white text-lg">
+                         {assignment.kiosks.name}
+                       </div>
+                       <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                         {assignment.kiosks.location} - {assignment.kiosks.city}, {assignment.kiosks.state}
+                       </div>
+                       <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                         <Calendar className="h-4 w-4 inline mr-1" />
+                         {assignment.start_date} to {assignment.end_date}
+                       </div>
+                     </div>
+                     <div className="flex items-center gap-3">
+                       <span className={`px-3 py-1 text-sm rounded-full font-medium ${
+                         assignment.status === 'active' 
+                           ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                           : 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
+                       }`}>
+                         {assignment.status}
+                       </span>
+                       <Button
+                         variant="danger"
+                         size="sm"
+                         onClick={() => handleUnassignFromKiosks(showAssignments, [assignment.kiosk_id])}
+                       >
+                         <Trash2 className="h-4 w-4 mr-1" />
+                         Remove
+                       </Button>
+                     </div>
+                   </div>
+                 ))}
+               </div>
+             )}
+             
+             <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+               <Button
+                 variant="secondary"
+                 onClick={() => {
+                   setShowAssignmentsModal(false);
+                   setShowAssignments(null);
+                 }}
+               >
+                 Close
+               </Button>
+               <Button
+                 onClick={() => {
+                   const ad = ads.find(ad => ad.id === showAssignments);
+                   if (ad) {
+                     openAssignModal(ad.id);
+                   }
+                   setShowAssignmentsModal(false);
+                 }}
+               >
+                 <Target className="h-4 w-4 mr-2" />
+                 Assign to More Kiosks
+               </Button>
+             </div>
+           </div>
+         </div>
+       )}
     </div>
   );
 }

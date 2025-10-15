@@ -126,7 +126,17 @@ export default function HostManageMyCustomAdPage() {
       addNotification('success', 'Order Approved', 'Order approved successfully!');
       setShowApprovalModal(false);
       setApprovalFeedback('');
-      loadCustomAds(); // Refresh to get updated status
+      
+      // Refresh the data and update selected ad
+      await loadCustomAds();
+      
+      // Update the selected ad with the new status
+      if (selectedAd) {
+        const updatedAd = await CustomAdsService.getOrder(selectedAd.id);
+        if (updatedAd) {
+          setSelectedAd(updatedAd);
+        }
+      }
     } catch (error) {
       console.error('Error approving order:', error);
       addNotification('error', 'Approval Failed', 'Failed to approve order. Please try again.');
@@ -146,7 +156,17 @@ export default function HostManageMyCustomAdPage() {
       setShowChangeRequestModal(false);
       setChangeRequest('');
       setAttachedFiles([]);
-      loadCustomAds(); // Refresh to get updated status
+      
+      // Refresh the data and update selected ad
+      await loadCustomAds();
+      
+      // Update the selected ad with the new status
+      if (selectedAd) {
+        const updatedAd = await CustomAdsService.getOrder(selectedAd.id);
+        if (updatedAd) {
+          setSelectedAd(updatedAd);
+        }
+      }
     } catch (error) {
       console.error('Error requesting changes:', error);
       addNotification('error', 'Request Failed', 'Failed to request changes. Please try again.');

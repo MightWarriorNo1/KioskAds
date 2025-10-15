@@ -4,6 +4,7 @@ import { AdminService, MarketingTool } from '../../services/adminService';
 import { MailchimpService } from '../../services/mailchimpService';
 import { CouponEmailService } from '../../services/couponEmailService';
 import { useNotification } from '../../contexts/NotificationContext';
+import { useConfirmation } from '../../contexts/ConfirmationContext';
 
 interface PopupSettings {
   displayDelay?: number;
@@ -25,6 +26,7 @@ export default function PopupMarketingTool() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const { addNotification } = useNotification();
+  const { showConfirmation } = useConfirmation();
 
   useEffect(() => {
     loadPopupTool();
@@ -83,8 +85,10 @@ export default function PopupMarketingTool() {
         
         if (emailSent) {
           setIsSuccess(true);
-          const confirmationMessage = settings.confirmationMessage || 'Check Your Email For Coupon Code';
-          addNotification('success', 'Success!', confirmationMessage);
+          const confirmationMessage = settings.confirmationMessage || 'Check Your Email For Coupon Code!';
+          
+          // Show confirmation in header banner instead of toast
+          showConfirmation(confirmationMessage, email.trim());
           
           // Auto close after success
           setTimeout(() => {
@@ -152,20 +156,26 @@ export default function PopupMarketingTool() {
 
         <div className="p-8 text-center">
           {isSuccess ? (
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
                 <CheckCircle className="h-8 w-8 text-green-600" />
               </div>
-              <h2 className="text-2xl font-bold" style={{ color: textColor }}>
-                {settings.confirmationMessage || 'Check Your Email!'}
+              <h2 className="text-3xl font-bold uppercase tracking-wide" style={{ color: textColor }}>
+                {settings.confirmationMessage || 'Check Your Email For Coupon Code!'}
               </h2>
               <p className="text-lg" style={{ color: textColor, opacity: 0.8 }}>
-                We've sent your discount code to <strong>{email}</strong>
+                We've sent a coupon code to your email address.
               </p>
               <div className="flex items-center justify-center space-x-2 text-sm" style={{ color: textColor, opacity: 0.6 }}>
                 <Mail className="h-4 w-4" />
                 <span>Check your inbox and spam folder</span>
               </div>
+              <button
+                onClick={handleClose}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+              >
+                Close
+              </button>
             </div>
           ) : (
             <div className="space-y-6">

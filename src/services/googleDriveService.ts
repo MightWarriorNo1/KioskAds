@@ -1083,11 +1083,17 @@ export class GoogleDriveService {
       };
       const mimeType = mimeMap[ext] || (hostAd.media_type === 'video' ? 'video/mp4' : 'image/png');
 
+      // Get current user ID
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.id) {
+        throw new Error('User not authenticated');
+      }
+
       // Create synthetic media asset (approved)
       const { data: mediaAsset, error: insertErr } = await supabase
         .from('media_assets')
         .insert({
-          user_id: (await supabase.auth.getUser()).data.user?.id || undefined,
+          user_id: user.id,
           file_name: fileName,
           file_path: filePath,
           file_size: 0,
@@ -1102,7 +1108,8 @@ export class GoogleDriveService {
         .single();
 
       if (insertErr || !mediaAsset) {
-        throw new Error('Failed to create media asset for host ad upload');
+        console.error('Media asset creation error:', insertErr);
+        throw new Error(`Failed to create media asset for host ad upload: ${insertErr?.message || 'Unknown error'}`);
       }
 
       // Enqueue upload jobs per kiosk
@@ -1122,6 +1129,10 @@ export class GoogleDriveService {
       await this.triggerUploadProcessor();
     } catch (error) {
       console.error('Error uploading approved host ad to assigned kiosks:', error);
+      // Log the specific error for debugging
+      if (error instanceof Error) {
+        console.error('Specific error details:', error.message);
+      }
       // Let caller decide whether to ignore; do not throw to avoid blocking approvals typically
     }
   }

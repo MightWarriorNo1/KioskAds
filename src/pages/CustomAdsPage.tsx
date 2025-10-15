@@ -57,6 +57,7 @@ interface OrderFormData {
   files: File[];
   preferredDate?: string;
   preferredTime?: string;
+  includeCustomVideo?: boolean;
 }
 
 const services: ServiceTile[] = [
@@ -107,7 +108,8 @@ export default function CustomAdsPage() {
     details: '',
     files: [],
     preferredDate: '',
-    preferredTime: ''
+    preferredTime: '',
+    includeCustomVideo: false
   });
   const [formErrors, setFormErrors] = useState<Partial<OrderFormData>>({});
   const [fileValidationErrors, setFileValidationErrors] = useState<string[]>([]);
@@ -320,16 +322,16 @@ export default function CustomAdsPage() {
     setSelectedService(null);
   };
 
-  const handleInputChange = (field: keyof OrderFormData, value: string) => {
+  const handleInputChange = (field: keyof OrderFormData, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (formErrors[field]) {
       setFormErrors(prev => ({ ...prev, [field]: undefined }));
     }
     
     // Handle address autocomplete
-    if (field === 'address' && value.length > 2) {
+    if (field === 'address' && typeof value === 'string' && value.length > 2) {
       handleAddressAutocomplete(value);
-    } else if (field === 'address' && value.length <= 2) {
+    } else if (field === 'address' && typeof value === 'string' && value.length <= 2) {
       setAddressSuggestions([]);
       setShowAddressSuggestions(false);
     }
@@ -798,7 +800,8 @@ export default function CustomAdsPage() {
                       details: '',
                       files: [],
                       preferredDate: '',
-                      preferredTime: ''
+                      preferredTime: '',
+                      includeCustomVideo: false
                     });
                     setFormErrors({});
                   }}
@@ -902,8 +905,24 @@ export default function CustomAdsPage() {
                   )}
                 </div>
 
-                {/* Date and Time Selection for Photography/Videography */}
-                {(selectedService?.id === 'photography' || selectedService?.id === 'videography') && (
+                {/* Custom Video Inclusion Checkbox for Photography Service */}
+                {selectedService?.id === 'photography' && (
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="checkbox"
+                      id="includeCustomVideo"
+                      checked={formData.includeCustomVideo}
+                      onChange={(e) => handleInputChange('includeCustomVideo', e.target.checked)}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="includeCustomVideo" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Include custom video on host side
+                    </label>
+                  </div>
+                )}
+
+                {/* Date and Time Selection for Photography with Custom Video or Videography */}
+                {((selectedService?.id === 'photography' && formData.includeCustomVideo) || selectedService?.id === 'videography') && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

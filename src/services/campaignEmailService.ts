@@ -105,7 +105,7 @@ export class CampaignEmailService {
     recipients.push({ email: campaignData.user_email, name: campaignData.user_name, role: campaignData.user_role });
 
     // Admin notifications for key events
-    if (status === 'rejected' || status === 'expired') {
+    if (status === 'rejected' || status === 'expired' || status === 'purchased') {
       const { data: admins } = await supabase
         .from('profiles')
         .select('email, full_name')

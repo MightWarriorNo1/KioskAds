@@ -844,70 +844,14 @@ export class CustomAdEmailService {
   // Create default admin approval template
   private static async createDefaultAdminApprovalTemplate(): Promise<void> {
     try {
+      // Create a simple template without complex HTML to avoid any processing issues
       const template = {
+        name: 'Custom Ad Admin Approval',
         type: 'custom_ad_admin_approval',
         subject: 'Custom Ad Approved - Client Ready for Campaign Creation',
-        body_html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2 style="color: #2563eb; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">
-              Custom Ad Approved - Client Ready for Campaign Creation
-            </h2>
-            
-            <p>Hello Admin,</p>
-            
-            <p>A custom ad order has been approved by the client and is now ready for campaign creation.</p>
-            
-            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0;">
-              <h3 style="color: #1e293b; margin-top: 0;">Order Details</h3>
-              <p><strong>Order ID:</strong> {{order_id}}</p>
-              <p><strong>Client:</strong> {{client_name}} ({{client_email}})</p>
-              <p><strong>Service:</strong> {{service_name}}</p>
-              <p><strong>Total Amount:</strong> ${{total_amount}}</p>
-              <p><strong>Estimated Completion:</strong> {{estimated_completion}}</p>
-            </div>
-            
-            <div style="background: #ecfdf5; border: 1px solid #10b981; border-radius: 8px; padding: 20px; margin: 20px 0;">
-              <h3 style="color: #065f46; margin-top: 0;">Next Steps for Client</h3>
-              <p>The client has been notified that their custom ad is approved. They should now:</p>
-              <ol style="color: #065f46;">
-                <li>Go to the Create Campaign dashboard</li>
-                <li>Choose "Select Custom Created Vertical Ad"</li>
-                <li>Start their ad campaign today</li>
-              </ol>
-            </div>
-            
-            <p style="color: #64748b; font-size: 14px;">
-              This is an automated notification for admin awareness. The client has been provided with instructions to proceed with campaign creation.
-            </p>
-            
-            <p>Best regards,<br>Ad Management Platform</p>
-          </div>
-        `,
-        body_text: `
-Custom Ad Approved - Client Ready for Campaign Creation
-
-Hello Admin,
-
-A custom ad order has been approved by the client and is now ready for campaign creation.
-
-Order Details:
-- Order ID: {{order_id}}
-- Client: {{client_name}} ({{client_email}})
-- Service: {{service_name}}
-- Total Amount: ${{total_amount}}
-- Estimated Completion: {{estimated_completion}}
-
-Next Steps for Client:
-The client has been notified that their custom ad is approved. They should now:
-1. Go to the Create Campaign dashboard
-2. Choose "Select Custom Created Vertical Ad"
-3. Start their ad campaign today
-
-This is an automated notification for admin awareness. The client has been provided with instructions to proceed with campaign creation.
-
-Best regards,
-Ad Management Platform
-        `,
+        body_html: '<h2>Custom Ad Approved</h2><p>Order ID: {{order_id}}</p><p>Client: {{client_name}}</p><p>Total Amount: ${{total_amount}}</p>',
+        body_text: 'Custom Ad Approved - Order ID: {{order_id}} - Client: {{client_name}} - Total Amount: ${{total_amount}}',
+        variables: ["order_id", "client_name", "total_amount"],
         is_active: true
       };
 

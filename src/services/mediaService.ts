@@ -2,7 +2,79 @@ import { supabase } from '../lib/supabaseClient';
 import { MediaAsset, Inserts, Updates } from '../types/database';
 import { ValidationResult } from '../utils/fileValidation';
 
+// Utility function to validate UUID format
+function isValidUUID(uuid: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid);
+}
+
+// Utility function to clean UUID (remove any suffixes like _1)
+function cleanUUID(uuid: string): string {
+  // Remove any suffixes like _1, _2, etc.
+  return uuid.split('_')[0];
+}
+
 export class MediaService {
+  // Validate that a media asset exists and belongs to the user
+  static async validateMediaAsset(mediaId: string, userId: string): Promise<MediaAsset> {
+    const cleanedMediaId = cleanUUID(mediaId);
+    
+    if (!isValidUUID(cleanedMediaId)) {
+      throw new Error(`Invalid media asset ID format: ${mediaId}`);
+    }
+    
+    let { data: mediaAsset, error } = await supabase
+      .from('media_assets')
+      .select('*')
+      .eq('id', cleanedMediaId)
+      .single();
+
+    // If the cleaned UUID fails and it's different from the original, try with the original UUID
+    if (error && cleanedMediaId !== mediaId) {
+      console.log('Trying with original media ID:', mediaId);
+      const fallbackResult = await supabase
+        .from('media_assets')
+        .select('*')
+        .eq('id', mediaId)
+        .single();
+      
+      if (!fallbackResult.error && fallbackResult.data) {
+        mediaAsset = fallbackResult.data;
+        error = null;
+      }
+    }
+
+    if (error) {
+      console.error('Media asset validation error:', {
+        mediaId: cleanedMediaId,
+        originalMediaId: mediaId,
+        error: error,
+        errorCode: error.code,
+        errorMessage: error.message
+      });
+      
+      if (error.code === 'PGRST116' || error.message?.includes('406')) {
+        throw new Error(`Media asset with ID ${cleanedMediaId} not found. The media asset may not exist or may have been deleted. Please ensure the media was uploaded successfully before creating the campaign.`);
+      }
+      
+      throw new Error(`Failed to validate media asset: ${error.message}`);
+    }
+
+    if (!mediaAsset) {
+      throw new Error(`Media asset with ID ${cleanedMediaId} not found. Please ensure the media was uploaded successfully before creating the campaign.`);
+    }
+
+    if (mediaAsset.user_id !== userId) {
+      throw new Error('Media asset does not belong to the current user');
+    }
+
+    if (mediaAsset.status === 'rejected') {
+      throw new Error(`Media asset "${mediaAsset.file_name}" has been rejected and cannot be used in campaigns.`);
+    }
+
+    return mediaAsset;
+  }
+
   // Upload file to Supabase Storage and create database record
   static async uploadMedia(
     file: File,
@@ -51,6 +123,15 @@ export class MediaService {
         }
       };
 
+      console.log('Creating media asset with data:', {
+        user_id: userId,
+        file_name: file.name,
+        file_path: fileName,
+        file_size: file.size,
+        file_type: file.type.startsWith('image/') ? 'image' : 'video',
+        mime_type: file.type
+      });
+
       const { data: dbData, error: dbError } = await supabase
         .from('media_assets')
         .insert(mediaAsset)
@@ -60,6 +141,12 @@ export class MediaService {
       if (dbError) {
         throw new Error(`Database error: ${dbError.message}`);
       }
+
+      console.log('Media asset created successfully:', {
+        id: dbData.id,
+        file_name: dbData.file_name,
+        status: dbData.status
+      });
 
       return dbData;
     } catch (error) {
@@ -102,6 +189,14 @@ export class MediaService {
         }
       };
 
+      console.log('Creating media asset from approved custom ad:', {
+        user_id: params.userId,
+        file_name: params.fileName,
+        source_id: params.sourceId,
+        file_size: params.fileSize,
+        mime_type: params.mimeType
+      });
+
       const { data, error } = await supabase
         .from('media_assets')
         .insert(insertData)
@@ -111,6 +206,12 @@ export class MediaService {
       if (error) {
         throw new Error(`Failed to create media from custom ad: ${error.message}`);
       }
+
+      console.log('Media asset created from custom ad:', {
+        id: data.id,
+        file_name: data.file_name,
+        status: data.status
+      });
 
       return data;
     } catch (error) {
@@ -152,10 +253,21 @@ export class MediaService {
   // Get media asset by ID
   static async getMediaById(mediaId: string): Promise<MediaAsset | null> {
     try {
+      // Clean and validate the media ID
+      const cleanedMediaId = cleanUUID(mediaId);
+      
+      if (!isValidUUID(cleanedMediaId)) {
+        console.error('Invalid media asset ID format:', {
+          original: mediaId,
+          cleaned: cleanedMediaId
+        });
+        return null;
+      }
+      
       const { data, error } = await supabase
         .from('media_assets')
         .select('*')
-        .eq('id', mediaId)
+        .eq('id', cleanedMediaId)
         .single();
 
       if (error) {
@@ -179,6 +291,17 @@ export class MediaService {
     metadata?: Record<string, any>
   ): Promise<MediaAsset> {
     try {
+      // Clean and validate the media ID
+      const cleanedMediaId = cleanUUID(mediaId);
+      
+      if (!isValidUUID(cleanedMediaId)) {
+        console.error('Invalid media asset ID format:', {
+          original: mediaId,
+          cleaned: cleanedMediaId
+        });
+        throw new Error('Invalid media asset ID format');
+      }
+      
       const updateData: Updates<'media_assets'> = {
         status,
         updated_at: new Date().toISOString()
@@ -191,7 +314,7 @@ export class MediaService {
       const { data, error } = await supabase
         .from('media_assets')
         .update(updateData)
-        .eq('id', mediaId)
+        .eq('id', cleanedMediaId)
         .select()
         .single();
 

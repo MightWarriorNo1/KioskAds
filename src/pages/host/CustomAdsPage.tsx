@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
@@ -50,6 +50,7 @@ interface OrderFormData {
   files: File[];
   preferredDate?: string;
   preferredTime?: string;
+  includeCustomVideo?: boolean;
 }
 
 const services: ServiceTile[] = [
@@ -99,7 +100,8 @@ export default function HostCustomAdsPage() {
     details: '',
     files: [],
     preferredDate: '',
-    preferredTime: ''
+    preferredTime: '',
+    includeCustomVideo: false
   });
   const [formErrors, setFormErrors] = useState<Partial<OrderFormData>>({});
   const [fileValidationErrors, setFileValidationErrors] = useState<string[]>([]);
@@ -111,6 +113,17 @@ export default function HostCustomAdsPage() {
   const [orderSubmitted, setOrderSubmitted] = useState(false);
   const [submittedOrderId, setSubmittedOrderId] = useState<string | null>(null);
   const navigate=useNavigate();
+
+  const loadPaymentMethods = useCallback(async () => {
+    if (!user?.id) return;
+    
+    try {
+      const methods = await BillingService.getPaymentMethods(user.id);
+      setPaymentMethods(methods);
+    } catch (error) {
+      console.error('Error loading payment methods:', error);
+    }
+  }, [user?.id]);
 
   // Update form data when user changes
   useEffect(() => {
@@ -144,18 +157,26 @@ export default function HostCustomAdsPage() {
     
     loadUserProfile();
   }, [user]);
+
+  // Load payment methods when user reaches payment step
+  useEffect(() => {
+    if (currentStep === 3 && user?.id) {
+      loadPaymentMethods();
+      setPaymentStep('method');
+    }
+  }, [currentStep, user?.id, loadPaymentMethods]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string);
 
   const steps = [
     { number: 1, name: 'Select Service', current: currentStep === 1, completed: currentStep > 1 },
-    { number: 2, name: 'Description & File Upload', current: currentStep === 2, completed: currentStep > 2 },
+    { number: 2, name: 'File Upload', current: currentStep === 2, completed: currentStep > 2 },
     { number: 3, name: 'Payment', current: currentStep === 3, completed: currentStep > 3 },
     { number: 4, name: 'Review', current: currentStep === 4, completed: currentStep > 4 },
   ];
 
 
-  const handleInputChange = (field: keyof OrderFormData, value: string | File[]) => {
+  const handleInputChange = (field: keyof OrderFormData, value: string | File[] | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     // Clear error when user starts typing
     if (formErrors[field as keyof typeof formErrors]) {
@@ -363,18 +384,6 @@ export default function HostCustomAdsPage() {
     }
   };
 
-  const loadPaymentMethods = async () => {
-    if (!user?.id) return;
-    
-    try {
-      const methods = await BillingService.getPaymentMethods(user.id);
-      setPaymentMethods(methods);
-    } catch (error) {
-      console.error('Error loading payment methods:', error);
-    }
-  };
-
-
   const handleSavePaymentMethod = async (stripePaymentMethodId: string) => {
     if (!user) return;
 
@@ -520,239 +529,15 @@ export default function HostCustomAdsPage() {
         </div>
       )}
 
-      {/* Description & Details Step */}
-      {currentStep === 2 && selectedService && (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-blue-900/20 dark:to-indigo-900/20">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
-            {/* Header Section */}
-            <div className="text-center mb-12">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl mb-6 shadow-lg">
-                <Palette className="h-8 w-8 text-white" />
-              </div>
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-indigo-800 dark:from-white dark:via-blue-200 dark:to-indigo-200 bg-clip-text text-transparent mb-4">
-                Project Details
-              </h1>
-              <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed">
-                Help us understand your vision and requirements for the perfect custom ad
-              </p>
-            </div>
-
-            <div className="grid lg:grid-cols-3 gap-8 lg:gap-12">
-              {/* Service Summary Sidebar */}
-              <div className="lg:col-span-1">
-                <div className="sticky top-8">
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-                    <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-6">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-                          {selectedService.icon}
-                        </div>
-                        <div className="text-white">
-                          <h3 className="font-bold text-lg">{selectedService.title}</h3>
-                          <p className="text-blue-100 text-sm">{selectedService.turnaround}</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="p-6">
-                      <div className="space-y-4">
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-600 dark:text-gray-300">Service Price</span>
-                          <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                            ${selectedService.price}
-                          </span>
-                        </div>
-                        {selectedService.videoLength && (
-                          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
-                            <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
-                              {selectedService.videoLength}
-                            </p>
-                          </div>
-                        )}
-                        <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            Professional design services tailored to your needs
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Main Form */}
-              <div className="lg:col-span-2">
-                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-                  <div className="bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-700 dark:to-blue-900/20 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                      Contact & Project Information
-                    </h2>
-                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                      We'll use this information to create your custom ad
-                    </p>
-                  </div>
-
-                  <form onSubmit={(e) => { e.preventDefault(); setCurrentStep(3); }} className="p-6 lg:p-8">
-                    <div className="space-y-8">
-                      {/* Contact Information */}
-                      <div className="space-y-6">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
-                            <MapPin className="h-4 w-4 text-blue-600 dark:text-blue-300" />
-                          </div>
-                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                            Contact Information
-                          </h3>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                          <div className="space-y-2">
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                              First Name *
-                            </label>
-                            <input
-                              type="text"
-                              value={formData.firstName}
-                              onChange={(e) => handleInputChange('firstName', e.target.value)}
-                              disabled
-                              className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-gray-500 dark:text-gray-400"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                              Last Name *
-                            </label>
-                            <input
-                              type="text"
-                              value={formData.lastName}
-                              onChange={(e) => handleInputChange('lastName', e.target.value)}
-                              disabled
-                              className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-gray-500 dark:text-gray-400"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                          <div className="space-y-2">
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                              Email Address *
-                            </label>
-                            <input
-                              type="email"
-                              value={formData.email}
-                              onChange={(e) => handleInputChange('email', e.target.value)}
-                              disabled
-                              className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-gray-500 dark:text-gray-400"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                              Phone Number *
-                            </label>
-                            <input
-                              type="tel"
-                              value={formData.phone}
-                              onChange={(e) => handleInputChange('phone', e.target.value)}
-                              className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white dark:bg-gray-800"
-                              placeholder="Enter your phone number"
-                              required
-                            />
-                            {formErrors.phone && (
-                              <p className="text-sm text-red-600 flex items-center gap-1">
-                                <AlertCircle className="h-4 w-4" />
-                                {formErrors.phone}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Address (Optional)
-                          </label>
-                          <input
-                            type="text"
-                            value={formData.address}
-                            onChange={(e) => handleInputChange('address', e.target.value)}
-                            className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white dark:bg-gray-800"
-                            placeholder="Enter your address"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Project Details */}
-                      <div className="space-y-6">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-indigo-100 dark:bg-indigo-900 rounded-lg flex items-center justify-center">
-                            <Palette className="h-4 w-4 text-indigo-600 dark:text-indigo-300" />
-                          </div>
-                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                            Project Requirements
-                          </h3>
-                        </div>
-                        
-                        <div className="space-y-3">
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Project Details *
-                          </label>
-                          <div className="relative">
-                            <textarea
-                              value={formData.details}
-                              onChange={(e) => handleInputChange('details', e.target.value)}
-                              rows={6}
-                              className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white dark:bg-gray-800 resize-none"
-                              placeholder="Describe your vision for the ad. Include details about colors, style, messaging, target audience, and any specific requirements..."
-                              required
-                            />
-                            <div className="absolute bottom-3 right-3 text-xs text-gray-400 bg-white dark:bg-gray-800 px-2 py-1 rounded">
-                              {formData.details.length}/500
-                            </div>
-                          </div>
-                          {formErrors.details && (
-                            <p className="text-sm text-red-600 flex items-center gap-1">
-                              <AlertCircle className="h-4 w-4" />
-                              {formErrors.details}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex flex-col sm:flex-row gap-4 pt-8 mt-8 border-t border-gray-200 dark:border-gray-700">
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={() => setCurrentStep(1)}
-                        className="w-full sm:w-auto px-8 py-3 order-2 sm:order-1"
-                      >
-                        <ArrowRight className="h-4 w-4 mr-2 rotate-180" />
-                        Back to Services
-                      </Button>
-                      <Button
-                        type="submit"
-                        className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 order-1 sm:order-2 shadow-lg"
-                      >
-                        Continue to File Upload
-                        <ArrowRight className="h-4 w-4 ml-2" />
-                      </Button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* File Upload Step */}
-      {currentStep === 3 && selectedService && (
+      {currentStep === 2 && selectedService && (
         <div className="space-y-8">
           <div className="text-center">
             <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-              File Upload
+              File Upload & Project Details
             </h2>
             <p className="text-lg text-gray-600 dark:text-gray-300">
-              Upload any media assets or reference materials for your project
+              Upload your media assets and provide project details
             </p>
           </div>
 
@@ -773,7 +558,186 @@ export default function HostCustomAdsPage() {
                 </div>
               </div>
 
-              <div className="space-y-6">
+              <div className="space-y-8">
+                {/* Contact Information */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                      <MapPin className="h-4 w-4 text-blue-600 dark:text-blue-300" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      Contact Information
+                    </h3>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        First Name *
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.firstName}
+                        onChange={(e) => handleInputChange('firstName', e.target.value)}
+                        disabled
+                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-gray-500 dark:text-gray-400"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Last Name *
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.lastName}
+                        onChange={(e) => handleInputChange('lastName', e.target.value)}
+                        disabled
+                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-gray-500 dark:text-gray-400"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Email Address *
+                      </label>
+                      <input
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => handleInputChange('email', e.target.value)}
+                        disabled
+                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-gray-500 dark:text-gray-400"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Phone Number *
+                      </label>
+                      <input
+                        type="tel"
+                        value={formData.phone}
+                        onChange={(e) => handleInputChange('phone', e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white dark:bg-gray-800"
+                        placeholder="Enter your phone number"
+                        required
+                      />
+                      {formErrors.phone && (
+                        <p className="text-sm text-red-600 flex items-center gap-1">
+                          <AlertCircle className="h-4 w-4" />
+                          {formErrors.phone}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Address (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.address}
+                      onChange={(e) => handleInputChange('address', e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white dark:bg-gray-800"
+                      placeholder="Enter your address"
+                    />
+                  </div>
+
+                  {/* Custom Video Inclusion Checkbox for Photography Service */}
+                  {selectedService?.id === 'photography' && (
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        id="includeCustomVideo"
+                        checked={formData.includeCustomVideo}
+                        onChange={(e) => handleInputChange('includeCustomVideo', e.target.checked)}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="includeCustomVideo" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Include custom video on host side
+                      </label>
+                    </div>
+                  )}
+
+                  {/* Date and Time Selection for Photography with Custom Video or Videography */}
+                  {((selectedService?.id === 'photography' && formData.includeCustomVideo) || selectedService?.id === 'videography') && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Preferred Date (Optional)
+                        </label>
+                        <input
+                          type="date"
+                          value={formData.preferredDate}
+                          onChange={(e) => handleInputChange('preferredDate', e.target.value)}
+                          className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white dark:bg-gray-800"
+                        />
+                        {formErrors.preferredDate && (
+                          <p className="text-sm text-red-600 flex items-center gap-1">
+                            <AlertCircle className="h-4 w-4" />
+                            {formErrors.preferredDate}
+                          </p>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Preferred Time (Optional)
+                        </label>
+                        <input
+                          type="time"
+                          value={formData.preferredTime}
+                          onChange={(e) => handleInputChange('preferredTime', e.target.value)}
+                          className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white dark:bg-gray-800"
+                        />
+                        {formErrors.preferredTime && (
+                          <p className="text-sm text-red-600 flex items-center gap-1">
+                            <AlertCircle className="h-4 w-4" />
+                            {formErrors.preferredTime}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Project Details */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-indigo-100 dark:bg-indigo-900 rounded-lg flex items-center justify-center">
+                      <Palette className="h-4 w-4 text-indigo-600 dark:text-indigo-300" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      Project Requirements
+                    </h3>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Project Details *
+                    </label>
+                    <div className="relative">
+                      <textarea
+                        value={formData.details}
+                        onChange={(e) => handleInputChange('details', e.target.value)}
+                        rows={6}
+                        className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white dark:bg-gray-800 resize-none"
+                        placeholder="Describe your vision for the ad. Include details about colors, style, messaging, target audience, and any specific requirements..."
+                        required
+                      />
+                      <div className="absolute bottom-3 right-3 text-xs text-gray-400 bg-white dark:bg-gray-800 px-2 py-1 rounded">
+                        {formData.details.length}/500
+                      </div>
+                    </div>
+                    {formErrors.details && (
+                      <p className="text-sm text-red-600 flex items-center gap-1">
+                        <AlertCircle className="h-4 w-4" />
+                        {formErrors.details}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
                 {/* File Upload Section */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -841,15 +805,100 @@ export default function HostCustomAdsPage() {
                   <Button
                     type="button"
                     variant="secondary"
-                    onClick={() => setCurrentStep(2)}
+                    onClick={() => setCurrentStep(1)}
                   >
                     Back
                   </Button>
                   <Button
-                    onClick={() => setCurrentStep(4)}
+                    onClick={() => setCurrentStep(3)}
                     className="px-8 py-3"
                   >
-                    Continue to Review
+                    Continue to Payment
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Payment Step */}
+      {currentStep === 3 && selectedService && (
+        <div className="space-y-8">
+          <div className="text-center">
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+              Payment
+            </h2>
+            <p className="text-lg text-gray-600 dark:text-gray-300">
+              Complete your payment to submit your custom ad order
+            </p>
+          </div>
+
+          <Card className="max-w-4xl mx-auto">
+            <div className="p-8">
+              {/* Selected Service Summary */}
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {selectedService.icon}
+                    <div>
+                      <h3 className="font-semibold text-gray-900 dark:text-white">{selectedService.title}</h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">
+                        {selectedService.turnaround} • ${selectedService.price}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                {/* Payment Method Selection */}
+                {paymentStep === 'method' && (
+                  <div className="text-center">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                      Select Payment Method
+                    </h3>
+                    <PaymentMethodSelector
+                      paymentMethods={paymentMethods}
+                      selectedMethodId={selectedPaymentMethodId}
+                      onMethodSelect={handlePaymentMethodSelect}
+                      onAddNewMethod={handleAddNewMethod}
+                      onPayWithSavedMethod={handlePaymentWithSavedMethod}
+                      amount={selectedService.price}
+                      isProcessing={isUploading}
+                    />
+                  </div>
+                )}
+
+                {/* Payment Processing */}
+                {paymentStep === 'pay' && clientSecret && (
+                  <div className="space-y-6">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Complete Payment</h3>
+                    <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                        Amount: ${selectedService.price}
+                      </p>
+                      <Elements stripe={stripePromise} options={{ clientSecret }}>
+                        <PaymentForm onSuccess={handlePaymentSuccess} isProcessing={isUploading} onSavePaymentMethod={handleSavePaymentMethod} />
+                      </Elements>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-between">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      if (paymentStep === 'pay') {
+                        setPaymentStep('method');
+                        setClientSecret(null);
+                      } else {
+                        setCurrentStep(2);
+                      }
+                    }}
+                  >
+                    Back
                   </Button>
                 </div>
               </div>
@@ -947,7 +996,7 @@ export default function HostCustomAdsPage() {
                 </div>
               </div>
 
-              <div className="flex justify-between mt-8">
+              {/* <div className="flex justify-between mt-8">
                 <Button
                   type="button"
                   variant="secondary"
@@ -964,9 +1013,9 @@ export default function HostCustomAdsPage() {
                   }}
                   className="px-8 py-3"
                 >
-                  Submit Order
+                  Proceed to Payment
                 </Button>
-              </div>
+              </div> */}
             </div>
           </Card>
         </div>
@@ -991,7 +1040,8 @@ export default function HostCustomAdsPage() {
                     details: '',
                     files: [],
                     preferredDate: '',
-                    preferredTime: ''
+                    preferredTime: '',
+                    includeCustomVideo: false
                   });
                   setFormErrors({});
                 }}
@@ -1071,43 +1121,6 @@ export default function HostCustomAdsPage() {
                   />
                 </div>
 
-                {/* Date and Time Selection for Photography/Videography */}
-                {(selectedService?.id === 'photography' || selectedService?.id === 'videography') && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Preferred Date (Optional)
-                      </label>
-                      <input
-                        type="date"
-                        value={formData.preferredDate}
-                        onChange={(e) => handleInputChange('preferredDate', e.target.value)}
-                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          formErrors.preferredDate ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                        } bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
-                      />
-                      {formErrors.preferredDate && (
-                        <p className="text-red-500 text-sm mt-1">{formErrors.preferredDate}</p>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Preferred Time (Optional)
-                      </label>
-                      <input
-                        type="time"
-                        value={formData.preferredTime}
-                        onChange={(e) => handleInputChange('preferredTime', e.target.value)}
-                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          formErrors.preferredTime ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                        } bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
-                      />
-                      {formErrors.preferredTime && (
-                        <p className="text-red-500 text-sm mt-1">{formErrors.preferredTime}</p>
-                      )}
-                    </div>
-                  </div>
-                )}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -1322,7 +1335,8 @@ export default function HostCustomAdsPage() {
                       details: '',
                       files: [],
                       preferredDate: '',
-                      preferredTime: ''
+                      preferredTime: '',
+                      includeCustomVideo: false
                     });
                     setFormErrors({});
                     setFileValidationErrors([]);

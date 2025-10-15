@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Mail, Lock, UserCircle2, Shield, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Mail, Lock, UserCircle2, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useNotification } from '../contexts/NotificationContext';
 import AuthLayout from '../components/layouts/AuthLayout';
@@ -14,7 +14,7 @@ export default function SignUp() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
-  const [role, setRole] = useState<'client' | 'host' | 'designer' | 'admin'>('client');
+  const [role] = useState<'client' | 'host' | 'designer' | 'admin'>('client');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -40,7 +40,7 @@ export default function SignUp() {
       setInvitationEmail(emailParam);
       setInvitationRole(roleParam);
       setEmail(emailParam);
-      setRole(roleParam as 'client' | 'host' | 'designer' | 'admin');
+      // Role is now fixed to 'client' for all signups
       
       // Validate invitation
       validateInvitation(token, emailParam, roleParam);
@@ -399,28 +399,6 @@ export default function SignUp() {
                   <span>{errors.confirmPassword}</span>
                 </div>
               )}
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Account type</label>
-            <div className="relative group">
-              <Shield className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 transition-colors duration-200" />
-              <select 
-                className="w-full pl-11 pr-4 py-3 border-2 rounded-xl text-gray-900 dark:text-white bg-white dark:bg-slate-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 hover:border-gray-400 dark:hover:border-gray-600 border-gray-300 dark:border-gray-600 focus:bg-white dark:focus:bg-slate-700 appearance-none" 
-                value={role} 
-                onChange={(e) => setRole(e.target.value as 'client' | 'host' | 'designer' | 'admin')}
-                disabled={!!invitationToken} // Disable if this is an invitation signup
-              >
-                <option value="client">Client - I want to advertise</option>
-                <option value="host">Host - I have display spaces</option>
-                <option value="designer">Designer - I create ad content</option>
-                <option value="admin">Admin - I manage the platform</option>
-              </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              </div>
             </div>
           </div>
           <button 

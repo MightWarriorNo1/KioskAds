@@ -98,7 +98,8 @@ export default function KioskManagement() {
     } finally {
       setLoading(false);
     }
-  }, [addNotification]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Remove addNotification dependency to prevent unnecessary reloads
 
   const loadHosts = useCallback(async () => {
     try {
@@ -108,7 +109,8 @@ export default function KioskManagement() {
       console.error('Error loading hosts:', error);
       addNotification('error', 'Error', 'Failed to load hosts');
     }
-  }, [addNotification]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Remove addNotification dependency to prevent unnecessary reloads
 
   useEffect(() => {
     loadKiosks();
