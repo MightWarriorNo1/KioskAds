@@ -4637,6 +4637,25 @@ Ad Management System`,
     }
   }
 
+  // Trigger campaign status scheduler
+  static async triggerCampaignStatusScheduler(): Promise<void> {
+    try {
+      const { data, error } = await supabase.functions.invoke('campaign-status-scheduler', {
+        method: 'POST',
+        body: { trigger: 'manual' }
+      });
+
+      if (error) {
+        throw new Error(`Campaign status scheduler error: ${error.message}`);
+      }
+
+      console.log('Campaign status scheduler executed:', data);
+    } catch (error) {
+      console.error('Error triggering campaign status scheduler:', error);
+      throw error;
+    }
+  }
+
   // Custom Ad Management Methods
 
   // Get all custom ad orders for admin management

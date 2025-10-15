@@ -466,10 +466,10 @@ export class CustomAdsService {
     attachedFiles?: Array<{ name: string; url: string; size: number; type: string }>
   ): Promise<void> {
     try {
-      // Get user profile for author name
+      // Get user profile for author name and role
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name')
+        .select('full_name, role')
         .eq('id', userId)
         .single();
 
@@ -485,6 +485,35 @@ export class CustomAdsService {
         });
 
       if (error) throw error;
+
+      // Send email notification to designer if order has designer assigned
+      try {
+        console.log('📧 Attempting to send designer notification...');
+        console.log('📧 User role:', profile?.role);
+        console.log('📧 Sender name:', profile?.full_name);
+        
+        const { CustomAdEmailService } = await import('./customAdEmailService');
+        const senderRole = profile?.role === 'host' ? 'host' : 'client';
+        
+        console.log('📧 Calling sendDesignerMessageNotification with:', {
+          orderId,
+          content: content.substring(0, 50) + '...',
+          senderName: profile?.full_name || 'Client',
+          senderRole
+        });
+        
+        await CustomAdEmailService.sendDesignerMessageNotification(
+          orderId, 
+          content, 
+          profile?.full_name || 'Client', 
+          senderRole
+        );
+        
+        console.log('📧 Designer notification call completed');
+      } catch (emailError) {
+        console.error('❌ Error sending designer notification:', emailError);
+        // Don't throw error - comment should succeed even if email fails
+      }
     } catch (error) {
       console.error('Error adding comment:', error);
       throw error;

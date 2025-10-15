@@ -490,6 +490,156 @@ export class CustomAdEmailService {
     }
   }
 
+  // Send designer message notification when client/host sends a message
+  static async sendDesignerMessageNotification(orderId: string, message: string, senderName: string, senderRole: 'client' | 'host'): Promise<void> {
+    try {
+      console.log('📧 Starting designer message notification process...');
+      console.log('📧 Order ID:', orderId);
+      console.log('📧 Sender:', senderName, '(' + senderRole + ')');
+      console.log('📧 Message:', message.substring(0, 50) + '...');
+
+      // Get order details with designer information
+      const { data: order, error: orderError } = await supabase
+        .from('custom_ad_orders')
+        .select(`
+          id,
+          workflow_status,
+          assigned_designer_id,
+          designer:profiles!custom_ad_orders_assigned_designer_id_fkey(id, full_name, email)
+        `)
+        .eq('id', orderId)
+        .single();
+
+      if (orderError || !order) {
+        console.error('❌ Error fetching order:', orderError);
+        return;
+      }
+
+      console.log('📧 Order found:', {
+        id: order.id,
+        workflow_status: order.workflow_status,
+        assigned_designer_id: order.assigned_designer_id,
+        designer_email: order.designer?.email
+      });
+
+      // Only send notification if order has a designer assigned and is in designer_assigned status
+      if (!order.assigned_designer_id || order.workflow_status !== 'designer_assigned') {
+        console.log('⚠️ Skipping email - Order not in designer_assigned status or no designer assigned');
+        console.log('⚠️ Status:', order.workflow_status, 'Designer ID:', order.assigned_designer_id);
+        return;
+      }
+
+      if (!order.designer?.email) {
+        console.error('❌ Designer email not found for order:', orderId);
+        return;
+      }
+
+      console.log('📧 Designer found:', order.designer.full_name, '(' + order.designer.email + ')');
+
+      const subject = `New Message from ${senderRole === 'client' ? 'Client' : 'Host'} - Order #${orderId}`;
+      const designerName = order.designer.full_name || 'Designer';
+      
+      const htmlBody = `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #2563eb;">New Message from ${senderRole === 'client' ? 'Client' : 'Host'}</h2>
+          <p>Hello ${designerName},</p>
+          <p>You have received a new message from <strong>${senderName}</strong> regarding your assigned order <strong>#${orderId}</strong>.</p>
+          
+          <div style="background-color: #f8f9fa; border-left: 4px solid #2563eb; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0; font-style: italic;">"${message}"</p>
+          </div>
+          
+          <p>Please log into your designer portal to view the full conversation and respond to the client.</p>
+          
+          <div style="margin: 20px 0; text-align: center;">
+            <a href="https://ezkioskads.com/designer/orders/${orderId}" 
+               style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+              View Order Details
+            </a>
+          </div>
+          
+          <p>Best regards,<br>EZ Kiosk Ads Team</p>
+        </div>
+      `;
+
+      // Initialize Gmail service first
+      await GmailService.initialize();
+      
+      // Check if Gmail is configured
+      if (!GmailService.isConfigured()) {
+        console.log('⚠️ Gmail not configured on frontend, using email queue processor');
+        await this.queueDesignerMessageEmail(order.designer.email, subject, htmlBody);
+        
+        // Trigger email queue processor to send immediately via edge function
+        try {
+          const { supabase } = await import('../lib/supabaseClient');
+          console.log('📧 Triggering email queue processor...');
+          const { data, error } = await supabase.functions.invoke('email-queue-processor');
+          
+          if (error) {
+            console.error('❌ Email queue processor error:', error);
+          } else {
+            console.log('✅ Email queue processor triggered successfully:', data);
+          }
+        } catch (error) {
+          console.error('❌ Could not trigger email queue processor:', error);
+        }
+        return;
+      }
+
+      // If Gmail is configured, send directly
+      try {
+        await GmailService.sendEmail(order.designer.email, subject, htmlBody);
+        console.log('✅ Designer message notification sent successfully via Gmail');
+      } catch (error) {
+        console.error('❌ Gmail send failed, falling back to queue:', error);
+        await this.queueDesignerMessageEmail(order.designer.email, subject, htmlBody);
+        
+        // Try to trigger queue processor as fallback
+        try {
+          const { supabase } = await import('../lib/supabaseClient');
+          await supabase.functions.invoke('email-queue-processor');
+          console.log('📧 Fallback: Email queue processor triggered');
+        } catch (queueError) {
+          console.error('❌ Could not trigger fallback email queue processor:', queueError);
+        }
+      }
+    } catch (error) {
+      console.error('Error sending designer message notification:', error);
+    }
+  }
+
+  // Queue designer message email for later sending
+  private static async queueDesignerMessageEmail(to: string, subject: string, htmlBody: string): Promise<void> {
+    try {
+      const { supabase } = await import('../lib/supabaseClient');
+      
+      const { error } = await supabase
+        .from('email_queue')
+        .insert({
+          recipient_email: to,
+          subject: subject,
+          body_html: htmlBody,
+          body_text: this.stripHtml(htmlBody),
+          status: 'pending',
+          created_at: new Date().toISOString()
+        });
+
+      if (error) {
+        console.error('Error queuing designer message email:', error);
+      } else {
+        console.log('📬 Designer message email queued for later sending');
+      }
+    } catch (error) {
+      console.error('Error queuing designer message email:', error);
+    }
+  }
+
+  // Strip HTML tags to create plain text version
+  private static stripHtml(html: string): string {
+    return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+  }
+
   // Get email template by type
   private static async getEmailTemplate(type: string): Promise<EmailTemplate | null> {
     try {

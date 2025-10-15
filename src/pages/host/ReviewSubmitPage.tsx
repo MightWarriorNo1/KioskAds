@@ -123,7 +123,7 @@ export default function HostReviewSubmitPage() {
           campaign_id: newCampaign.id,
           amount: totalCost,
           status: 'succeeded',
-          description: `Payment for campaign ${campaignName}`
+          description: `Campaign ${campaignName}`
         });
       } catch (e) {
         console.warn('Failed to record payment history', e);

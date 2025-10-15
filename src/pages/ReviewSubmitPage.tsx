@@ -142,7 +142,7 @@ export default function ReviewSubmitPage() {
           campaign_id: newCampaign.id,
           amount: totalCost,
           status: 'succeeded',
-          description: `Payment for campaign ${campaignName}`
+          description: `Campaign ${campaignName}`
         });
       } catch (e) {
         // Non-blocking

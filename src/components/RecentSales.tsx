@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { BillingService, RecentSale } from '../services/billingService';
 import { useNotification } from '../contexts/NotificationContext';
 import Card from './ui/Card';
-import { ShoppingCart, MapPin, Clock, RefreshCw } from 'lucide-react';
+import { ShoppingCart, Clock, RefreshCw } from 'lucide-react';
 import { getCurrentCaliforniaTime, formatCaliforniaDate } from '../utils/dateUtils';
 
 interface RecentSalesProps {
@@ -21,11 +21,7 @@ export default function RecentSales({
   const [refreshing, setRefreshing] = useState(false);
   const { addNotification } = useNotification();
 
-  useEffect(() => {
-    loadRecentSales();
-  }, [limit]);
-
-  const loadRecentSales = async (isRefresh = false) => {
+  const loadRecentSales = useCallback(async (isRefresh = false) => {
     try {
       if (isRefresh) {
         setRefreshing(true);
@@ -44,7 +40,11 @@ export default function RecentSales({
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [limit, addNotification]);
+
+  useEffect(() => {
+    loadRecentSales();
+  }, [loadRecentSales]);
 
   const handleRefresh = () => {
     loadRecentSales(true);
@@ -63,7 +63,7 @@ export default function RecentSales({
     return `${firstName} ${lastName}`;
   };
 
-  const formatCampaignName = (campaignName: string, description?: string) => {
+  const formatCampaignName = (campaignName: string) => {
     // Map campaign names to more user-friendly display names
     const campaignMappings: { [key: string]: string } = {
       'Vertical Ad Creation': 'Vertical Ad Creation',
@@ -78,18 +78,33 @@ export default function RecentSales({
     return campaignMappings[campaignName] || campaignName;
   };
 
-  const formatCustomAdName = (customAdName: string, description?: string) => {
+  const formatCustomAdName = (customAdName: string) => {
     // Custom ad names are already formatted correctly from the service
     return customAdName;
   };
 
   const getDisplayName = (sale: RecentSale) => {
+    // Handle campaign payments
     if (sale.payment_type === 'campaign' && sale.campaign) {
-      return formatCampaignName(sale.campaign.name, sale.campaign.description);
-    } else if (sale.payment_type === 'custom_ad' && sale.custom_ad) {
-      return formatCustomAdName(sale.custom_ad.name, sale.custom_ad.description);
+      return formatCampaignName(sale.campaign.name);
+    } 
+    // Handle custom ad payments
+    else if (sale.payment_type === 'custom_ad' && sale.custom_ad) {
+      return formatCustomAdName(sale.custom_ad.name);
     }
-    return 'Unknown Purchase';
+    // Fallback: try to get name from description or use a generic name
+    else if (sale.description) {
+      return sale.description;
+    }
+    // Last resort: use payment type to create a meaningful name
+    else if (sale.payment_type === 'campaign') {
+      return 'Ad Campaign';
+    }
+    else if (sale.payment_type === 'custom_ad') {
+      return 'Custom Ad Service';
+    }
+    // Final fallback
+    return 'Ad Service';
   };
 
   const formatTimeAgo = (dateString: string) => {

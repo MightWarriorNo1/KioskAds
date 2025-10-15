@@ -72,18 +72,20 @@ export class AdminNotificationService {
       const admins = await this.getAdminUsers();
       if (admins.length === 0) return;
 
-      const variables = {
-        user_name: data.user_name,
-        user_email: data.user_email,
-        user_role: data.user_role,
-        order_id: data.order_id || 'Unknown',
-        service_name: data.service_name || 'Unknown Service',
-        total_amount: data.total_amount?.toFixed(2) || '0.00',
-        created_at: new Date(data.created_at).toLocaleString()
-      };
-
       // Send to all admins
       for (const admin of admins) {
+        const variables = {
+          user_name: data.user_name,
+          user_email: data.user_email,
+          user_role: data.user_role,
+          order_id: data.order_id || 'Unknown',
+          service_name: data.service_name || 'Unknown Service',
+          total_amount: data.total_amount?.toFixed(2) || '0.00',
+          created_at: new Date(data.created_at).toLocaleString(),
+          admin_name: admin.full_name || 'Admin',
+          recipient_name: admin.full_name || 'Admin'
+        };
+        
         await this.sendEmail(template, admin.email, admin.full_name, variables);
       }
 
@@ -211,8 +213,9 @@ Ad Management System`,
             </head>
             <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
               <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                <h2 style="color: #007bff;">New Custom Ad Order</h2>
-                <p>A {{user_role}} has purchased a custom ad service that requires your attention.</p>
+                <h2 style="color: #007bff;">Custom Ad Order Submitted</h2>
+                <p>Dear {{admin_name}},</p>
+                <p>Thank you for submitting your custom ad order. Your order has been received and is now under review.</p>
                 
                 <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
                   <h3 style="margin-top: 0;">Order Details</h3>
@@ -231,7 +234,11 @@ Ad Management System`,
             </body>
             </html>
           `,
-          body_text: `New Custom Ad Order
+          body_text: `Custom Ad Order Submitted
+
+Dear {{admin_name}},
+
+Thank you for submitting your custom ad order. Your order has been received and is now under review.
 
 Order Details:
 - Order ID: {{order_id}}
@@ -245,7 +252,7 @@ Please review this order in the Admin Portal.
 
 Best regards,
 Ad Management System`,
-          variables: '["user_name", "user_email", "user_role", "order_id", "service_name", "total_amount", "created_at"]',
+          variables: '["user_name", "user_email", "user_role", "order_id", "service_name", "total_amount", "created_at", "admin_name", "recipient_name"]',
           is_active: true
         })
         .select()
@@ -302,7 +309,11 @@ Ad Management System`,
         });
 
       // Trigger email processor
-      try { await supabase.functions.invoke('email-queue-processor'); } catch (_) {}
+      try { 
+        await supabase.functions.invoke('email-queue-processor'); 
+      } catch (error) {
+        console.warn('Failed to trigger email queue processor:', error);
+      }
     } catch (error) {
       console.error('Error queuing email:', error);
     }

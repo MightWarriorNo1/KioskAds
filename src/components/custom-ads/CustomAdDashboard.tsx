@@ -273,6 +273,7 @@ function OrderDetailsModal({ order, onClose, userRole }: OrderDetailsModalProps)
   const [showPayment, setShowPayment] = useState(false);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentMessage, setPaymentMessage] = useState<string | null>(null);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   useEffect(() => {
     loadProofs();
@@ -343,10 +344,12 @@ function OrderDetailsModal({ order, onClose, userRole }: OrderDetailsModalProps)
   };
 
   const handlePayNow = async () => {
-    if (!user) return;
+    if (!user || isProcessingPayment) return;
+    
+    setIsProcessingPayment(true);
+    setPaymentMessage(null);
     
     try {
-      setPaymentMessage(null);
       const intent = await BillingService.createPaymentIntent({
         amount: Math.round(order.total_amount * 100),
         currency: 'usd',
@@ -359,6 +362,7 @@ function OrderDetailsModal({ order, onClose, userRole }: OrderDetailsModalProps)
 
       if (!intent?.clientSecret) {
         setPaymentMessage('Unable to start payment. Please try again.');
+        setIsProcessingPayment(false);
         return;
       }
 
@@ -367,6 +371,7 @@ function OrderDetailsModal({ order, onClose, userRole }: OrderDetailsModalProps)
     } catch (error) {
       console.error('Error creating payment intent:', error);
       setPaymentMessage('Error creating payment intent. Please try again.');
+      setIsProcessingPayment(false);
     }
   };
 
@@ -377,11 +382,13 @@ function OrderDetailsModal({ order, onClose, userRole }: OrderDetailsModalProps)
       addNotification('success', 'Payment Successful', 'Your payment has been processed successfully.');
       setShowPayment(false);
       setClientSecret(null);
+      setIsProcessingPayment(false);
       // Refresh the order data or close modal
       onClose();
     } catch (error) {
       console.error('Error updating payment status:', error);
       addNotification('error', 'Payment Error', 'Payment succeeded but failed to update order status.');
+      setIsProcessingPayment(false);
     }
   };
 
@@ -432,6 +439,7 @@ function OrderDetailsModal({ order, onClose, userRole }: OrderDetailsModalProps)
               clientSecret={clientSecret}
               paymentMessage={paymentMessage}
               onPaymentSuccess={handlePaymentSuccess}
+              isProcessingPayment={isProcessingPayment}
             />
           )}
           
@@ -466,7 +474,8 @@ function OrderDetailsTab({
   showPayment, 
   clientSecret, 
   paymentMessage, 
-  onPaymentSuccess 
+  onPaymentSuccess,
+  isProcessingPayment
 }: { 
   order: CustomAdOrder;
   onPayNow: () => void;
@@ -474,6 +483,7 @@ function OrderDetailsTab({
   clientSecret: string | null;
   paymentMessage: string | null;
   onPaymentSuccess: () => void;
+  isProcessingPayment: boolean;
 }) {
   return (
     <div className="space-y-6">
@@ -509,8 +519,9 @@ function OrderDetailsTab({
                     onClick={onPayNow}
                     className="ml-2"
                     size="sm"
+                    disabled={isProcessingPayment}
                   >
-                    Pay Now
+                    {isProcessingPayment ? 'Processing...' : 'Pay Now'}
                   </Button>
                 )}
               </div>

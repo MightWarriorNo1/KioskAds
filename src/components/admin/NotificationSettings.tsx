@@ -446,7 +446,7 @@ export default function NotificationSettings({ onSave, onHasChanges }: Notificat
       </div>
 
       {/* Email Configuration */}
-      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+      {/* <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
         <h4 className="font-medium text-gray-900 dark:text-white mb-4">
           Email Configuration
         </h4>
@@ -474,7 +474,7 @@ export default function NotificationSettings({ onSave, onHasChanges }: Notificat
             />
           </div>
         </div>
-      </div>
+      </div> */}
 
     </div>
   );

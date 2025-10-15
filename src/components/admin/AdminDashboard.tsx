@@ -272,6 +272,26 @@ export default function AdminDashboard() {
     }
   };
 
+  const triggerCampaignStatusScheduler = async () => {
+    try {
+      setIsSendingEmail(true);
+      await AdminService.triggerCampaignStatusScheduler();
+      // Log the admin action
+      await AdminService.logAdminAction(
+        'Campaign status scheduler triggered manually',
+        'campaign',
+        null,
+        { type: 'campaign_status_scheduler' }
+      );
+      addNotification('success', 'Success', 'Campaign status scheduler executed successfully');
+    } catch (error) {
+      console.error('Error triggering campaign status scheduler:', error);
+      addNotification('error', 'Error', 'Failed to trigger campaign status scheduler');
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
   const metricsCards = metrics ? [
     {
       title: 'Total Users',
@@ -346,6 +366,14 @@ export default function AdminDashboard() {
       onClick: triggerDailyEmail,
       icon: Send,
       color: 'green',
+      loading: isSendingEmail
+    },
+    {
+      title: 'Campaign Status Scheduler',
+      description: 'Trigger campaign activation and asset movement',
+      onClick: triggerCampaignStatusScheduler,
+      icon: RefreshCw,
+      color: 'blue',
       loading: isSendingEmail
     },
     {

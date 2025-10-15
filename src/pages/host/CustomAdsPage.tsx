@@ -108,6 +108,7 @@ export default function HostCustomAdsPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentStep, setPaymentStep] = useState<'form' | 'pay' | 'method' | 'success'>('form');
+  const [paymentMessage, setPaymentMessage] = useState<string | null>(null);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
   const [orderSubmitted, setOrderSubmitted] = useState(false);
@@ -120,6 +121,12 @@ export default function HostCustomAdsPage() {
     try {
       const methods = await BillingService.getPaymentMethods(user.id);
       setPaymentMethods(methods);
+      
+      // Set default payment method if available
+      const defaultMethod = methods.find(m => m.is_default);
+      if (defaultMethod) {
+        setSelectedPaymentMethodId(defaultMethod.id);
+      }
     } catch (error) {
       console.error('Error loading payment methods:', error);
     }
@@ -336,6 +343,7 @@ export default function HostCustomAdsPage() {
     if (!selectedService || !user || !selectedPaymentMethodId || isUploading) return;
 
     setIsUploading(true);
+    setPaymentMessage(null);
 
     try {
       const selectedMethod = paymentMethods.find(m => m.id === selectedPaymentMethodId);
@@ -354,7 +362,7 @@ export default function HostCustomAdsPage() {
       });
 
       if (!result.success) {
-        alert(result.error || 'Payment failed. Please try again.');
+        setPaymentMessage(result.error || 'Payment failed. Please try again.');
         return;
       }
 
@@ -375,10 +383,12 @@ export default function HostCustomAdsPage() {
       setSubmittedOrderId(order);
       setOrderSubmitted(true);
       setCurrentStep(4); // Move to step 4 (Review)
+      setPaymentStep('success');
+      setPaymentMessage('Payment succeeded and your order has been saved.');
       setShowOrderForm(false); // Hide payment window
     } catch (error) {
       console.error('Error processing payment:', error);
-      alert('Error processing payment. Please try again.');
+      setPaymentMessage('Error processing payment. Please try again.');
     } finally {
       setIsUploading(false);
     }
@@ -867,6 +877,12 @@ export default function HostCustomAdsPage() {
                       amount={selectedService.price}
                       isProcessing={isUploading}
                     />
+                    
+                    {paymentMessage && (
+                      <p className="text-sm text-red-600 dark:text-red-400 text-center mt-4">
+                        {paymentMessage}
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -1271,6 +1287,13 @@ export default function HostCustomAdsPage() {
                   amount={selectedService.price}
                   isProcessing={isUploading}
                 />
+                
+                {paymentMessage && (
+                  <p className="text-sm text-red-600 dark:text-red-400 text-center mt-4">
+                    {paymentMessage}
+                  </p>
+                )}
+                
                 <div className="flex justify-end space-x-4">
                   <Button
                     variant="secondary"

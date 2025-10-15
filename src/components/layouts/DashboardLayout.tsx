@@ -40,9 +40,9 @@ export default function DashboardLayout({
 
   const navigationItems = [
     { name: 'Dashboard', href: '/client', icon: LayoutDashboard },
-    { name: 'Campaigns', href: '/client/campaigns', icon: Target },
-    { name: 'Analytics', href: '/client/analytics', icon: BarChart3 },
     { name: 'New Campaign', href: '/client/new-campaign', icon: Plus },
+    { name: 'Manage Campaigns', href: '/client/campaigns', icon: Target },
+    { name: 'Analytics', href: '/client/analytics', icon: BarChart3 },
     { name: 'Billing', href: '/client/billing', icon: FileText },
     { name: 'Profile', href: '/client/profile', icon: User },
     { name: 'Help Center', href: '/client/help', icon: HelpCircle },

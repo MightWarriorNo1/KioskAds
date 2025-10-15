@@ -3,10 +3,6 @@ import { X } from 'lucide-react';
 import { AdminService, MarketingTool } from '../../services/adminService';
 import { BillingService } from '../../services/billingService';
 
-interface RecentSalesNotificationProps {
-  onClose?: () => void;
-}
-
 interface SaleNotification {
   id: string;
   customerName: string;
@@ -17,25 +13,12 @@ interface SaleNotification {
   profilePicture?: string;
 }
 
-export default function RecentSalesNotification({}: RecentSalesNotificationProps) {
+export default function RecentSalesNotification() {
   const [marketingTool, setMarketingTool] = useState<MarketingTool | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [displayedSales, setDisplayedSales] = useState<SaleNotification[]>([]);
   const [closingSales, setClosingSales] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    console.log('RecentSalesNotification: Component mounted');
-    loadMarketingTool();
-    loadRecentSales();
-    
-    // Cleanup function to prevent multiple calls
-    return () => {
-      console.log('RecentSalesNotification: Component unmounting');
-      setDisplayedSales([]);
-      setClosingSales(new Set());
-    };
-  }, []);
 
   const loadMarketingTool = async () => {
     try {
@@ -50,7 +33,7 @@ export default function RecentSalesNotification({}: RecentSalesNotificationProps
       if (salesNotification) {
         console.log('RecentSalesNotification: Found active sales notification tool');
         setMarketingTool(salesNotification);
-        const delay = (salesNotification.settings as any)?.displayDelay || 5;
+        const delay = (salesNotification.settings as { displayDelay?: number })?.displayDelay || 5;
         setTimeout(() => setIsVisible(true), delay * 1000);
       } else {
         console.log('RecentSalesNotification: No active sales notification tool, showing demo');
@@ -151,8 +134,22 @@ export default function RecentSalesNotification({}: RecentSalesNotificationProps
     }
   };
 
+  useEffect(() => {
+    console.log('RecentSalesNotification: Component mounted');
+    loadMarketingTool();
+    loadRecentSales();
+    
+    // Cleanup function to prevent multiple calls
+    return () => {
+      console.log('RecentSalesNotification: Component unmounting');
+      setDisplayedSales([]);
+      setClosingSales(new Set());
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const startNotificationSequence = (salesData: SaleNotification[]) => {
-    const settings = marketingTool?.settings as any;
+    const settings = marketingTool?.settings as { displayDelay?: number };
     const delay = settings?.displayDelay || 3; // 3 seconds delay before showing notifications
     
     // Ensure we only show maximum 1 notification
@@ -189,13 +186,28 @@ export default function RecentSalesNotification({}: RecentSalesNotificationProps
     return campaignMappings[campaignName] || campaignName;
   };
 
-  const getDisplayName = (sale: any) => {
+  const getDisplayName = (sale: { payment_type: string; campaign?: { name: string }; custom_ad?: { name: string }; description?: string }) => {
+    // Handle campaign payments
     if (sale.payment_type === 'campaign' && sale.campaign) {
       return formatCampaignName(sale.campaign.name);
-    } else if (sale.payment_type === 'custom_ad' && sale.custom_ad) {
+    } 
+    // Handle custom ad payments
+    else if (sale.payment_type === 'custom_ad' && sale.custom_ad) {
       return sale.custom_ad.name;
     }
-    return 'Unknown Purchase';
+    // Fallback: try to get name from description or use a generic name
+    else if (sale.description) {
+      return sale.description;
+    }
+    // Last resort: use payment type to create a meaningful name
+    else if (sale.payment_type === 'campaign') {
+      return 'Ad Campaign';
+    }
+    else if (sale.payment_type === 'custom_ad') {
+      return 'Custom Ad Service';
+    }
+    // Final fallback
+    return 'Ad Service';
   };
 
   const formatTimeAgo = (dateString: string) => {
@@ -251,11 +263,11 @@ export default function RecentSalesNotification({}: RecentSalesNotificationProps
 
   console.log('RecentSalesNotification: Rendering notifications');
 
-  const settings = marketingTool.settings as any;
+  const settings = marketingTool.settings as { backgroundColor?: string; textColor?: string; showProfilePicture?: boolean };
   const showProfilePicture = settings?.showProfilePicture !== false;
 
   return (
-    <div className="fixed bottom-4 left-4 z-[9999] space-y-3" style={{ zIndex: 9999 }}>
+    <div className="fixed bottom-4 left-4 z-[9999] space-y-3 lg:min-w-72 lg:max-h-36" style={{ zIndex: 9999 }}>
       {displayedSales.map((sale, index) => (
         <div
           key={sale.id}

@@ -115,7 +115,7 @@ export default function LandingPage() {
                   <Check className="h-2 w-2 sm:h-3 sm:w-3 text-white" />
                 </div>
               </div>
-              <h3 className="text-base sm:text-lg font-semibold mb-2 text-black dark:text-white">Graphic DesignAd</h3>
+              <h3 className="text-base sm:text-lg font-semibold mb-2 text-black dark:text-white">Custom Vertical Ad Design</h3>
               <p className="text-xs sm:text-sm text-black dark:text-white/80 mb-3">Using your assets</p>
               <div className="text-xl sm:text-2xl font-bold text-black dark:text-white">$125</div>
             </div>
@@ -128,7 +128,7 @@ export default function LandingPage() {
                   <Check className="h-2 w-2 sm:h-3 sm:w-3 text-white" />
                 </div>
               </div>
-              <h3 className="text-base sm:text-lg font-semibold mb-2 text-black dark:text-white">PhotographyAd</h3>
+              <h3 className="text-base sm:text-lg font-semibold mb-2 text-black dark:text-white">Custom Vertical Ad - Photography</h3>
               <p className="text-xs sm:text-sm text-black dark:text-white/80 mb-3">Custom photo session</p>
               <div className="text-xl sm:text-2xl font-bold text-black dark:text-white">$199</div>
             </div>
@@ -141,7 +141,7 @@ export default function LandingPage() {
                   <Check className="h-2 w-2 sm:h-3 sm:w-3 text-white" />
                 </div>
               </div>
-              <h3 className="text-base sm:text-lg font-semibold mb-2 text-black dark:text-white">VideographyAd</h3>
+              <h3 className="text-base sm:text-lg font-semibold mb-2 text-black dark:text-white">Custom Vertical Ad - Videography</h3>
               <p className="text-xs sm:text-sm text-black dark:text-white/80 mb-3">Professional video</p>
               <div className="text-xl sm:text-2xl font-bold text-black dark:text-white">$399</div>
             </div>

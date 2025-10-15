@@ -388,26 +388,6 @@ export default function Analytics() {
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Impressions</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {metrics?.totalImpressions.toLocaleString() || 0}
-              </p>
-              <div className="flex items-center mt-1">
-                <TrendingUp className="h-4 w-4 text-green-500" />
-                <span className="text-sm text-green-600 dark:text-green-400 ml-1">
-                  +{metrics?.impressionsGrowth || 0}%
-                </span>
-              </div>
-            </div>
-            <div className="p-3 bg-green-100 dark:bg-green-900 rounded-lg">
-              <Eye className="h-6 w-6 text-green-600 dark:text-green-400" />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Active Users</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 {metrics?.totalUsers.toLocaleString() || 0}
