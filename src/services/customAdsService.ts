@@ -259,25 +259,25 @@ export class CustomAdsService {
 
   static async createOrder(input: CustomAdOrderInput): Promise<string> {
     try {
-      // Validate input files
-      if (!input.files || !Array.isArray(input.files) || input.files.length === 0) {
-        throw new Error('No files provided for upload');
-      }
+      let uploaded: UploadedFileSummary[] = [];
 
-      // Validate that all files are proper File objects
-      for (let i = 0; i < input.files.length; i++) {
-        const file = input.files[i];
-        if (!file || !(file instanceof File)) {
-          throw new Error(`Invalid file at index ${i}: not a proper File object`);
+      // Handle files if provided
+      if (input.files && Array.isArray(input.files) && input.files.length > 0) {
+        // Validate that all files are proper File objects
+        for (let i = 0; i < input.files.length; i++) {
+          const file = input.files[i];
+          if (!file || !(file instanceof File)) {
+            throw new Error(`Invalid file at index ${i}: not a proper File object`);
+          }
         }
-      }
 
-      // Upload files with validation
-      const uploaded = await this.uploadFiles(input.userId, input.files);
-      
-      // Validate that all files were uploaded successfully
-      if (uploaded.length !== input.files.length) {
-        throw new Error(`Only ${uploaded.length} out of ${input.files.length} files were uploaded successfully`);
+        // Upload files with validation
+        uploaded = await this.uploadFiles(input.userId, input.files);
+        
+        // Validate that all files were uploaded successfully
+        if (uploaded.length !== input.files.length) {
+          throw new Error(`Only ${uploaded.length} out of ${input.files.length} files were uploaded successfully`);
+        }
       }
 
       const payload: Inserts<'custom_ad_orders'> = {
