@@ -43,8 +43,6 @@ export default function HostNewCampaignPage() {
 
       {/* Vertical Ad Options Section */}
       <div className="mb-6 sm:mb-8 md:mb-12 px-2 sm:px-4">
-        <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4 text-center lg:text-left">Create Vertical Ad</h2>
-        <p className="text-gray-600 dark:text-gray-300 mb-6 sm:mb-8 text-sm sm:text-base text-center lg:text-left">Choose how you'd like to create your vertical ad campaign.</p>
         
         <div className="text-center mb-6 sm:mb-8 md:mb-12">
           <h3 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4 leading-tight">How would you like to proceed?</h3>

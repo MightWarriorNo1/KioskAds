@@ -16,6 +16,7 @@ import {
   User
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import NotificationToast from '../NotificationToast';
 import Logo from '../shared/Logo';
 import ThemeToggle from '../shared/ThemeToggle';
 
@@ -62,6 +63,7 @@ export default function HostLayout({ children }: HostLayoutProps) {
 
   return (
     <div className="min-h-screen bg-[rgb(var(--bg))] dark:bg-gradient-to-br dark:from-slate-900 dark:via-blue-900 dark:to-slate-800">
+      <NotificationToast />
       
       {/* Top Header */}
       <header className="bg-white dark:bg-slate-800 shadow-sm border-b border-gray-200 sticky top-0 z-50">
@@ -156,7 +158,7 @@ export default function HostLayout({ children }: HostLayoutProps) {
         </div>
 
       {/* Main Content */}
-      <div className="lg:ml-64">
+      <div className="lg:ml-64 lg:pt-16">
         <main className="p-6">
           <div className="max-w-7xl mx-auto">
             {children}

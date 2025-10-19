@@ -22,6 +22,7 @@ import {
   FileText,
   Building2,
   Upload,
+  Clock,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import NotificationToast from '../NotificationToast';
@@ -45,6 +46,9 @@ const navigation = [
   { name: 'Marketing Tools', href: '/admin/marketing', icon: Megaphone },
   { name: 'Integrations', href: '/admin/integrations', icon: Plug },
   { name: 'Asset Lifecycle', href: '/admin/assets', icon: Archive },
+  // { name: 'Asset Scheduler', href: '/admin/asset-scheduler', icon: Clock },
+  // { name: 'Campaign & Asset Schedulers', href: '/admin/campaign-asset-schedulers', icon: Clock },
+  // { name: 'Asset Archive Tester', href: '/admin/asset-archive-tester', icon: Archive },
   { name: 'Revenue Analytics', href: '/admin/revenue', icon: DollarSign },
   // { name: 'Phone Preview Demo', href: '/admin/phone-preview-demo', icon: Smartphone },
   { name: 'System Settings', href: '/admin/settings', icon: SettingsIcon },
@@ -65,7 +69,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       <NotificationToast />
       
 
-      <header className="bg-white dark:bg-slate-800 border-b border-gray-200 sticky top-0 z-40">
+      <header className="bg-white dark:bg-slate-800 shadow-sm border-b border-gray-200 sticky top-0 z-50">
           <div className="flex items-center justify-between h-16 px-6">
             <div className="flex items-center space-x-4">
               <button
@@ -132,7 +136,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           </div>
         </header>
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 pt-16 shadow-xl transform transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+      <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed top-16 bottom-0 left-0 z-40 w-64 bg-white dark:bg-slate-800 shadow-xl border-r border-gray-200 dark:border-slate-700 transform transition-transform duration-300 ease-in-out`}>
         <div className="flex flex-col h-full">
 
           {/* Navigation */}
@@ -165,7 +169,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       </div>
 
       {/* Main Content */}
-      <div className="lg:ml-64">
+      <div className="lg:ml-64 lg:pt-16">
         {/* Header */}
         
 

@@ -250,6 +250,7 @@ export default function CampaignDetailsPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'bg-green-500';
+      case 'approved': return 'bg-blue-500';
       case 'pending': return 'bg-yellow-500';
       case 'paused': return 'bg-gray-500';
       case 'completed': return 'bg-blue-500';

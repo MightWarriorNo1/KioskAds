@@ -180,7 +180,7 @@ export interface AdminCampaignItem {
   user_id: string;
   name: string;
   description?: string;
-  status: 'draft' | 'pending' | 'active' | 'paused' | 'completed' | 'rejected';
+  status: 'draft' | 'pending' | 'approved' | 'active' | 'paused' | 'completed' | 'rejected';
   start_date: string;
   end_date: string;
   budget: number;
@@ -2224,7 +2224,19 @@ export class AdminService {
   static async updateSystemSetting(key: string, value: any): Promise<void> {
     try {
       // For string values, store as JSON-encoded strings to maintain consistency with migration format
-      const processedValue = typeof value === 'string' ? JSON.stringify(value) : value;
+      // Exception: Don't double-encode time values (they should be stored as plain strings)
+      let processedValue;
+      if (typeof value === 'string') {
+        if (key === 'daily_pending_review_email_time' && /^\d{2}:\d{2}$/.test(value)) {
+          // Time format (HH:MM) - store as plain string without JSON.stringify
+          processedValue = value;
+        } else {
+          // Other string values - JSON encode to maintain consistency
+          processedValue = JSON.stringify(value);
+        }
+      } else {
+        processedValue = value;
+      }
       
       const { data, error } = await supabase
         .from('system_settings')
@@ -2697,7 +2709,16 @@ Ad Management System`,
         media_type: hostAd.media_type,
         duration: hostAd.duration.toString(),
         description: hostAd.description || 'No description provided',
-        submitted_at: new Date(hostAd.created_at).toLocaleString()
+        submitted_at: new Date(hostAd.created_at).toLocaleString('en-US', { 
+          timeZone: 'America/Los_Angeles',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true
+        })
       };
 
       // Replace template variables
@@ -3859,7 +3880,7 @@ Ad Management System`,
   // Admin Campaign Modification Methods
 
   // Update campaign status (Draft, Pending, Active, Paused, Completed, Rejected)
-  static async updateCampaignStatus(campaignId: string, status: 'draft' | 'pending' | 'active' | 'paused' | 'completed' | 'rejected', rejectionReason?: string): Promise<void> {
+  static async updateCampaignStatus(campaignId: string, status: 'draft' | 'pending' | 'approved' | 'active' | 'paused' | 'completed' | 'rejected', rejectionReason?: string): Promise<void> {
     try {
       // Get campaign data before updating
       const { data: campaignData, error: fetchError } = await supabase
@@ -3908,7 +3929,7 @@ Ad Management System`,
   // Send email notification for campaign status change
   private static async sendCampaignStatusEmail(
     campaignData: any, 
-    status: 'draft' | 'pending' | 'active' | 'paused' | 'completed' | 'rejected',
+    status: 'draft' | 'pending' | 'approved' | 'active' | 'paused' | 'completed' | 'rejected',
     rejectionReason?: string
   ): Promise<void> {
     try {
@@ -4568,6 +4589,159 @@ Ad Management System`,
       console.log(`Daily pending review email queued for ${recipients.length} recipients`);
     } catch (error) {
       console.error('Error sending daily pending review email:', error);
+    }
+  }
+
+  // Daily Pending Review Email Cron Job Management
+  static async getDailyPendingReviewEmailSchedulerInfo(): Promise<{
+    scheduler_enabled: boolean;
+    scheduler_time: string;
+    scheduler_timezone: string;
+    cron_job_active: boolean;
+    last_run_time: string | null;
+    next_run_time: string | null;
+  }> {
+    try {
+      const { data, error } = await supabase.rpc('get_daily_pending_review_email_scheduler_info');
+      if (error) throw error;
+      return data[0] || {
+        scheduler_enabled: false,
+        scheduler_time: '09:00',
+        scheduler_timezone: 'America/Los_Angeles',
+        cron_job_active: false,
+        last_run_time: null,
+        next_run_time: null
+      };
+    } catch (error) {
+      console.error('Error getting daily pending review email scheduler info:', error);
+      throw error;
+    }
+  }
+
+  static async triggerDailyPendingReviewEmailScheduler(): Promise<string> {
+    try {
+      // Call the edge function directly with manual trigger flag
+      const { data, error } = await supabase.functions.invoke('daily-email-scheduler', {
+        body: { manual: true, trigger: true }
+      });
+      
+      if (error) throw error;
+      
+      // Also call the database function to ensure consistency
+      const { data: dbResult, error: dbError } = await supabase.rpc('trigger_daily_pending_review_email_scheduler');
+      if (dbError) {
+        console.warn('Database function call failed:', dbError);
+      }
+      
+      // Process the email queue to actually send emails
+      try {
+        await supabase.functions.invoke('email-queue-processor');
+        console.log('Email queue processed successfully');
+      } catch (queueError) {
+        console.error('Error processing email queue:', queueError);
+        // Don't throw error here as the main function succeeded
+      }
+      
+      return data?.message || 'Daily pending review email scheduler triggered and emails sent successfully';
+    } catch (error) {
+      console.error('Error triggering daily pending review email scheduler:', error);
+      throw error;
+    }
+  }
+
+  static async stopDailyPendingReviewEmailScheduler(): Promise<string> {
+    try {
+      const { data, error } = await supabase.rpc('stop_daily_pending_review_email_scheduler');
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error stopping daily pending review email scheduler:', error);
+      throw error;
+    }
+  }
+
+  static async restartDailyPendingReviewEmailScheduler(): Promise<string> {
+    try {
+      const { data, error } = await supabase.rpc('restart_daily_pending_review_email_scheduler');
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error restarting daily pending review email scheduler:', error);
+      throw error;
+    }
+  }
+
+  static async updateDailyPendingReviewEmailSchedulerTime(newTime: string): Promise<string> {
+    try {
+      const { data, error } = await supabase.rpc('update_daily_pending_review_email_scheduler_time', {
+        new_time: newTime
+      });
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error updating daily pending review email scheduler time:', error);
+      throw error;
+    }
+  }
+
+  static async checkDailyPendingReviewEmailSchedulerStatus(): Promise<{
+    jobid: number;
+    schedule: string;
+    command: string;
+    nodename: string;
+    nodeport: number;
+    database: string;
+    username: string;
+    active: boolean;
+  }[]> {
+    try {
+      const { data, error } = await supabase.rpc('check_daily_pending_review_email_scheduler_status');
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error checking daily pending review email scheduler status:', error);
+      throw error;
+    }
+  }
+
+  // Fix automated email scheduler (comprehensive fix)
+  static async fixDailyEmailAutomation(): Promise<string> {
+    try {
+      const { data, error } = await supabase.rpc('fix_daily_email_automation');
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error fixing daily email automation:', error);
+      throw error;
+    }
+  }
+
+  // Get comprehensive status of email automation
+  static async getDailyEmailAutomationStatus(): Promise<{
+    component: string;
+    status: string;
+    details: string;
+    last_run: string;
+  }[]> {
+    try {
+      const { data, error } = await supabase.rpc('check_daily_email_status');
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error getting daily email automation status:', error);
+      throw error;
+    }
+  }
+
+  // Fix time conversion issue
+  static async fixTimeConversion(): Promise<string> {
+    try {
+      const { data, error } = await supabase.rpc('fix_daily_email_automation');
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error fixing time conversion:', error);
+      throw error;
     }
   }
 
@@ -5695,4 +5869,50 @@ Ad Management System`,
     return result;
   }
 
+  // Automated Daily Email Scheduler Management
+  static async setupDailyEmailAutomation(): Promise<string> {
+    try {
+      const { data, error } = await supabase.rpc('setup_daily_pending_review_email_automation');
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error setting up daily email automation:', error);
+      throw error;
+    }
+  }
+
+  static async ensureDailyEmailAutomation(): Promise<string> {
+    try {
+      const { data, error } = await supabase.rpc('ensure_daily_email_automation');
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error ensuring daily email automation:', error);
+      throw error;
+    }
+  }
+
+  static async getDailyEmailAutomationStatus(): Promise<Array<{component: string, status: string, details: string}>> {
+    try {
+      const { data, error } = await supabase.rpc('get_daily_email_automation_status');
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error getting daily email automation status:', error);
+      return [];
+    }
+  }
+
+  static async initializeDailyEmailCron(): Promise<string> {
+    try {
+      const { data, error } = await supabase.rpc('ensure_daily_email_cron_on_startup');
+      if (error) throw error;
+      return 'Daily email cron job initialized successfully';
+    } catch (error) {
+      console.error('Error initializing daily email cron:', error);
+      throw error;
+    }
+  }
+
 }
+

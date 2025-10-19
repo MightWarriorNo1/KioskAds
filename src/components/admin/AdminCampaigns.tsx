@@ -286,8 +286,8 @@ export default function AdminCampaigns() {
     });
   };
 
-  const now = new Date();
   const categorized = useMemo(() => {
+    const now = new Date();
     const matchesQuery = (c: AdminCampaignItem) => {
       const q = query.trim().toLowerCase();
       if (!q) return true;
@@ -300,12 +300,30 @@ export default function AdminCampaigns() {
       );
     };
 
-    const active = campaigns.filter(c => matchesQuery(c) && new Date(c.start_date) <= now && new Date(c.end_date) >= now && c.status === 'active');
-    const upcoming = campaigns.filter(c => matchesQuery(c) && new Date(c.start_date) > now);
-    const expired = campaigns.filter(c => matchesQuery(c) && new Date(c.end_date) < now);
+    // First, get all campaigns that match the search query
+    const matchingCampaigns = campaigns.filter(matchesQuery);
+    
+    // Categorize campaigns based on status only
+    const active = matchingCampaigns.filter(c => {
+      // Active section: only campaigns with 'active' status
+      return c.status === 'active';
+    });
+    
+    const expired = matchingCampaigns.filter(c => {
+      // Expired section: only campaigns with 'completed' or 'paused' status
+      return ['completed', 'paused'].includes(c.status);
+    });
+    
+    const upcoming = matchingCampaigns.filter(c => {
+      // Upcoming section: campaigns with 'approved', 'pending', or 'draft' status
+      return ['approved', 'pending', 'draft'].includes(c.status);
+    });
+    
+    
+    
     
     return { active, upcoming, expired };
-  }, [campaigns, query, now]);
+  }, [campaigns, query]);
 
   const filteredCampaigns = useMemo(() => {
     const allCampaigns = campaigns.filter(c => {
@@ -332,6 +350,27 @@ export default function AdminCampaigns() {
         return allCampaigns;
     }
   }, [campaigns, query, statusFilter, categorized]);
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active':
+        return 'bg-green-100 text-green-800';
+      case 'approved':
+        return 'bg-blue-100 text-blue-800';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'draft':
+        return 'bg-gray-100 text-gray-800';
+      case 'paused':
+        return 'bg-orange-100 text-orange-800';
+      case 'completed':
+        return 'bg-purple-100 text-purple-800';
+      case 'rejected':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
 
   const Stat = ({ label, value, icon: Icon, color, iconColor }: { label: string; value: number | string; icon: any; color: string; iconColor?: string }) => (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 p-6">
@@ -465,7 +504,7 @@ export default function AdminCampaigns() {
                   {/* Header Section */}
                   <div className="flex items-center gap-2 flex-wrap">
                     <h4 className="text-lg font-semibold text-gray-900 dark:text-white truncate max-w-full">{c.name}</h4>
-                    <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 capitalize flex-shrink-0">{c.status}</span>
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(c.status)} capitalize flex-shrink-0`}>{c.status}</span>
                   </div>
                   
                   <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">{c.description || '—'}</p>
@@ -561,6 +600,7 @@ export default function AdminCampaigns() {
                       >
                         <option value="draft">Draft</option>
                         <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
                         <option value="active">Active</option>
                         <option value="paused">Paused</option>
                         <option value="completed">Completed</option>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Mail, Bell, AlertCircle, Settings, Clock, Users, Send, Plus, X, CheckCircle } from 'lucide-react';
-import { AdminService } from '../../services/adminService';
+import { Mail, Bell, AlertCircle, Settings, Clock, Users, Plus, X, CheckCircle} from 'lucide-react';
+import { AdminService, SystemSetting } from '../../services/adminService';
 import { useNotification } from '../../contexts/NotificationContext';
 
 interface NotificationConfig {
@@ -15,6 +15,15 @@ interface DailyEmailSettings {
   enabled: boolean;
   time: string;
   recipients: string[];
+}
+
+interface SchedulerInfo {
+  scheduler_enabled: boolean;
+  scheduler_time: string;
+  scheduler_timezone: string;
+  cron_job_active: boolean;
+  last_run_time: string | null;
+  next_run_time: string | null;
 }
 
 interface EmailConfigSettings {
@@ -86,16 +95,20 @@ export default function NotificationSettings({ onSave, onHasChanges }: Notificat
   });
   const [newRecipient, setNewRecipient] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [isSendingTest, setIsSendingTest] = useState(false);
+  const [schedulerInfo, setSchedulerInfo] = useState<SchedulerInfo | null>(null);
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     try {
       setIsLoading(true);
-      const settings = await AdminService.getSystemSettings();
+      
+      // Load system settings with timeout
+      const settingsPromise = AdminService.getSystemSettings();
+      const settings = await Promise.race([
+        settingsPromise,
+        new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Settings request timeout')), 10000)
+        )
+      ]) as SystemSetting[];
       
       // Load daily email settings
       const enabledSetting = settings.find(s => s.key === 'daily_pending_review_email_enabled');
@@ -104,7 +117,7 @@ export default function NotificationSettings({ onSave, onHasChanges }: Notificat
 
       setDailyEmailSettings({
         enabled: enabledSetting?.value === 'true' || enabledSetting?.value === true,
-        time: timeSetting?.value || '09:00',
+        time: timeSetting?.value ? timeSetting.value.replace(/"/g, '') : '09:00',
         recipients: Array.isArray(recipientsSetting?.value) 
           ? recipientsSetting.value 
           : (recipientsSetting?.value ? JSON.parse(recipientsSetting.value) : [])
@@ -118,13 +131,50 @@ export default function NotificationSettings({ onSave, onHasChanges }: Notificat
         fromEmail: fromEmailSetting?.value || 'noreply@yourcompany.com',
         replyToEmail: replyToEmailSetting?.value || 'support@yourcompany.com'
       });
+
+      // Load scheduler info with timeout and better error handling
+      try {
+        const schedulerPromise = AdminService.getDailyPendingReviewEmailSchedulerInfo();
+        const schedulerData = await Promise.race([
+          schedulerPromise,
+          new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error('Scheduler info request timeout')), 5000)
+          )
+        ]) as SchedulerInfo;
+        setSchedulerInfo(schedulerData);
+      } catch (error) {
+        console.error('Error loading scheduler info:', error);
+        // Set default scheduler info if loading fails
+        setSchedulerInfo({
+          scheduler_enabled: false,
+          scheduler_time: '09:00',
+          scheduler_timezone: 'America/Los_Angeles',
+          cron_job_active: false,
+          last_run_time: null,
+          next_run_time: null
+        });
+      }
+
     } catch (error) {
       console.error('Error loading settings:', error);
       addNotification('error', 'Error', 'Failed to load notification settings');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [addNotification]);
+
+  useEffect(() => {
+    loadSettings();
+    
+    // Fallback to ensure loading is always set to false after a maximum time
+    const fallbackTimeout = setTimeout(() => {
+      setIsLoading(false);
+    }, 15000); // 15 seconds maximum loading time
+    
+    return () => {
+      clearTimeout(fallbackTimeout);
+    };
+  }, [loadSettings]);
 
   const handleToggle = (id: string) => {
     setConfigs(prev => 
@@ -139,7 +189,6 @@ export default function NotificationSettings({ onSave, onHasChanges }: Notificat
 
   const handleSave = useCallback(async () => {
     try {
-      
       // Save daily email settings
       await Promise.all([
         AdminService.updateSystemSetting('daily_pending_review_email_enabled', dailyEmailSettings.enabled),
@@ -150,13 +199,17 @@ export default function NotificationSettings({ onSave, onHasChanges }: Notificat
       ]);
 
       addNotification('success', 'Success', 'Notification settings saved successfully');
-      onHasChanges?.(false);
+
+      // Note: Scheduler time updates are now handled automatically by the database trigger
+      // when the daily_pending_review_email_time setting is updated
+      // No manual scheduler time updates needed
     } catch (error) {
       console.error('Failed to save notification settings:', error);
       addNotification('error', 'Error', 'Failed to save notification settings');
-    } finally {
+      // Re-throw the error so the parent component knows the save failed
+      throw error;
     }
-  }, [dailyEmailSettings, emailConfigSettings]);
+  }, [dailyEmailSettings, emailConfigSettings, addNotification]);
 
   // Expose save function to parent
   useEffect(() => {
@@ -195,28 +248,7 @@ export default function NotificationSettings({ onSave, onHasChanges }: Notificat
     onHasChanges?.(true);
   };
 
-  const handleFromEmailChange = (email: string) => {
-    setEmailConfigSettings(prev => ({ ...prev, fromEmail: email }));
-    onHasChanges?.(true);
-  };
 
-  const handleReplyToEmailChange = (email: string) => {
-    setEmailConfigSettings(prev => ({ ...prev, replyToEmail: email }));
-    onHasChanges?.(true);
-  };
-
-  const sendTestEmail = async () => {
-    try {
-      setIsSendingTest(true);
-      await AdminService.sendDailyPendingReviewEmail();
-      addNotification('success', 'Success', 'Test email sent successfully');
-    } catch (error) {
-      console.error('Error sending test email:', error);
-      addNotification('error', 'Error', 'Failed to send test email');
-    } finally {
-      setIsSendingTest(false);
-    }
-  };
 
   const getTypeIcon = (type: string) => {
     switch (type) {
@@ -307,7 +339,7 @@ export default function NotificationSettings({ onSave, onHasChanges }: Notificat
               <div className="flex items-center space-x-4">
                 <input
                   type="time"
-                  value={dailyEmailSettings.time}
+                  value={dailyEmailSettings.time.replace(/"/g, '')}
                   onChange={(e) => handleTimeChange(e.target.value)}
                   className="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 />
@@ -315,6 +347,11 @@ export default function NotificationSettings({ onSave, onHasChanges }: Notificat
                   (24-hour format)
                 </span>
               </div>
+              {schedulerInfo?.cron_job_active && (
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                  ⚠️ Time changes will take effect after saving settings and restarting the scheduler
+                </p>
+              )}
             </div>
 
             {/* Recipients Management */}
@@ -370,26 +407,6 @@ export default function NotificationSettings({ onSave, onHasChanges }: Notificat
                   ))
                 )}
               </div>
-            </div>
-
-            {/* Test Email Button */}
-            <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
-              <div>
-                <h5 className="text-sm font-medium text-gray-900 dark:text-white">
-                  Test Configuration
-                </h5>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Send a test email to verify your settings
-                </p>
-              </div>
-              <button
-                onClick={sendTestEmail}
-                disabled={isSendingTest || dailyEmailSettings.recipients.length === 0}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-              >
-                <Send className="h-4 w-4" />
-                <span>{isSendingTest ? 'Sending...' : 'Send Test Email'}</span>
-              </button>
             </div>
           </div>
         )}

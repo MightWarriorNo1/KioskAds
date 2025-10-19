@@ -160,6 +160,8 @@ export default function CampaignsPage({ wrapInDashboard = true, basePath = '/cli
     switch (status) {
       case 'active':
         return 'bg-green-600';
+      case 'approved':
+        return 'bg-blue-600';
       case 'pending':
         return 'bg-yellow-600';
       case 'completed':

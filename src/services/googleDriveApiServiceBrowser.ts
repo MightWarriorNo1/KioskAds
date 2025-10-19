@@ -190,14 +190,41 @@ export class GoogleDriveApiServiceBrowser {
         const delimiter = `\r\n--${boundary}\r\n`;
         const close_delim = `\r\n--${boundary}--`;
 
-        const body = 
-          delimiter +
+        // Create multipart body with proper binary handling
+        const metadataPart = delimiter +
           'Content-Type: application/json\r\n\r\n' +
-          JSON.stringify(metadata) +
-          delimiter +
-          `Content-Type: ${mimeType}\r\n\r\n` +
-          new TextDecoder().decode(fileBuffer) +
-          close_delim;
+          JSON.stringify(metadata);
+        
+        const filePart = delimiter +
+          `Content-Type: ${mimeType}\r\n\r\n`;
+        
+        // Convert ArrayBuffer to Uint8Array for proper binary handling
+        const fileBytes = new Uint8Array(fileBuffer);
+        
+        // Create the complete body by combining parts
+        const body = new Uint8Array(
+          metadataPart.length + 
+          filePart.length + 
+          fileBytes.length + 
+          close_delim.length
+        );
+        
+        let offset = 0;
+        
+        // Add metadata part
+        body.set(new TextEncoder().encode(metadataPart), offset);
+        offset += metadataPart.length;
+        
+        // Add file part header
+        body.set(new TextEncoder().encode(filePart), offset);
+        offset += filePart.length;
+        
+        // Add binary file content
+        body.set(fileBytes, offset);
+        offset += fileBytes.length;
+        
+        // Add closing delimiter
+        body.set(new TextEncoder().encode(close_delim), offset);
 
         const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
           method: 'POST',

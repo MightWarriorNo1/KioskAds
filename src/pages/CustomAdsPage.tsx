@@ -148,6 +148,7 @@ export default function CustomAdsPage() {
             firstName: nameParts[0] || prev.firstName,
             lastName: nameParts.slice(1).join(' ') || prev.lastName,
             email: user.email || prev.email,
+            address: profile?.address || prev.address,
           }));
         } catch (error) {
           console.error('Error loading user profile:', error);
@@ -874,6 +875,18 @@ export default function CustomAdsPage() {
                   />
                 </div>
 
+                <div className="grid grid-cols-1 gap-4">
+                  <Input
+                    label="Address"
+                    value={formData.address}
+                    onChange={(e) => handleInputChange('address', e.target.value)}
+                    error={formErrors.address}
+                    required
+                    disabled
+                    className="bg-gray-100 dark:bg-gray-700"
+                  />
+                </div>
+
                 <div className="relative">
                   
                   
@@ -905,24 +918,8 @@ export default function CustomAdsPage() {
                   )}
                 </div>
 
-                {/* Custom Video Inclusion Checkbox for Photography Service */}
-                {selectedService?.id === 'photography' && (
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="checkbox"
-                      id="includeCustomVideo"
-                      checked={formData.includeCustomVideo}
-                      onChange={(e) => handleInputChange('includeCustomVideo', e.target.checked)}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="includeCustomVideo" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Include custom video on host side
-                    </label>
-                  </div>
-                )}
-
-                {/* Date and Time Selection for Photography with Custom Video or Videography */}
-                {((selectedService?.id === 'photography' && formData.includeCustomVideo) || selectedService?.id === 'videography') && (
+                {/* Date and Time Selection for Photography or Videography */}
+                {(selectedService?.id === 'photography' || selectedService?.id === 'videography') && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

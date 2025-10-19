@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Settings, Mail, CreditCard, Cloud, Key, Globe, Save, DollarSign, Database, Tag, TrendingUp, Upload, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Users } from 'lucide-react';
 import { AdminService } from '../../services/adminService';
+import { useNotification } from '../../contexts/NotificationContext';
 import S3Configuration from './S3Configuration';
 import TrackingTagsManagement from './TrackingTagsManagement';
 import VolumeDiscountManagement from './VolumeDiscountManagement';
@@ -14,6 +15,7 @@ import AdUploadLimits from './AdUploadLimits';
 import PartnerSettings from './PartnerSettings';
 
 export default function SystemSettings() {
+  const { addNotification } = useNotification();
   const [activeTab, setActiveTab] = useState('integrations');
   const [discountPercent, setDiscountPercent] = useState<number>(10);
   const [isSaving, setIsSaving] = useState(false);
@@ -36,7 +38,9 @@ export default function SystemSettings() {
           const v = item.value;
           setDiscountPercent(typeof v === 'number' ? v : (v?.percent ?? 10));
         }
-      } catch {}
+      } catch (error) {
+        console.error('Error loading discount percent:', error);
+      }
     };
     load();
   }, []);
@@ -115,6 +119,8 @@ export default function SystemSettings() {
   const handleSave = async () => {
     try {
       setIsSaving(true);
+      // Hide the save button immediately when clicked
+      setHasChanges(false);
       
       // Save discount percent setting
       await AdminService.updateSystemSetting('additional_kiosk_discount_percent', discountPercent);
@@ -124,7 +130,13 @@ export default function SystemSettings() {
         await notificationSaveFunction();
       }
       
-      setHasChanges(false);
+      addNotification('success', 'Success', 'Settings saved successfully');
+      
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      addNotification('error', 'Error', 'Failed to save settings. Please try again.');
+      // Show the save button again on error so user can retry
+      setHasChanges(true);
     } finally {
       setIsSaving(false);
     }
@@ -298,7 +310,11 @@ export default function SystemSettings() {
                       min={0}
                       max={100}
                       value={discountPercent}
-                      onChange={(e) => setDiscountPercent(Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)))}
+                      onChange={(e) => {
+                        const newValue = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
+                        setDiscountPercent(newValue);
+                        setHasChanges(true);
+                      }}
                       className="w-full sm:w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm"
                     />
                     <p className="text-xs text-gray-500 dark:text-gray-400">Applied to each kiosk beyond the first.</p>

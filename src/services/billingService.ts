@@ -92,29 +92,9 @@ export class BillingService {
   }
   static async getActiveCampaigns(userId: string): Promise<BillingCampaign[]> {
     try {
-      // First, check and update campaign statuses based on current date
-      const { data: allCampaigns, error: fetchError } = await supabase
-        .from('campaigns')
-        .select('*')
-        .eq('user_id', userId)
-        .in('status', ['pending', 'active'])
-        .order('created_at', { ascending: false });
-
-      if (fetchError) throw fetchError;
-
-      // Check and update campaign statuses
-      for (const campaign of allCampaigns || []) {
-        // Check if campaign should be activated (start date reached)
-        if ((campaign.status === 'pending' || campaign.status === 'approved') && new Date(campaign.start_date) <= getCurrentCaliforniaTime()) {
-          await this.updateCampaignStatus(campaign.id, 'active');
-        }
-        // Check if campaign should be completed (end date passed)
-        else if (campaign.status === 'active' && new Date(campaign.end_date) < getCurrentCaliforniaTime()) {
-          await this.updateCampaignStatus(campaign.id, 'completed');
-        }
-      }
-
-      // Now fetch only active campaigns
+      // Campaign status updates are handled by the scheduled edge function
+      // No immediate status checks here to prevent premature activations
+      
       const { data, error } = await supabase
         .from('campaigns')
         .select('*')
@@ -133,29 +113,9 @@ export class BillingService {
 
   static async getAllCampaigns(userId: string): Promise<BillingCampaign[]> {
     try {
-      // First, check and update campaign statuses based on current date
-      const { data: allCampaigns, error: fetchError } = await supabase
-        .from('campaigns')
-        .select('*')
-        .eq('user_id', userId)
-        .in('status', ['pending', 'active'])
-        .order('created_at', { ascending: false });
-
-      if (fetchError) throw fetchError;
-
-      // Check and update campaign statuses
-      for (const campaign of allCampaigns || []) {
-        // Check if campaign should be activated (start date reached)
-        if ((campaign.status === 'pending' || campaign.status === 'approved') && new Date(campaign.start_date) <= getCurrentCaliforniaTime()) {
-          await this.updateCampaignStatus(campaign.id, 'active');
-        }
-        // Check if campaign should be completed (end date passed)
-        else if (campaign.status === 'active' && new Date(campaign.end_date) < getCurrentCaliforniaTime()) {
-          await this.updateCampaignStatus(campaign.id, 'completed');
-        }
-      }
-
-      // Now fetch all campaigns with updated statuses
+      // Campaign status updates are handled by the scheduled edge function
+      // No immediate status checks here to prevent premature activations
+      
       const { data, error } = await supabase
         .from('campaigns')
         .select('*')
@@ -171,7 +131,7 @@ export class BillingService {
     }
   }
 
-  static async updateCampaignStatus(campaignId: string, status: 'draft' | 'pending' | 'active' | 'paused' | 'completed' | 'rejected'): Promise<boolean> {
+  static async updateCampaignStatus(campaignId: string, status: 'draft' | 'pending' | 'approved' | 'active' | 'paused' | 'completed' | 'rejected'): Promise<boolean> {
     try {
       const { error } = await supabase
         .from('campaigns')
@@ -237,6 +197,8 @@ export class BillingService {
         id: payment.id,
         user_id: payment.user_id,
         campaign_id: payment.campaign_id,
+        custom_ad_order_id: payment.custom_ad_order_id,
+        payment_type: payment.payment_type,
         amount: payment.amount,
         status: payment.status,
         description: payment.description || (payment.campaigns?.name ? `Campaign: ${payment.campaigns.name}` : 'Campaign Payment'),
@@ -486,13 +448,24 @@ export class BillingService {
 
       if (error) {
         console.error('Error fetching public recent sales:', error);
-        // Fallback to regular method if RPC fails
+        // Check if it's the PGRST116 error (no rows found)
+        if (error.code === 'PGRST116') {
+          console.log('No recent sales found, returning empty array');
+          return [];
+        }
+        // Fallback to regular method if RPC fails for other reasons
         console.log('Falling back to regular getRecentSales method');
         return this.getRecentSales(limit);
       }
 
+      // Handle case where data is null or empty
+      if (!data || data.length === 0) {
+        console.log('No recent sales data returned from RPC');
+        return [];
+      }
+
       // Transform the RPC response to match our interface
-      return data?.map((item: any) => {
+      return data.map((item: any) => {
         const baseSale = {
           id: item.id,
           user_id: item.user_id,
@@ -534,7 +507,7 @@ export class BillingService {
         }
 
         return baseSale;
-      }) || [];
+      });
     } catch (error) {
       console.error('Error fetching public recent sales:', error);
       // Fallback to regular method if RPC fails

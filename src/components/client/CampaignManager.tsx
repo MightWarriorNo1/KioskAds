@@ -83,6 +83,7 @@ export default function CampaignManager() {
   const getStatusColor = (status: Campaign['status']) => {
     switch (status) {
       case 'active': return 'bg-green-100 text-green-800';
+      case 'approved': return 'bg-blue-100 text-blue-800';
       case 'scheduled': return 'bg-blue-100 text-blue-800';
       case 'paused': return 'bg-yellow-100 text-yellow-800';
       case 'completed': return 'bg-gray-100 text-gray-800';
@@ -103,7 +104,7 @@ export default function CampaignManager() {
         user_id: user!.id,
         name: campaignData.name,
         description: campaignData.description || '',
-        status: 'draft' as const,
+        status: 'pending' as const,
         start_date: campaignData.startDate,
         end_date: campaignData.endDate,
         budget: campaignData.budget,
@@ -116,8 +117,8 @@ export default function CampaignManager() {
       const newCampaign = await CampaignService.createCampaign(newCampaignData);
       
       setCampaigns(prev => [newCampaign, ...prev]);
-      addNotification('success', 'Campaign Created', `Campaign "${campaignData.name}" has been created successfully`);
-      addNotification('info', 'Next Steps', 'Upload your ad creatives and assign them to this campaign to get started.');
+      addNotification('success', 'Campaign Created', `Campaign "${campaignData.name}" has been created successfully and is now pending approval.`);
+      addNotification('info', 'Next Steps', 'Your campaign will be reviewed by our team. You will be notified once it's approved.');
       
       setIsNewCampaignModalOpen(false);
     } catch (error) {
@@ -238,6 +239,7 @@ export default function CampaignManager() {
             <option value="all">All Campaigns</option>
             <option value="draft">Draft</option>
             <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
             <option value="active">Active</option>
             <option value="paused">Paused</option>
             <option value="completed">Completed</option>

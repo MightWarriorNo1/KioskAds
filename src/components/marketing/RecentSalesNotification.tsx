@@ -127,6 +127,12 @@ export default function RecentSalesNotification() {
       }
     } catch (error) {
       console.error('Error loading recent sales:', error);
+      // Check if it's a PGRST116 error (no rows found)
+      if (error instanceof Error && error.message.includes('PGRST116')) {
+        console.log('RecentSalesNotification: PGRST116 error - no recent sales found');
+        setDisplayedSales([]);
+        return;
+      }
       // Don't show notification if there's an error loading real data
       setDisplayedSales([]);
     } finally {
@@ -304,11 +310,8 @@ export default function RecentSalesNotification() {
                   {sale.customerName}{sale.address ? ` from ${sale.address}` : ''}
               </span>
             </div>
-            <div className="text-sm text-gray-600 mb-1">
-              just purchased
-            </div>
               <div className="text-sm font-medium text-gray-900 mb-1">
-                {sale.campaignName}
+                purchased {sale.campaignName}
             </div>
             <div className="text-xs text-gray-500">
                 {sale.timeAgo}

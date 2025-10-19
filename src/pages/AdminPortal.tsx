@@ -13,6 +13,8 @@ import CreativeOrdersManagement from '../components/admin/CreativeOrdersManageme
 import MarketingTools from '../components/admin/MarketingTools';
 import IntegrationManagement from '../components/admin/IntegrationManagement';
 import AssetLifecycleManagement from '../components/admin/AssetLifecycleManagement';
+import AssetFolderSchedulerManagement from '../components/admin/AssetFolderSchedulerManagement';
+import CampaignAndAssetSchedulerManagement from '../components/admin/CampaignAndAssetSchedulerManagement';
 import KioskGDriveFolderManager from '../components/admin/KioskGDriveFolderManager';
 import RevenueAnalytics from '../components/admin/RevenueAnalytics';
 import Analytics from '../components/admin/Analytics';
@@ -20,6 +22,7 @@ import CustomAdManagement from '../components/admin/CustomAdManagement';
 import PartnersManagement from '../components/admin/PartnersManagement';
 import PhonePreviewDemo from '../components/admin/PhonePreviewDemo';
 import AdminHostAdManagement from '../components/admin/AdminHostAdManagement';
+import AssetArchiveTester from '../components/admin/AssetArchiveTester';
 
 export default function AdminPortal() {
   return (
@@ -40,6 +43,9 @@ export default function AdminPortal() {
         <Route path="/marketing" element={<MarketingTools />} />
         <Route path="/integrations" element={<IntegrationManagement />} />
         <Route path="/assets" element={<AssetLifecycleManagement />} />
+        <Route path="/asset-scheduler" element={<AssetFolderSchedulerManagement />} />
+        <Route path="/campaign-asset-schedulers" element={<CampaignAndAssetSchedulerManagement />} />
+        <Route path="/asset-archive-tester" element={<AssetArchiveTester />} />
         <Route path="/kiosk-folders" element={<KioskGDriveFolderManager />} />
         <Route path="/revenue" element={<RevenueAnalytics />} />
         <Route path="/phone-preview-demo" element={<PhonePreviewDemo />} />

@@ -40,7 +40,16 @@ export class AdminNotificationService {
         user_role: data.user_role,
         campaign_name: data.campaign_name || 'Unknown Campaign',
         campaign_id: data.campaign_id || 'Unknown',
-        created_at: new Date(data.created_at).toLocaleString()
+        created_at: new Date(data.created_at).toLocaleString('en-US', { 
+          timeZone: 'America/Los_Angeles',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true
+        })
       };
 
       // Send to all admins
@@ -81,7 +90,16 @@ export class AdminNotificationService {
           order_id: data.order_id || 'Unknown',
           service_name: data.service_name || 'Unknown Service',
           total_amount: data.total_amount?.toFixed(2) || '0.00',
-          created_at: new Date(data.created_at).toLocaleString(),
+          created_at: new Date(data.created_at).toLocaleString('en-US', { 
+          timeZone: 'America/Los_Angeles',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true
+        }),
           admin_name: admin.full_name || 'Admin',
           recipient_name: admin.full_name || 'Admin'
         };

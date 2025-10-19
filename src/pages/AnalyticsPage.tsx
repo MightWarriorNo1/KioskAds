@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { AnalyticsService } from '../services/analyticsService';
 import { S3Service } from '../services/s3Service';
 import { AWSS3Service } from '../services/awsS3Service';
+import { MediaService } from '../services/mediaService';
 import { useNotification } from '../contexts/NotificationContext';
 
 interface CSVAnalyticsData {
@@ -63,8 +64,67 @@ export default function AnalyticsPage() {
   const [s3Loading, setS3Loading] = useState(false);
   const [s3Error, setS3Error] = useState<string | null>(null);
   const [s3ConfigLoaded, setS3ConfigLoaded] = useState(false);
+  
+  // User Media Assets States
+  const [userMediaAssets, setUserMediaAssets] = useState<Array<{
+    id: string;
+    file_name: string;
+    file_path: string;
+    file_type: 'image' | 'video';
+    user_id: string;
+  }>>([]);
+  const [mediaAssetsLoading, setMediaAssetsLoading] = useState(false);
 
   const dateRanges = ['1 Day', '7 Days', '30 Days', '90 Days'];
+
+  // Helper function to get Los Angeles time (UTC-7)
+  const getLosAngelesTime = () => {
+    const now = new Date();
+    // Convert to Los Angeles time (UTC-7)
+    const laTime = new Date(now.getTime() - (7 * 60 * 60 * 1000));
+    return laTime;
+  };
+
+  // Helper function to format date in Los Angeles time
+  const formatDateInLATime = (dateString: string) => {
+    const date = new Date(dateString);
+    // Convert to Los Angeles time (UTC-7)
+    const laDate = new Date(date.getTime() - (7 * 60 * 60 * 1000));
+    return laDate.toISOString().replace('T', ' ').replace('Z', ' LA Time');
+  };
+
+  // Fetch user's media assets for filtering
+  const fetchUserMediaAssets = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      setMediaAssetsLoading(true);
+      const mediaAssets = await MediaService.getUserMedia(user.id);
+      setUserMediaAssets(mediaAssets);
+      console.log('User media assets loaded:', mediaAssets.length);
+    } catch (error) {
+      console.error('Error fetching user media assets:', error);
+      addNotification('error', 'Media Assets Error', 'Failed to load user media assets');
+    } finally {
+      setMediaAssetsLoading(false);
+    }
+  }, [user, addNotification]);
+
+  // Helper function to check if an asset matches user's uploaded media assets
+  const isAssetFromUserMedia = (mediaId: string, assetName: string) => {
+    if (!userMediaAssets.length) return false;
+    
+    // Check if media_id matches any user media asset ID
+    const matchesById = userMediaAssets.some(asset => asset.id === mediaId);
+    
+    // Check if asset_name matches any user media asset file_name
+    const matchesByName = userMediaAssets.some(asset => 
+      asset.file_name && assetName && 
+      asset.file_name.toLowerCase() === assetName.toLowerCase()
+    );
+    
+    return matchesById || matchesByName;
+  };
 
   // Helper function to format numbers
   const formatNumber = (num: number | undefined): string => {
@@ -80,7 +140,7 @@ export default function AnalyticsPage() {
 
   // Calculate metrics for specific time periods
   const calculateTimePeriodMetrics = (data: CSVAnalyticsData[], days: number) => {
-    const now = new Date();
+    const now = getLosAngelesTime();
     const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
     
     const filteredData = data.filter(row => {
@@ -106,7 +166,7 @@ export default function AnalyticsPage() {
   const getFilteredCSVData = () => {
     if (!csvAnalyticsData.length) return [];
     
-    const now = new Date();
+    const now = getLosAngelesTime();
     const days = dateRange === '1 Day' ? 1 : dateRange === '7 Days' ? 7 : dateRange === '30 Days' ? 30 : 90;
     const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
     
@@ -130,7 +190,7 @@ export default function AnalyticsPage() {
   const getFilteredS3Data = () => {
     if (!s3AnalyticsData.length) return [];
     
-    const now = new Date();
+    const now = getLosAngelesTime();
     const days = dateRange === '1 Day' ? 1 : dateRange === '7 Days' ? 7 : dateRange === '30 Days' ? 30 : 90;
     const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
     
@@ -207,6 +267,11 @@ export default function AnalyticsPage() {
       const assetId = row.media_id;
       const assetName = String(row.asset_name || (assetId.includes('.') ? assetId : `${assetId}.mp4`));
       
+      // Only process assets that match user's uploaded media assets
+      if (!isAssetFromUserMedia(assetId, assetName)) {
+        return; // Skip this row if it doesn't match user's media assets
+      }
+      
       // Debug first few rows
       if (index < 3) {
         console.log(`Processing row ${index}:`, {
@@ -266,7 +331,7 @@ export default function AnalyticsPage() {
         ...asset,
         locations: Array.from(asset.locations),
         campaigns: Array.from(asset.campaigns),
-        display_date_range: `${asset.date_range.start} - ${asset.date_range.end}`
+        display_date_range: `${formatDateInLATime(asset.date_range.start)} - ${formatDateInLATime(asset.date_range.end)}`
       }))
       .sort((a, b) => b.total_plays - a.total_plays); // Sort by total plays descending
   };
@@ -285,7 +350,7 @@ export default function AnalyticsPage() {
       setCsvError(null);
 
       // Fetch ALL data (last 90 days to cover all possible ranges)
-      const now = new Date();
+      const now = getLosAngelesTime();
       const startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
       
       // Fetch CSV analytics data and summary
@@ -528,6 +593,7 @@ export default function AnalyticsPage() {
   useEffect(() => {
     if (user) {
       fetchCSVAnalyticsData(true); // Initial CSV load
+      fetchUserMediaAssets(); // Load user media assets for filtering
       
       // Load S3 configuration and data only once
       if (!s3ConfigLoaded) {
@@ -551,7 +617,7 @@ export default function AnalyticsPage() {
         loadS3Data();
       }
     }
-  }, [user, fetchCSVAnalyticsData, loadS3Configuration, fetchS3CSVFiles, s3ConfigLoaded]);
+  }, [user, fetchCSVAnalyticsData, fetchUserMediaAssets, loadS3Configuration, fetchS3CSVFiles, s3ConfigLoaded]);
 
 
 
@@ -603,7 +669,7 @@ export default function AnalyticsPage() {
   };
 
 
-  if (csvLoading || s3Loading) {
+  if (csvLoading || s3Loading || mediaAssetsLoading) {
     return (
       <DashboardLayout
         title="Analytics"
@@ -613,7 +679,9 @@ export default function AnalyticsPage() {
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <p className="text-gray-600">
-              {csvLoading ? 'Loading analytics reports...' : 'Loading S3 CSV files...'}
+              {csvLoading ? 'Loading analytics reports...' : 
+               s3Loading ? 'Loading S3 CSV files...' : 
+               'Loading media assets...'}
             </p>
           </div>
         </div>
@@ -740,15 +808,16 @@ export default function AnalyticsPage() {
           <button
             onClick={async () => {
               fetchCSVAnalyticsData(false); // Don't show loading state for refresh
+              fetchUserMediaAssets(); // Refresh user media assets
               const config = await loadS3Configuration();
               if (config) {
                 await fetchS3CSVFiles(config);
               }
             }}
-            disabled={csvLoading || s3Loading}
+            disabled={csvLoading || s3Loading || mediaAssetsLoading}
             className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 text-xs sm:text-sm"
           >
-            <svg className={`w-3 h-3 sm:w-4 sm:h-4 ${(csvLoading || s3Loading) ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className={`w-3 h-3 sm:w-4 sm:h-4 ${(csvLoading || s3Loading || mediaAssetsLoading) ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
             <span className="hidden sm:inline">Refresh Data</span>
@@ -809,7 +878,6 @@ export default function AnalyticsPage() {
       {/* Asset Analytics Section */}
       {hasS3Data && (
         <div className="mb-12">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Asset Performance by Asset ID - {dateRange}</h2>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
             Shows total plays and duration for each unique Asset ID within the selected time period
           </p>
@@ -821,6 +889,9 @@ export default function AnalyticsPage() {
               return (
                 <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                   <p>No asset data found for the selected period ({dateRange})</p>
+                  <p className="text-sm mt-2">
+                    Only assets that match your uploaded campaign media are displayed.
+                  </p>
                 </div>
               );
             }
@@ -883,9 +954,6 @@ export default function AnalyticsPage() {
                       </div>
 
                       {/* Asset Info */}
-                      <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                        Asset ID: {asset.asset_id}
-                      </h3>
                       <p className="text-gray-600 dark:text-gray-300 text-sm mb-2">
                         Name: {asset.asset_name}
                       </p>

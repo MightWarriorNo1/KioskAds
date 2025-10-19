@@ -139,8 +139,8 @@ export class CampaignEmailService {
       client_name: c.user_name,
       campaign_name: c.campaign_name,
       budget: c.budget ? c.budget.toFixed(2) : '0.00',
-      start_date: c.start_date ? new Date(c.start_date).toLocaleDateString() : '',
-      end_date: c.end_date ? new Date(c.end_date).toLocaleDateString() : '',
+      start_date: c.start_date ? c.start_date : '',
+      end_date: c.end_date ? c.end_date : '',
       target_locations: c.target_locations || 'All Locations',
       rejection_reason: c.rejection_reason || 'N/A'
     };
@@ -150,24 +150,24 @@ export class CampaignEmailService {
       case 'submitted':
         // For purchased/submitted campaigns, ensure we have proper dates
         if (!variables.start_date) {
-          variables.start_date = new Date().toLocaleDateString();
+          variables.start_date = new Date().toISOString().split('T')[0];
         }
         if (!variables.end_date && c.start_date) {
           // If we have a start date but no end date, calculate a reasonable end date
           const startDate = new Date(c.start_date);
           const endDate = new Date(startDate.getTime() + (7 * 24 * 60 * 60 * 1000)); // 7 days from start
-          variables.end_date = endDate.toLocaleDateString();
+          variables.end_date = endDate.toISOString().split('T')[0];
         }
         break;
       case 'approved':
       case 'active':
-        variables.start_date = variables.start_date || new Date().toLocaleDateString();
+        variables.start_date = variables.start_date || new Date().toISOString().split('T')[0];
         break;
       case 'expiring':
         variables.days_remaining = c.end_date ? Math.ceil((new Date(c.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 0;
         break;
       case 'expired':
-        variables.end_date = variables.end_date || new Date().toLocaleDateString();
+        variables.end_date = variables.end_date || new Date().toISOString().split('T')[0];
         break;
     }
     return variables;

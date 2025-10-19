@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { BarChart3, Megaphone, DollarSign, CreditCard, FileText, Menu, LogOut } from 'lucide-react';
+import { BarChart3, Megaphone, DollarSign, CreditCard, Menu, LogOut } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import NotificationToast from '../NotificationToast';
 import Logo from '../shared/Logo';
 import ThemeToggle from '../shared/ThemeToggle';
 
@@ -35,6 +36,7 @@ export default function DesignerLayout({ children }: DesignerLayoutProps) {
 
   return (
     <div className="min-h-screen bg-[rgb(var(--bg))] dark:bg-gradient-to-br dark:from-slate-900 dark:via-blue-900 dark:to-slate-800">
+      <NotificationToast />
       {/* Top Header */}
       <header className="bg-white dark:bg-slate-900 shadow-sm border-b border-gray-200 sticky top-0 z-50">
         <div className="flex items-center justify-between h-16 px-6">
@@ -65,7 +67,7 @@ export default function DesignerLayout({ children }: DesignerLayoutProps) {
       </header>
 
       {/* Sidebar - Fixed Position */}
-      <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed top-16 bottom-0 left-0 z-40 w-64 bg-white dark:bg-slate-800 shadow-xl border-r border-gray-200 dark:border-slate-700 transform transition-transform duration-300 ease-in-out`}>
+      <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed top-32 bottom-0 left-0 z-40 w-64 bg-white dark:bg-slate-800 shadow-xl border-r border-gray-200 dark:border-slate-700 transform transition-transform duration-300 ease-in-out`}>
         <div className="flex flex-col h-full">
           <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
             {navigation.map((item) => {
@@ -94,7 +96,7 @@ export default function DesignerLayout({ children }: DesignerLayoutProps) {
       </div>
 
       {/* Main Content */}
-      <div className="lg:ml-64">
+      <div className="lg:ml-64 lg:pt-16">
         <main className="p-6">
           <div className="max-w-7xl mx-auto">
             {children}

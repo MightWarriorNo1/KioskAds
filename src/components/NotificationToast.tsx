@@ -37,7 +37,7 @@ export default function NotificationToast() {
   const { notifications, removeNotification } = useNotification();
 
   return (
-    <div className="fixed top-4 right-4 z-50 space-y-3 max-w-sm">
+    <div className="fixed top-4 right-4 z-[60] space-y-3 max-w-sm">
       {notifications.map(notification => {
         const config = typeConfig[notification.type];
         const Icon = config.icon;

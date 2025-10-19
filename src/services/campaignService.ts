@@ -85,7 +85,7 @@ export interface Campaign {
   id: string;
   name: string;
   description?: string;
-  status: 'draft' | 'pending' | 'active' | 'paused' | 'completed' | 'rejected';
+  status: 'draft' | 'pending' | 'approved' | 'active' | 'paused' | 'completed' | 'rejected';
   start_date: string;
   end_date: string;
   budget: number;
@@ -156,57 +156,11 @@ export class CampaignService {
 
       if (error) throw error;
 
-      // Check and update campaign statuses based on current date
-      const campaignsToUpdate: string[] = [];
-
-      for (const campaign of data || []) {
-        // Check if campaign should be activated (start date reached)
-        if ((campaign.status === 'pending' || campaign.status === 'approved') && new Date(campaign.start_date) <= getCurrentCaliforniaTime()) {
-          campaignsToUpdate.push(campaign.id);
-          await this.updateCampaignStatus(campaign.id, 'active');
-        }
-        // Check if campaign should be completed (end date passed)
-        else if (campaign.status === 'active' && new Date(campaign.end_date) < getCurrentCaliforniaTime()) {
-          campaignsToUpdate.push(campaign.id);
-          await this.updateCampaignStatus(campaign.id, 'completed');
-        }
-      }
-
-      // If we updated any campaigns, refetch the data to get the latest statuses
-      let finalData = data;
-      if (campaignsToUpdate.length > 0) {
-        const { data: updatedData, error: updateError } = await supabase
-          .from('campaigns')
-          .select(`
-            *,
-            kiosks:kiosk_campaigns(
-              kiosk_id,
-              kiosks:kiosks(
-                id,
-                name,
-                location,
-                address,
-                city,
-                state,
-                traffic_level,
-                base_rate,
-                price,
-                status,
-                coordinates,
-                description
-              )
-            )
-          `)
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false });
-
-        if (!updateError) {
-          finalData = updatedData;
-        }
-      }
+      // Campaign status updates are handled by the scheduled edge function
+      // No immediate status checks here to prevent premature activations
 
       // Transform the data to match our interface
-      return finalData?.map(campaign => ({
+      return data?.map(campaign => ({
         id: campaign.id,
         name: campaign.name || `Campaign ${campaign.start_date} - ${campaign.end_date}`,
         description: campaign.description,

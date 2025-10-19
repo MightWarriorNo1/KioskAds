@@ -20,6 +20,7 @@ import { useNotification } from '../../contexts/NotificationContext';
 import { CustomAdsService, CustomAdOrder } from '../../services/customAdsService';
 import Button from '../../components/ui/Button';
 import ModalFileUpload from '../../components/shared/ModalFileUpload';
+import { supabase } from '../../lib/supabaseClient';
 
 export default function HostManageMyCustomAdPage() {
   const { user } = useAuth();
@@ -47,6 +48,38 @@ export default function HostManageMyCustomAdPage() {
     size: number;
     type: string;
   }>>([]);
+
+  // Function to resolve signed URLs for downloads
+  const resolveSignedUrl = async (rawUrl: string, downloadName?: string): Promise<string> => {
+    try {
+      const match = rawUrl?.match(/\/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/(.+)$/);
+      if (!match) return rawUrl;
+      const [, bucket, path] = match;
+      const { data } = await supabase.storage
+        .from(bucket)
+        .createSignedUrl(path, 600, downloadName ? { download: downloadName } as any : undefined as any);
+      if (data?.signedUrl) return data.signedUrl as string;
+      return rawUrl;
+    } catch {
+      return rawUrl;
+    }
+  };
+
+  // Function to handle file downloads
+  const handleDownload = async (file: { url: string; name: string }) => {
+    try {
+      const signed = await resolveSignedUrl(file.url, file.name);
+      const link = document.createElement('a');
+      link.href = signed;
+      link.download = file.name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e) {
+      console.error(e);
+      addNotification('error', 'Download failed', 'Could not download file');
+    }
+  };
 
   const loadCustomAds = useCallback(async () => {
     try {
@@ -580,14 +613,7 @@ export default function HostManageMyCustomAdPage() {
                                         <span>View</span>
                                       </Button>
                                       <Button
-                                        onClick={() => {
-                                          const link = document.createElement('a');
-                                          link.href = file.url;
-                                          link.download = file.name;
-                                          document.body.appendChild(link);
-                                          link.click();
-                                          document.body.removeChild(link);
-                                        }}
+                                        onClick={() => handleDownload(file)}
                                         variant="secondary"
                                         size="sm"
                                         className="flex items-center space-x-1 flex-1 sm:flex-none"
