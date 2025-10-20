@@ -140,7 +140,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         <div className="flex flex-col h-full">
 
           {/* Navigation */}
-          <nav className="flex-1 bg-white dark:bg-slate-800 px-4 py-6 space-y-2 overflow-y-auto border-r border-white">
+          <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
             {navigation.map((item) => {
               const isActive = location.pathname === item.href;
               return (
@@ -150,14 +150,17 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                   className={`flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 group ${
                     isActive
                       ? 'bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-lg'
-                      : 'text-gray-700 hover:bg-black hover:text-gray-900'
+                      : 'text-gray-700 dark:text-white/80 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-gray-900 dark:hover:text-white'
                   }`}
-                  onClick={() => setSidebarOpen(false)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSidebarOpen(false);
+                  }}
                 >
                   <item.icon className={`h-5 w-5 transition-transform group-hover:scale-110 ${
-                    isActive ? 'text-white' : 'text-gray-500 group-hover:text-gray-700'
+                    isActive ? 'text-white' : 'text-gray-500 dark:text-white/70 group-hover:text-gray-700 dark:group-hover:text-white'
                   }`} />
-                  <span className='text-dark dark:text-white'>{item.name}</span>
+                  <span className='text-gray-700 dark:text-white'>{item.name}</span>
                   {isActive && (
                     <div className="ml-auto w-2 h-2 bg-white rounded-full"></div>
                   )}
@@ -184,7 +187,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       {/* Overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}

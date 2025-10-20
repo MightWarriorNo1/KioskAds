@@ -537,8 +537,8 @@ export default function AdminDashboard() {
         </Card>
         <Card className="lg:col-span-2 animate-fade-in-up" title="Recent Activity" subtitle="Latest platform updates">
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-500 dark:text-gray-400">
                   {activitiesCleared ? 'All activities cleared' : `Showing ${recentActivities.length} of ${activities.length} activities`}
                 </span>
@@ -547,6 +547,7 @@ export default function AdminDashboard() {
                     variant="secondary" 
                     size="sm" 
                     onClick={() => saveActivitySettings(activityLimit, true)}
+                    className="hidden sm:flex"
                   >
                     <Eye className="w-4 h-4 mr-1" />
                     Show All
@@ -554,33 +555,49 @@ export default function AdminDashboard() {
                 )}
               </div>
               {!activitiesCleared && (
-                <div className="flex items-center gap-2">
-                  <Button 
-                    variant="secondary" 
-                    size="sm" 
-                    onClick={refreshActivities}
-                    loading={refreshingActivities}
-                    disabled={refreshingActivities}
-                  >
-                    <RefreshCw className={`w-4 h-4 mr-1 ${refreshingActivities ? 'animate-spin' : ''}`} />
-                    {refreshingActivities ? 'Refreshing...' : 'Refresh'}
-                  </Button>
-                  <Button 
-                    variant="secondary" 
-                    size="sm" 
-                    onClick={() => saveActivitySettings(5, false)}
-                  >
-                    <EyeOff className="w-4 h-4 mr-1" />
-                    Top 5
-                  </Button>
-                  <Button 
-                    variant="secondary" 
-                    size="sm" 
-                    onClick={clearRecentActivity}
-                  >
-                    <Trash2 className="w-4 h-4 mr-1" />
-                    Clear
-                  </Button>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2 flex-1">
+                    <Button 
+                      variant="secondary" 
+                      size="sm" 
+                      onClick={refreshActivities}
+                      loading={refreshingActivities}
+                      disabled={refreshingActivities}
+                      className="flex-1 sm:flex-none"
+                    >
+                      <RefreshCw className={`w-4 h-4 mr-1 ${refreshingActivities ? 'animate-spin' : ''}`} />
+                      {refreshingActivities ? 'Refreshing...' : 'Refresh'}
+                    </Button>
+                    <Button 
+                      variant="secondary" 
+                      size="sm" 
+                      onClick={() => saveActivitySettings(5, false)}
+                      className="flex-1 sm:flex-none"
+                    >
+                      <EyeOff className="w-4 h-4 mr-1" />
+                      Top 5
+                    </Button>
+                    <Button 
+                      variant="secondary" 
+                      size="sm" 
+                      onClick={clearRecentActivity}
+                      className="flex-1 sm:flex-none"
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" />
+                      Clear
+                    </Button>
+                  </div>
+                  {!showAllActivities && (
+                    <Button 
+                      variant="secondary" 
+                      size="sm" 
+                      onClick={() => saveActivitySettings(activityLimit, true)}
+                      className="flex sm:hidden w-full"
+                    >
+                      <Eye className="w-4 h-4 mr-1" />
+                      Show All
+                    </Button>
+                  )}
                 </div>
               )}
             </div>

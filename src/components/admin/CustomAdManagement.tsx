@@ -328,7 +328,7 @@ export default function CustomAdManagement() {
       </Card>
 
       {/* Orders List */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-6">
         {/* Orders Table */}
         <Card>
           <div className="p-6">
@@ -344,10 +344,10 @@ export default function CustomAdManagement() {
                   }`}
                   onClick={() => setSelectedOrder(order)}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{order.user?.full_name || `${order.first_name} ${order.last_name}`}</span>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(order.workflow_status)}`}>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                      <span className="font-medium text-sm lg:text-base">{order.user?.full_name || `${order.first_name} ${order.last_name}`}</span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium w-fit ${getStatusColor(order.workflow_status)}`}>
                         {(order.workflow_status || 'submitted').replace('_',' ')}
                       </span>
                     </div>
@@ -355,16 +355,16 @@ export default function CustomAdManagement() {
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPaymentStatusColor(order.payment_status)}`}>
                         {order.payment_status}
                       </span>
-                      <span className="text-sm text-gray-500">
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
                         ${order.total_amount}
                       </span>
                     </div>
                   </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-300">
-                    <p>{order.user?.company_name || order.user?.full_name}</p>
-                    <p className="text-xs">{new Date(order.created_at).toLocaleDateString()}</p>
+                  <div className="text-sm text-gray-600 dark:text-gray-300 mb-2">
+                    <p className="truncate">{order.user?.company_name || order.user?.full_name}</p>
+                    <p className="text-xs text-gray-500">{new Date(order.created_at).toLocaleDateString()}</p>
                   </div>
-                  <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                  <div className="flex items-center gap-4 text-xs text-gray-500">
                     <span className="flex items-center gap-1">
                       <MessageSquare className="w-3 h-3" />
                       {order.comments?.length || 0} comments
@@ -384,13 +384,13 @@ export default function CustomAdManagement() {
         {selectedOrder && (
           <Card>
             <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
                 <h2 className="text-xl font-semibold">Order Details</h2>
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex flex-col sm:flex-row gap-2 lg:gap-3">
                   <select
                     value={selectedOrder.workflow_status || 'submitted'}
                     onChange={(e) => handleStatusUpdate(selectedOrder.id, e.target.value as any)}
-                    className="input text-sm"
+                    className="input text-sm w-full sm:w-auto"
                   >
                     <option value="submitted">Submitted</option>
                     <option value="in_review">In Review</option>
@@ -403,11 +403,11 @@ export default function CustomAdManagement() {
 
                   {/* Assign Designer */}
                   {designers.length > 0 && (
-                    <>
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <select
                         value={selectedDesignerId}
                         onChange={(e) => setSelectedDesignerId(e.target.value)}
-                        className="input text-sm"
+                        className="input text-sm w-full sm:w-auto"
                         disabled={selectedOrder.workflow_status === 'approved'}
                       >
                         <option value="">Assign Designer…</option>
@@ -419,10 +419,11 @@ export default function CustomAdManagement() {
                         size="sm" 
                         onClick={handleAssignDesigner} 
                         disabled={!selectedDesignerId || assigning || selectedOrder.workflow_status === 'approved'}
+                        className="w-full sm:w-auto"
                       >
                         {assigning ? 'Assigning…' : 'Assign'}
                       </Button>
-                    </>
+                    </div>
                   )}
                 </div>
               </div>
@@ -480,20 +481,23 @@ export default function CustomAdManagement() {
                     <h3 className="font-medium mb-2">Uploaded Files</h3>
                     <div className="space-y-2">
                       {selectedOrder.files.map((file, index) => (
-                        <div key={index} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                          <div className="flex items-center gap-2">
+                        <div key={index} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 bg-gray-50 dark:bg-gray-800 rounded">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
                             {file.type?.startsWith('video/') ? (
-                              <Video className="w-4 h-4 text-blue-500" />
+                              <Video className="w-4 h-4 text-blue-500 flex-shrink-0" />
                             ) : (
-                              <Image className="w-4 h-4 text-green-500" />
+                              <Image className="w-4 h-4 text-green-500 flex-shrink-0" />
                             )}
-                            <span className="text-sm">{file.name}</span>
-                            <span className="text-xs text-gray-500">({formatFileSize(file.size)})</span>
+                            <div className="min-w-0 flex-1">
+                              <span className="text-sm block truncate">{file.name}</span>
+                              <span className="text-xs text-gray-500">({formatFileSize(file.size)})</span>
+                            </div>
                           </div>
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={() => window.open(file.url, '_blank')}
+                            className="w-full sm:w-auto flex-shrink-0"
                           >
                             <Eye className="w-4 h-4" />
                           </Button>
@@ -505,12 +509,13 @@ export default function CustomAdManagement() {
 
                 {/* Comments */}
                 <div>
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                     <h3 className="font-medium">Comments ({selectedOrder.comments?.length || 0})</h3>
                     <Button
                       size="sm"
                       onClick={() => setShowCommentModal(true)}
                       disabled={selectedOrder.workflow_status === 'approved'}
+                      className="w-full sm:w-auto"
                     >
                       <Plus className="w-4 h-4 mr-1" />
                       Add Comment
@@ -518,12 +523,12 @@ export default function CustomAdManagement() {
                   </div>
                   <div className="space-y-2 max-h-40 overflow-y-auto">
                     {selectedOrder.comments?.map((comment) => (
-                      <div key={comment.id} className="p-2 bg-gray-50 dark:bg-gray-800 rounded text-sm">
-                        <div className="flex items-center justify-between mb-1">
+                      <div key={comment.id} className="p-3 bg-gray-50 dark:bg-gray-800 rounded text-sm">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-2">
                           <span className="font-medium">{comment.author}</span>
                           <span className="text-xs text-gray-500">{new Date(comment.created_at).toLocaleString()}</span>
                         </div>
-                        <p>{comment.content}</p>
+                        <p className="text-gray-700 dark:text-gray-300">{comment.content}</p>
                       </div>
                     ))}
                   </div>
@@ -531,12 +536,13 @@ export default function CustomAdManagement() {
 
                 {/* Proofs */}
                 <div>
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                     <h3 className="font-medium">Proofs ({selectedOrder.proofs?.length || 0})</h3>
                     <Button
                       size="sm"
                       onClick={() => setShowProofModal(true)}
                       disabled={selectedOrder.workflow_status === 'approved'}
+                      className="w-full sm:w-auto"
                     >
                       <Upload className="w-4 h-4 mr-1" />
                       Submit Proof
@@ -544,20 +550,23 @@ export default function CustomAdManagement() {
                   </div>
                   <div className="space-y-2 max-h-40 overflow-y-auto">
                     {selectedOrder.proofs?.map((proof) => (
-                      <div key={proof.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded text-sm">
-                        <div className="flex items-center gap-2">
+                      <div key={proof.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 bg-gray-50 dark:bg-gray-800 rounded text-sm">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
                           {proof.file_type?.startsWith('video/') ? (
-                            <Video className="w-4 h-4 text-blue-500" />
+                            <Video className="w-4 h-4 text-blue-500 flex-shrink-0" />
                           ) : (
-                            <Image className="w-4 h-4 text-green-500" />
+                            <Image className="w-4 h-4 text-green-500 flex-shrink-0" />
                           )}
-                          <span>{proof.file_name}</span>
-                          <span className="text-xs text-gray-500">{new Date(proof.created_at).toLocaleString()}</span>
+                          <div className="min-w-0 flex-1">
+                            <span className="block truncate">{proof.file_name}</span>
+                            <span className="text-xs text-gray-500">{new Date(proof.created_at).toLocaleString()}</span>
+                          </div>
                         </div>
                         <Button
                           size="sm"
                           variant="ghost"
                           onClick={() => window.open(proof.file_url, '_blank')}
+                          className="w-full sm:w-auto flex-shrink-0"
                         >
                           <Eye className="w-4 h-4" />
                         </Button>
