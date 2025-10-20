@@ -381,7 +381,7 @@ export class CustomAdsService {
   }
 
   // Get orders for a user (client view)
-  static async getUserOrders(userId: string, limit: number = 50, offset: number = 0): Promise<CustomAdOrder[]> {
+  static async getUserOrders(userId: string): Promise<CustomAdOrder[]> {
     const { data, error } = await supabase
       .from('custom_ad_orders')
       .select(`
@@ -390,62 +390,38 @@ export class CustomAdsService {
         designer:profiles!custom_ad_orders_assigned_designer_id_fkey(id, full_name, email)
       `)
       .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1); // Add pagination
+      .order('created_at', { ascending: false });
 
     if (error) throw error;
     
     console.log('Raw data from database:', data);
     
-    // Get comments and proofs for each order with timeout protection
+    // Get comments and proofs for each order
     const ordersWithDetails = await Promise.all(
       (data || []).map(async (order) => {
         console.log('Processing order:', order.id, 'files:', order.files);
+        const [commentsRes, proofsRes] = await Promise.all([
+          supabase
+            .from('custom_ad_order_comments')
+            .select('*')
+            .eq('order_id', order.id)
+            .order('created_at', { ascending: true }),
+          supabase
+            .from('custom_ad_proofs')
+            .select(`
+              *,
+              designer:profiles!custom_ad_proofs_designer_id_fkey(id, full_name, email)
+            `)
+            .eq('order_id', order.id)
+            .order('version_number', { ascending: false })
+        ]);
         
-        // Add timeout for individual order processing
-        const orderTimeout = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error(`Order ${order.id} processing timeout`)), 10000)
-        );
-        
-        const processOrder = async () => {
-          const [commentsRes, proofsRes] = await Promise.all([
-            supabase
-              .from('custom_ad_order_comments')
-              .select('*')
-              .eq('order_id', order.id)
-              .order('created_at', { ascending: true })
-              .limit(100), // Limit comments
-            supabase
-              .from('custom_ad_proofs')
-              .select(`
-                *,
-                designer:profiles!custom_ad_proofs_designer_id_fkey(id, full_name, email)
-              `)
-              .eq('order_id', order.id)
-              .order('version_number', { ascending: false })
-              .limit(20) // Limit proofs
-          ]);
-          
-          return {
-            ...order,
-            comments: commentsRes.data || [],
-            proofs: proofsRes.data || [],
-            files: order.files || []
-          };
+        return {
+          ...order,
+          comments: commentsRes.data || [],
+          proofs: proofsRes.data || [],
+          files: order.files || []
         };
-        
-        try {
-          return await Promise.race([processOrder(), orderTimeout]);
-        } catch (error) {
-          console.error(`Error processing order ${order.id}:`, error);
-          // Return order without details if processing fails
-          return {
-            ...order,
-            comments: [],
-            proofs: [],
-            files: order.files || []
-          };
-        }
       })
     );
 

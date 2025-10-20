@@ -79,18 +79,16 @@ export class ProofOfPlayService {
 
   // Get Proof-of-Play records with filters (supports both old and new tables)
   static async getProofOfPlayRecords(
-    filters: ProofOfPlayFilters = {},
-    limit: number = 1000,
-    offset: number = 0
+    filters: ProofOfPlayFilters = {}
   ): Promise<ProofOfPlayRecord[]> {
     try {
       // Use new plays table if specified or if we have orgId
       if (filters.useNewPlaysTable || filters.orgId) {
-        return await this.getProofOfPlayRecordsFromPlays(filters, limit, offset);
+        return await this.getProofOfPlayRecordsFromPlays(filters);
       }
       
       // Try legacy analytics_events table first
-      return await this.getProofOfPlayRecordsFromAnalytics(filters, limit, offset);
+      return await this.getProofOfPlayRecordsFromAnalytics(filters);
     } catch (error) {
       console.error('Error in getProofOfPlayRecords:', error);
       
@@ -98,7 +96,7 @@ export class ProofOfPlayService {
       if (!filters.useNewPlaysTable && !filters.orgId) {
         console.log('Falling back to plays table...');
         try {
-          return await this.getProofOfPlayRecordsFromPlays(filters, limit, offset);
+          return await this.getProofOfPlayRecordsFromPlays(filters);
         } catch (playsError) {
           console.error('Plays table also failed:', playsError);
         }
@@ -112,9 +110,7 @@ export class ProofOfPlayService {
 
   // Get Proof-of-Play records from the new plays table
   static async getProofOfPlayRecordsFromPlays(
-    filters: ProofOfPlayFilters = {},
-    limit: number = 1000,
-    offset: number = 0
+    filters: ProofOfPlayFilters = {}
   ): Promise<ProofOfPlayRecord[]> {
     try {
       let query = supabase
@@ -143,8 +139,7 @@ export class ProofOfPlayService {
             name
           )
         `)
-        .order('played_at', { ascending: false })
-        .range(offset, offset + limit - 1); // Add pagination
+        .order('played_at', { ascending: false });
 
       // Apply filters
       if (filters.startDate) {
@@ -203,9 +198,7 @@ export class ProofOfPlayService {
 
   // Get Proof-of-Play records from legacy analytics_events table
   static async getProofOfPlayRecordsFromAnalytics(
-    filters: ProofOfPlayFilters = {},
-    limit: number = 1000,
-    offset: number = 0
+    filters: ProofOfPlayFilters = {}
   ): Promise<ProofOfPlayRecord[]> {
     try {
       let query = supabase
@@ -228,8 +221,7 @@ export class ProofOfPlayService {
           )
         `)
         .eq('event_type', 'play')
-        .order('timestamp', { ascending: false })
-        .range(offset, offset + limit - 1); // Add pagination
+        .order('timestamp', { ascending: false });
 
       // Apply filters
       if (filters.startDate) {
