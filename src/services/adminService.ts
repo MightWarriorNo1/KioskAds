@@ -4737,22 +4737,6 @@ Ad Management System`,
     }
   }
 
-  // Get comprehensive status of email automation
-  static async getDailyEmailAutomationStatus(): Promise<{
-    component: string;
-    status: string;
-    details: string;
-    last_run: string;
-  }[]> {
-    try {
-      const { data, error } = await supabase.rpc('check_daily_email_status');
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error('Error getting daily email automation status:', error);
-      throw error;
-    }
-  }
 
   // Fix time conversion issue
   static async fixTimeConversion(): Promise<string> {
