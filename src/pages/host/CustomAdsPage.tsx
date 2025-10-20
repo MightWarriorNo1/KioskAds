@@ -113,6 +113,9 @@ export default function HostCustomAdsPage() {
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
   const [orderSubmitted, setOrderSubmitted] = useState(false);
   const [submittedOrderId, setSubmittedOrderId] = useState<string | null>(null);
+  const [addressSuggestions, setAddressSuggestions] = useState<string[]>([]);
+  const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
+  const [isLoadingAddress, setIsLoadingAddress] = useState(false);
   const navigate=useNavigate();
 
   const loadPaymentMethods = useCallback(async () => {
@@ -191,6 +194,49 @@ export default function HostCustomAdsPage() {
       setFormErrors(prev => ({ ...prev, [field]: '' }));
     }
   };
+
+  const handleAddressAutocomplete = async (query: string) => {
+    if (query.length < 3) return;
+    
+    setIsLoadingAddress(true);
+    try {
+      // Using a free geocoding service (you can replace with Google Places API or similar)
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`
+      );
+      const data = await response.json();
+      
+      const suggestions = data.map((item: any) => item.display_name);
+      setAddressSuggestions(suggestions);
+      setShowAddressSuggestions(true);
+    } catch (error) {
+      console.error('Address autocomplete error:', error);
+      setAddressSuggestions([]);
+    } finally {
+      setIsLoadingAddress(false);
+    }
+  };
+
+  const selectAddressSuggestion = (address: string) => {
+    setFormData(prev => ({ ...prev, address }));
+    setShowAddressSuggestions(false);
+    setAddressSuggestions([]);
+  };
+
+  // Close address suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!target.closest('.address-autocomplete-container')) {
+        setShowAddressSuggestions(false);
+      }
+    };
+
+    if (showAddressSuggestions) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showAddressSuggestions]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
@@ -642,18 +688,58 @@ export default function HostCustomAdsPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Address (Optional)
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.address}
-                      onChange={(e) => handleInputChange('address', e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white dark:bg-gray-800"
-                      placeholder="Enter your address"
-                    />
-                  </div>
+                  {/* Address field only for photography and videography services */}
+                  {(selectedService?.id === 'photography' || selectedService?.id === 'videography') && (
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Address (Optional)
+                      </label>
+                      <div className="relative address-autocomplete-container">
+                        <input
+                          type="text"
+                          value={formData.address}
+                          onChange={(e) => {
+                            handleInputChange('address', e.target.value);
+                            handleAddressAutocomplete(e.target.value);
+                          }}
+                          onFocus={() => {
+                            if (formData.address.length >= 3) {
+                              handleAddressAutocomplete(formData.address);
+                            }
+                          }}
+                          className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white dark:bg-gray-800"
+                          placeholder="Enter your address"
+                        />
+                        
+                        {/* Address Autocomplete Suggestions */}
+                        {showAddressSuggestions && addressSuggestions.length > 0 && (
+                          <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                            {addressSuggestions.map((suggestion, index) => (
+                              <div
+                                key={index}
+                                className="px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-b-0"
+                                onClick={() => selectAddressSuggestion(suggestion)}
+                              >
+                                <div className="flex items-center">
+                                  <MapPin className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
+                                  <span className="text-sm text-gray-900 dark:text-white truncate">
+                                    {suggestion}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {/* Loading indicator for address autocomplete */}
+                        {isLoadingAddress && (
+                          <div className="absolute right-3 top-8">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                 
 

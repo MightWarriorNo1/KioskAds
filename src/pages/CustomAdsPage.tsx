@@ -366,6 +366,21 @@ export default function CustomAdsPage() {
     setAddressSuggestions([]);
   };
 
+  // Close address suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!target.closest('.address-autocomplete-container')) {
+        setShowAddressSuggestions(false);
+      }
+    };
+
+    if (showAddressSuggestions) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showAddressSuggestions]);
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     const maxFiles = 20;
@@ -875,48 +890,56 @@ export default function CustomAdsPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 gap-4">
-                  <Input
-                    label="Address"
-                    value={formData.address}
-                    onChange={(e) => handleInputChange('address', e.target.value)}
-                    error={formErrors.address}
-                    required
-                    disabled
-                    className="bg-gray-100 dark:bg-gray-700"
-                  />
-                </div>
-
-                <div className="relative">
-                  
-                  
-                  {/* Address Autocomplete Suggestions */}
-                  {showAddressSuggestions && addressSuggestions.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                      {addressSuggestions.map((suggestion, index) => (
-                        <div
-                          key={index}
-                          className="px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-b-0"
-                          onClick={() => selectAddressSuggestion(suggestion)}
-                        >
-                          <div className="flex items-center">
-                            <MapPin className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
-                            <span className="text-sm text-gray-900 dark:text-white truncate">
-                              {suggestion}
-                            </span>
-                          </div>
+                {/* Address field only for photography and videography services */}
+                {(selectedService?.id === 'photography' || selectedService?.id === 'videography') && (
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="relative address-autocomplete-container">
+                      <Input
+                        label="Address (Optional)"
+                        value={formData.address}
+                        onChange={(e) => {
+                          handleInputChange('address', e.target.value);
+                          handleAddressAutocomplete(e.target.value);
+                        }}
+                        onFocus={() => {
+                          if (formData.address.length >= 3) {
+                            handleAddressAutocomplete(formData.address);
+                          }
+                        }}
+                        error={formErrors.address}
+                        placeholder="Enter your address"
+                        className="bg-white dark:bg-gray-800"
+                      />
+                      
+                      {/* Address Autocomplete Suggestions */}
+                      {showAddressSuggestions && addressSuggestions.length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                          {addressSuggestions.map((suggestion, index) => (
+                            <div
+                              key={index}
+                              className="px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-b-0"
+                              onClick={() => selectAddressSuggestion(suggestion)}
+                            >
+                              <div className="flex items-center">
+                                <MapPin className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
+                                <span className="text-sm text-gray-900 dark:text-white truncate">
+                                  {suggestion}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
+                      
+                      {/* Loading indicator for address autocomplete */}
+                      {isLoadingAddress && (
+                        <div className="absolute right-3 top-8">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                        </div>
+                      )}
                     </div>
-                  )}
-                  
-                  {/* Loading indicator for address autocomplete */}
-                  {isLoadingAddress && (
-                    <div className="absolute right-3 top-8">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                    </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {/* Date and Time Selection for Photography or Videography */}
                 {(selectedService?.id === 'photography' || selectedService?.id === 'videography') && (

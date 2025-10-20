@@ -664,16 +664,45 @@ export class CustomAdsService {
 
       // Send email notifications for proof submitted and proofs ready
       try {
+        console.log('📧 Starting email notification process for proof submission...');
         const order = await this.getOrder(proof.order_id);
         const fullProof = await this.getProof(proofId);
+        
         if (order && fullProof) {
+          console.log('📧 Order and proof data retrieved successfully');
+          console.log('📧 Order ID:', order.id);
+          console.log('📧 Client ID:', order.user_id);
+          console.log('📧 Designer ID:', order.assigned_designer_id);
+          
           // Send proof submitted notification (designer to client)
+          console.log('📧 Sending proof submitted notification...');
           await CustomAdEmailService.sendProofSubmittedNotification(order, fullProof);
+          console.log('✅ Proof submitted notification sent successfully');
+          
           // Send proofs ready notification (client review)
+          console.log('📧 Sending proofs ready notification...');
           await CustomAdEmailService.sendProofsReadyNotification(order, fullProof);
+          console.log('✅ Proofs ready notification sent successfully');
+          
+          // Process email queue immediately to ensure emails are sent
+          console.log('📧 Processing email queue immediately...');
+          try {
+            const { data: queueResult, error: processError } = await supabase.functions.invoke('email-queue-processor');
+            if (processError) {
+              console.error('❌ Error processing email queue:', processError);
+            } else {
+              console.log('✅ Email queue processed successfully:', queueResult);
+            }
+          } catch (queueError) {
+            console.error('❌ Error invoking email queue processor:', queueError);
+          }
+        } else {
+          console.error('❌ Missing order or proof data for email notifications');
+          console.log('Order:', order ? 'Found' : 'Missing');
+          console.log('Proof:', fullProof ? 'Found' : 'Missing');
         }
       } catch (emailError) {
-        console.error('Error sending proof notifications:', emailError);
+        console.error('❌ Error sending proof notifications:', emailError);
         // Don't throw error - proof submission should succeed even if email fails
       }
     }

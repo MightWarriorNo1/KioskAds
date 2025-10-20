@@ -673,7 +673,7 @@ export default function AnalyticsPage() {
     return (
       <DashboardLayout
         title="Analytics"
-        subtitle="Analytics reports and performance insights from AWS S3 data"
+        subtitle="Analytics reports and performance insights"
       >
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
@@ -693,7 +693,7 @@ export default function AnalyticsPage() {
     return (
       <DashboardLayout
         title="Analytics"
-        subtitle="Analytics reports and performance insights from AWS S3 data"
+        subtitle="Analytics reports and performance insights"
       >
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
@@ -741,7 +741,7 @@ export default function AnalyticsPage() {
     return (
       <DashboardLayout
         title="Analytics"
-        subtitle="Analytics reports and performance insights from AWS S3 data"
+        subtitle="Analytics reports and performance insights"
       >
         <div className="text-center py-12">
           <p className="text-gray-500 mb-4">No data available</p>
@@ -782,7 +782,7 @@ export default function AnalyticsPage() {
   return (
     <DashboardLayout
       title="Analytics"
-      subtitle="Analytics reports and performance insights from AWS S3 data"
+      subtitle="Analytics reports and performance insights"
     >
       {/* Date Range Selector */}
       <div className="flex justify-between items-center mb-8">
@@ -879,7 +879,7 @@ export default function AnalyticsPage() {
       {hasS3Data && (
         <div className="mb-12">
           <p className="text-gray-600 dark:text-gray-400 mb-6">
-            Shows total plays and duration for each unique Asset ID within the selected time period
+            Shows total plays and duration
           </p>
           
           {(() => {
@@ -1116,7 +1116,7 @@ export default function AnalyticsPage() {
               <div className="text-3xl font-bold text-gray-900 mb-2">
                       {formatPercentage(avgEngagementRate)}%
               </div>
-                    <p className="text-gray-600 dark:text-white text-sm">Average from AWS S3 data - {dateRange}</p>
+                    <p className="text-gray-600 dark:text-white text-sm">Average - {dateRange}</p>
             </div>
 
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 p-4 sm:p-6">

@@ -1,6 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
 import { CampaignEmailService } from './campaignEmailService';
-import { AdminNotificationService } from './adminNotificationService';
 import { getCurrentCaliforniaTime } from '../utils/dateUtils';
 import { MediaService } from './mediaService';
 
@@ -365,17 +364,7 @@ export class CampaignService {
             target_locations: campaign.target_locations?.join(', ')
           }, 'submitted');
 
-          // Send admin notification
-          await AdminNotificationService.sendCampaignCreatedNotification({
-            type: 'campaign_created',
-            user_id: campaignData.user_id,
-            user_name: user.full_name,
-            user_email: user.email,
-            user_role: user.role as 'client' | 'host',
-            campaign_id: campaign.id,
-            campaign_name: campaign.name,
-            created_at: campaign.created_at
-          });
+          // Admin notification is already sent via CampaignEmailService.sendCampaignStatusNotification with 'purchased' status
         }
       } catch (error) {
         console.warn('Failed to send campaign notification:', error);

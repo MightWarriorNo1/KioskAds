@@ -1018,6 +1018,7 @@ export class GoogleDriveService {
   // Upload approved host ad media to all currently active kiosk assignments
   static async uploadApprovedHostAdToAssignedKiosks(hostAdId: string): Promise<void> {
     try {
+      console.log('[GoogleDriveService.uploadApprovedHostAdToAssignedKiosks] start', { hostAdId });
       // Fetch host ad
       const { data: hostAd, error: hostAdErr } = await supabase
         .from('host_ads')
@@ -1040,8 +1041,10 @@ export class GoogleDriveService {
 
       if (assignErr) throw assignErr;
       const kioskIds: string[] = (assignments || []).map(a => a.kiosk_id);
+      console.log('[GoogleDriveService.uploadApprovedHostAdToAssignedKiosks] active kioskIds', kioskIds);
       if (kioskIds.length === 0) {
         // Nothing to upload if no current assignments
+        console.log('[GoogleDriveService.uploadApprovedHostAdToAssignedKiosks] no active assignments, exit');
         return;
       }
 
@@ -1050,6 +1053,7 @@ export class GoogleDriveService {
       if (!gdriveConfig) {
         throw new Error('No active Google Drive configuration found');
       }
+      console.log('[GoogleDriveService.uploadApprovedHostAdToAssignedKiosks] using gdrive config', gdriveConfig.id);
 
       // Prepare pseudo media asset for upload using URL
       // Derive a file name from ad name or URL
@@ -1111,10 +1115,18 @@ export class GoogleDriveService {
         console.error('Media asset creation error:', insertErr);
         throw new Error(`Failed to create media asset for host ad upload: ${insertErr?.message || 'Unknown error'}`);
       }
+      console.log('[GoogleDriveService.uploadApprovedHostAdToAssignedKiosks] created synthetic media asset', mediaAsset.id);
+
+      // Ensure kiosk folders exist before scheduling uploads (mirrors admin approval flow)
+      try {
+        await this.ensureScheduledFoldersForKiosks(kioskIds);
+      } catch (folderErr) {
+        console.warn('Unable to ensure scheduled folders for kiosks; proceeding anyway:', folderErr);
+      }
 
       // Enqueue upload jobs per kiosk
       for (const kioskId of kioskIds) {
-        await this.scheduleUpload({
+        const jobId = await this.scheduleUpload({
           gdrive_config_id: gdriveConfig.id,
           kiosk_id: kioskId,
           campaign_id: mediaAsset.campaign_id || '00000000-0000-0000-0000-000000000000',
@@ -1123,10 +1135,13 @@ export class GoogleDriveService {
           upload_type: 'immediate',
           folder_type: 'active'
         });
+        console.log('[GoogleDriveService.uploadApprovedHostAdToAssignedKiosks] scheduled upload job', { kioskId, jobId });
       }
 
       // Trigger processor
+      console.log('[GoogleDriveService.uploadApprovedHostAdToAssignedKiosks] invoking gdrive-upload-processor');
       await this.triggerUploadProcessor();
+      console.log('[GoogleDriveService.uploadApprovedHostAdToAssignedKiosks] edge function invoked');
     } catch (error) {
       console.error('Error uploading approved host ad to assigned kiosks:', error);
       // Log the specific error for debugging

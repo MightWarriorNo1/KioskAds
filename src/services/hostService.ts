@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient';
 import { getCurrentCaliforniaTime } from '../utils/dateUtils';
+import { AdminService } from './adminService';
 
 export interface HostKiosk {
   id: string;
@@ -382,9 +383,11 @@ export class HostService {
 
       // Send immediate notification to admin
       try {
+        console.log('📧 Sending host ad submission notification for ad ID:', adId);
         await AdminService.sendHostAdSubmissionNotification(adId);
+        console.log('✅ Host ad submission notification sent successfully');
       } catch (emailError) {
-        console.error('Error sending host ad submission notification:', emailError);
+        console.error('❌ Error sending host ad submission notification:', emailError);
         // Don't throw error - submission should succeed even if email fails
       }
     } catch (error) {
@@ -462,6 +465,14 @@ export class HostService {
       const startDate = new Date(assignmentData.startDate);
       const now = new Date();
       const isImmediate = startDate <= now;
+      console.log('[HostService.createAdAssignment] creating assignment', {
+        hostId: assignmentData.hostId,
+        adId: assignmentData.adId,
+        kioskId: assignmentData.kioskId,
+        startDate: assignmentData.startDate,
+        endDate: assignmentData.endDate,
+        isImmediate
+      });
       
       const { data, error } = await supabase
         .from('host_ad_assignments')
@@ -486,6 +497,7 @@ export class HostService {
       // If assignment is active immediately, update the ad status to active
       if (isImmediate) {
         try {
+          console.log('[HostService.createAdAssignment] setting host ad active', assignmentData.adId);
           await supabase
             .from('host_ads')
             .update({ 
@@ -493,9 +505,26 @@ export class HostService {
               updated_at: getCurrentCaliforniaTime().toISOString()
             })
             .eq('id', assignmentData.adId);
+          console.log('[HostService.createAdAssignment] host ad set active OK');
         } catch (updateError) {
           console.error('Error updating ad status to active:', updateError);
           // Don't throw error - assignment was successful
+        }
+
+        // Trigger Google Drive upload for this approved host ad to assigned kiosks
+        try {
+          console.log('[HostService.createAdAssignment] invoking edge function upload-approved-host-ad for hostAdId', assignmentData.adId);
+          const { data: invokeData, error: invokeErr } = await supabase.functions.invoke('upload-approved-host-ad', {
+            body: { hostAdId: assignmentData.adId }
+          });
+          if (invokeErr) {
+            console.error('[HostService.createAdAssignment] upload-approved-host-ad invocation error', invokeErr);
+          } else {
+            console.log('[HostService.createAdAssignment] upload-approved-host-ad invocation result', invokeData);
+          }
+        } catch (driveError) {
+          console.error('Error triggering Google Drive upload for quick assignment:', driveError);
+          // Swallow error so assignment creation isn't blocked
         }
       }
 
@@ -916,4 +945,5 @@ export class HostService {
     }
   }
 }
+
 

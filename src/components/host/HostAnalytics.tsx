@@ -744,7 +744,7 @@ export default function HostAnalytics() {
         {hasS3Data && (
           <div className="mb-12">
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Shows total plays and duration for each unique Asset ID within the selected time period
+              Shows total plays and duration
             </p>
             
             {(() => {

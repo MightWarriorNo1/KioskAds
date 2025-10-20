@@ -165,6 +165,7 @@ export interface EmailTemplate {
         'custom_ad_designer_assigned' | 'custom_ad_proofs_ready' | 'custom_ad_proof_approved' | 
         'custom_ad_proof_rejected' | 'custom_ad_completed' | 'custom_ad_designer_assignment' | 
         'custom_ad_designer_rejection' | 'custom_ad_proof_submitted' |
+        'host_ad_submission' | 'host_ad_approval' | 'host_ad_rejection' |
         'subscription_payment_declined' | 'subscription_payment_success';
   subject: string;
   body_html: string;
@@ -2743,7 +2744,7 @@ Ad Management System`,
       // Trigger email processor
       try { await supabase.functions.invoke('email-queue-processor'); } catch (_) {}
 
-      console.log(`Host ad submission notification sent to ${adminEmails.length} admin(s)`);
+      console.log(`📧 Host ad submission notification sent to ${adminEmails.length} admin(s):`, adminEmails.map(a => a.email));
 
     } catch (error) {
       console.error('Error sending host ad submission notification:', error);
@@ -4645,6 +4646,26 @@ Ad Management System`,
       return data?.message || 'Daily pending review email scheduler triggered and emails sent successfully';
     } catch (error) {
       console.error('Error triggering daily pending review email scheduler:', error);
+      throw error;
+    }
+  }
+
+  // Manually trigger email queue processor
+  static async triggerEmailQueueProcessor(): Promise<string> {
+    try {
+      console.log('📧 Manually triggering email queue processor...');
+      
+      const { data: queueResult, error: processError } = await supabase.functions.invoke('email-queue-processor');
+      
+      if (processError) {
+        console.error('❌ Error invoking email queue processor:', processError);
+        throw new Error(`Failed to process email queue: ${processError.message}`);
+      }
+
+      console.log('✅ Email queue processor triggered successfully:', queueResult);
+      return `Email queue processor triggered successfully. Processed: ${queueResult?.sent || 0} sent, ${queueResult?.failed || 0} failed`;
+    } catch (error) {
+      console.error('❌ Error triggering email queue processor:', error);
       throw error;
     }
   }

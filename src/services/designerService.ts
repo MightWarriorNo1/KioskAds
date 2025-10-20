@@ -163,6 +163,44 @@ export class DesignerService {
         });
 
       if (error) throw error;
+
+      // Send email notification to client/host
+      try {
+        console.log('📧 Attempting to send client notification...');
+        console.log('📧 Designer name:', profile?.full_name);
+        
+        const { CustomAdEmailService } = await import('./customAdEmailService');
+        
+        console.log('📧 Calling sendClientMessageNotification with:', {
+          orderId,
+          content: content.substring(0, 50) + '...',
+          designerName: profile?.full_name || 'Designer'
+        });
+        
+        await CustomAdEmailService.sendClientMessageNotification(
+          orderId, 
+          content, 
+          profile?.full_name || 'Designer'
+        );
+        
+        console.log('📧 Client notification call completed');
+        
+        // Process email queue immediately to ensure emails are sent
+        console.log('📧 Processing email queue immediately...');
+        try {
+          const { data: queueResult, error: processError } = await supabase.functions.invoke('email-queue-processor');
+          if (processError) {
+            console.error('❌ Error processing email queue:', processError);
+          } else {
+            console.log('✅ Email queue processed successfully:', queueResult);
+          }
+        } catch (queueError) {
+          console.error('❌ Error invoking email queue processor:', queueError);
+        }
+      } catch (emailError) {
+        console.error('❌ Error sending client notification:', emailError);
+        // Don't throw error - comment should succeed even if email fails
+      }
     } catch (error) {
       console.error('Error adding comment:', error);
       throw error;

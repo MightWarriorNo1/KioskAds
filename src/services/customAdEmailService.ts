@@ -31,7 +31,6 @@ export class CustomAdEmailService {
       if (!client) return;
 
       const service = await this.getCustomAdService(order.service_key);
-      if (!service) return;
 
       const estimatedCompletion = order.estimated_completion_date 
         ? new Date(order.estimated_completion_date).toISOString().split('T')[0]
@@ -68,7 +67,6 @@ export class CustomAdEmailService {
       if (!client) return;
 
       const service = await this.getCustomAdService(order.service_key);
-      if (!service) return;
 
       const variables = {
         order_id: order.id,
@@ -100,7 +98,6 @@ export class CustomAdEmailService {
       if (!client) return;
 
       const service = await this.getCustomAdService(order.service_key);
-      if (!service) return;
 
       const estimatedCompletion = order.estimated_completion_date 
         ? new Date(order.estimated_completion_date).toISOString().split('T')[0]
@@ -199,17 +196,31 @@ export class CustomAdEmailService {
   // Send email notification for proofs ready
   static async sendProofsReadyNotification(order: CustomAdOrder, proof: CustomAdProof): Promise<void> {
     try {
+      console.log('📧 sendProofsReadyNotification: Starting...');
+      
       const template = await this.getEmailTemplate('custom_ad_proofs_ready');
-      if (!template) return;
+      if (!template) {
+        console.error('❌ Email template not found for custom_ad_proofs_ready');
+        return;
+      }
+      console.log('✅ Email template found:', template.name);
 
       const client = await this.getUserProfile(order.user_id);
-      if (!client) return;
+      if (!client) {
+        console.error('❌ Client profile not found for user_id:', order.user_id);
+        return;
+      }
+      console.log('✅ Client profile found:', client.email);
 
       const designer = await this.getUserProfile(proof.designer_id);
-      if (!designer) return;
+      if (!designer) {
+        console.error('❌ Designer profile not found for designer_id:', proof.designer_id);
+        return;
+      }
+      console.log('✅ Designer profile found:', designer.email);
 
       const service = await this.getCustomAdService(order.service_key);
-      if (!service) return;
+      console.log('✅ Service found:', service.name);
 
       const variables = {
         order_id: order.id,
@@ -219,15 +230,21 @@ export class CustomAdEmailService {
         proof_version: proof.version_number.toString()
       };
 
+      console.log('📧 Variables prepared:', variables);
+
       // Send to client
+      console.log('📧 Sending proofs ready email to client:', client.email);
       await this.sendEmail(template, client.email, client.user?.full_name || `${client.first_name} ${client.last_name}`, variables);
+      console.log('✅ Proofs ready email sent to client successfully');
 
       // Send to admins
+      console.log('📧 Sending proofs ready notification to admins...');
       await this.sendNotificationToAdmins(order, 'proofs_ready', 'Design Proofs Ready', 
         `Design proofs are ready for order #${order.id}`);
+      console.log('✅ Proofs ready admin notification sent successfully');
 
     } catch (error) {
-      console.error('Error sending proofs ready notification:', error);
+      console.error('❌ Error sending proofs ready notification:', error);
     }
   }
 
@@ -244,7 +261,6 @@ export class CustomAdEmailService {
       if (!designer) return;
 
       const service = await this.getCustomAdService(order.service_key);
-      if (!service) return;
 
       const variables = {
         order_id: order.id,
@@ -279,7 +295,6 @@ export class CustomAdEmailService {
       if (!designer) return;
 
       const service = await this.getCustomAdService(order.service_key);
-      if (!service) return;
 
       const variables = {
         order_id: order.id,
@@ -314,7 +329,6 @@ export class CustomAdEmailService {
       if (!designer) return;
 
       const service = await this.getCustomAdService(order.service_key);
-      if (!service) return;
 
       const completionDate = order.actual_completion_date 
         ? new Date(order.actual_completion_date).toISOString().split('T')[0]
@@ -403,7 +417,6 @@ export class CustomAdEmailService {
       if (!template) return;
 
       const service = await this.getCustomAdService(order.service_key);
-      if (!service) return;
 
       const variables = {
         order_id: order.id,
@@ -487,6 +500,173 @@ export class CustomAdEmailService {
       await GmailService.sendEmail(email, subject, htmlBody);
     } catch (error) {
       console.error('Error sending designer notification:', error);
+    }
+  }
+
+  // Send client/host message notification when designer sends a message
+  static async sendClientMessageNotification(orderId: string, message: string, designerName: string): Promise<void> {
+    try {
+      console.log('📧 Starting client message notification process...');
+      console.log('📧 Order ID:', orderId);
+      console.log('📧 Designer:', designerName);
+      console.log('📧 Message:', message.substring(0, 50) + '...');
+
+      // Get order details with client information
+      const { data: order, error: orderError } = await supabase
+        .from('custom_ad_orders')
+        .select(`
+          id,
+          workflow_status,
+          user_id,
+          user:profiles!custom_ad_orders_user_id_fkey(id, full_name, email, role)
+        `)
+        .eq('id', orderId)
+        .single();
+
+      if (orderError || !order) {
+        console.error('❌ Error fetching order:', orderError);
+        return;
+      }
+
+      console.log('📧 Order found:', {
+        id: order.id,
+        workflow_status: order.workflow_status,
+        user_id: order.user_id,
+        client_email: order.user?.email,
+        client_role: order.user?.role
+      });
+
+      // Only send notification if order has a client and is in appropriate status
+      if (!order.user_id || !['designer_assigned', 'proofs_ready', 'client_review'].includes(order.workflow_status)) {
+        console.log('⚠️ Skipping email - Order not in appropriate status for client notification');
+        console.log('⚠️ Status:', order.workflow_status);
+        return;
+      }
+
+      if (!order.user?.email) {
+        console.error('❌ Client email not found for order:', orderId);
+        return;
+      }
+
+      console.log('📧 Client found:', order.user.full_name, '(' + order.user.email + ')');
+
+      const subject = `New Message from Designer - Order #${orderId}`;
+      const messagePreview = message.length > 100 ? message.substring(0, 100) + '...' : message;
+      
+      const htmlBody = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #007bff;">New Message from Designer</h2>
+          <p>Hello ${order.user.full_name},</p>
+          <p>You have received a new message from your designer regarding your custom ad order.</p>
+          
+          <div style="background-color: #f8f9fa; border-left: 4px solid #007bff; padding: 15px; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: #333;">Message from ${designerName}:</h3>
+            <p style="margin-bottom: 0; white-space: pre-wrap;">${message}</p>
+          </div>
+          
+          <div style="background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: #1976d2;">Order Details:</h3>
+            <p><strong>Order ID:</strong> ${orderId}</p>
+            <p><strong>Status:</strong> ${order.workflow_status.replace('_', ' ').toUpperCase()}</p>
+          </div>
+          
+          <p>Please log in to your account to view the full conversation and respond to your designer.</p>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${window.location.origin}/manage-my-custom-ads" 
+               style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
+              View Order Details
+            </a>
+          </div>
+          
+          <p style="color: #666; font-size: 14px; margin-top: 30px;">
+            If you have any questions, please don't hesitate to contact our support team.
+          </p>
+          
+          <p>Best regards,<br>Ad Management Team</p>
+        </div>
+      `;
+
+      const textBody = `
+New Message from Designer - Order #${orderId}
+
+Hello ${order.user.full_name},
+
+You have received a new message from your designer regarding your custom ad order.
+
+Message from ${designerName}:
+${message}
+
+Order Details:
+- Order ID: ${orderId}
+- Status: ${order.workflow_status.replace('_', ' ').toUpperCase()}
+
+Please log in to your account to view the full conversation and respond to your designer.
+
+Visit: ${window.location.origin}/manage-my-custom-ads
+
+If you have any questions, please don't hesitate to contact our support team.
+
+Best regards,
+Ad Management Team
+      `;
+
+      console.log('📧 Sending email to client:', order.user.email);
+      
+      // Send email directly using Gmail service
+      try {
+        if (GmailService.isConfigured()) {
+          console.log('📧 Gmail configured, sending directly...');
+          await GmailService.sendEmail(order.user.email, subject, htmlBody, textBody);
+          console.log('✅ Client message notification sent successfully via Gmail');
+        } else {
+          console.log('⚠️ Gmail not configured, using fallback method...');
+          // Use a simple fallback approach without template system
+          await this.sendSimpleEmail(order.user.email, subject, htmlBody, textBody);
+        }
+      } catch (error) {
+        console.error('❌ Error sending client message notification:', error);
+        throw error;
+      }
+
+      console.log('✅ Client message notification sent successfully');
+
+    } catch (error) {
+      console.error('❌ Error sending client message notification:', error);
+    }
+  }
+
+  // Simple email sending method without template system
+  private static async sendSimpleEmail(to: string, subject: string, htmlBody: string, textBody?: string): Promise<void> {
+    try {
+      console.log('📧 sendSimpleEmail: Sending email without template system...');
+      console.log('📧 Recipient:', to);
+      console.log('📧 Subject:', subject);
+      
+      // Create a simple email queue entry without template_id
+      const { error: insertError } = await supabase
+        .from('email_queue')
+        .insert({
+          template_id: null, // No template ID for simple emails
+          recipient_email: to,
+          recipient_name: to.split('@')[0], // Use email prefix as name
+          subject,
+          body_html: htmlBody,
+          body_text: textBody,
+          status: 'pending',
+          retry_count: 0,
+          max_retries: 3
+        });
+
+      if (insertError) {
+        console.error('❌ Error inserting simple email into queue:', insertError);
+        throw insertError;
+      }
+      
+      console.log('✅ Simple email queued successfully');
+    } catch (error) {
+      console.error('❌ Error sending simple email:', error);
+      throw error;
     }
   }
 
@@ -643,6 +823,8 @@ export class CustomAdEmailService {
   // Get email template by type
   private static async getEmailTemplate(type: string): Promise<EmailTemplate | null> {
     try {
+      console.log('📧 getEmailTemplate: Looking for template type:', type);
+      
       const { data, error } = await supabase
         .from('email_templates')
         .select('*')
@@ -652,10 +834,20 @@ export class CustomAdEmailService {
         .limit(1)
         .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error querying email template:', error);
+        throw error;
+      }
+      
+      if (!data) {
+        console.error('❌ Email template not found for type:', type);
+        return null;
+      }
+      
+      console.log('✅ Email template found:', data.name, 'for type:', type);
       return data;
     } catch (error) {
-      console.error('Error getting email template:', error);
+      console.error('❌ Error getting email template:', error);
       return null;
     }
   }
@@ -678,7 +870,7 @@ export class CustomAdEmailService {
   }
 
   // Get custom ad service
-  private static async getCustomAdService(serviceKey: string): Promise<{ name: string } | null> {
+  private static async getCustomAdService(serviceKey: string): Promise<{ name: string }> {
     try {
       const { data, error } = await supabase
         .from('custom_ad_services')
@@ -687,11 +879,32 @@ export class CustomAdEmailService {
         .eq('is_active', true)
         .maybeSingle();
 
-      if (error) return null;
-      return data || null;
+      if (error) {
+        console.error('❌ Error querying custom ad service:', error);
+        // Return fallback service instead of null
+        return {
+          name: serviceKey.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+          description: 'Custom ad service'
+        };
+      }
+      
+      if (!data) {
+        console.warn('⚠️ Service not found for service_key:', serviceKey, '- using fallback');
+        // Return fallback service instead of null
+        return {
+          name: serviceKey.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+          description: 'Custom ad service'
+        };
+      }
+      
+      return data;
     } catch (error) {
-      console.error('Error getting custom ad service:', error);
-      return null;
+      console.error('❌ Error getting custom ad service:', error);
+      // Return fallback service instead of null
+      return {
+        name: serviceKey.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        description: 'Custom ad service'
+      };
     }
   }
 
@@ -714,13 +927,16 @@ export class CustomAdEmailService {
   // Send email using template
   private static async sendEmail(template: EmailTemplate, to: string, toName: string, variables: Record<string, string>): Promise<void> {
     try {
-      console.log('📧 Attempting to send email to:', to);
+      console.log('📧 sendEmail: Starting email send process...');
+      console.log('📧 Recipient:', to);
+      console.log('📧 Template:', template.name);
       console.log('📧 Gmail configured:', GmailService.isConfigured());
       
       if (!GmailService.isConfigured()) {
         console.log('⚠️ Gmail not configured, queuing email for later sending');
         // Queue email for later sending
         await this.queueEmail(template, to, toName, variables);
+        console.log('✅ Email queued successfully');
         return;
       }
 
@@ -728,7 +944,12 @@ export class CustomAdEmailService {
       const htmlBody = this.replaceVariables(template.body_html, variables);
       const textBody = template.body_text ? this.replaceVariables(template.body_text, variables) : undefined;
 
-      console.log('📧 Sending email with subject:', subject);
+      console.log('📧 Email content prepared:');
+      console.log('📧 Subject:', subject);
+      console.log('📧 HTML body length:', htmlBody.length);
+      console.log('📧 Text body length:', textBody?.length || 0);
+
+      console.log('📧 Attempting to send via Gmail...');
       await GmailService.sendEmail(to, subject, htmlBody, textBody);
       console.log('✅ Email sent successfully via Gmail');
     } catch (error) {
@@ -736,17 +957,22 @@ export class CustomAdEmailService {
       console.log('🔄 Queuing email for retry...');
       // Queue email for retry
       await this.queueEmail(template, to, toName, variables);
+      console.log('✅ Email queued for retry');
     }
   }
 
   // Queue email for later sending
   private static async queueEmail(template: EmailTemplate, to: string, toName: string, variables: Record<string, string>): Promise<void> {
     try {
+      console.log('📧 queueEmail: Queuing email for later sending...');
+      console.log('📧 Recipient:', to);
+      console.log('📧 Template:', template.name);
+      
       const subject = this.replaceVariables(template.subject, variables);
       const htmlBody = this.replaceVariables(template.body_html, variables);
       const textBody = template.body_text ? this.replaceVariables(template.body_text, variables) : undefined;
 
-      await supabase
+      const { error: insertError } = await supabase
         .from('email_queue')
         .insert({
           template_id: template.id,
@@ -760,20 +986,34 @@ export class CustomAdEmailService {
           max_retries: 3
         });
 
+      if (insertError) {
+        console.error('❌ Error inserting email into queue:', insertError);
+        throw insertError;
+      }
+      
+      console.log('✅ Email queued successfully');
+
       // Attempt immediate delivery if Gmail is configured
       try {
+        console.log('📧 Attempting immediate email delivery...');
         if (GmailService.isConfigured()) {
+          console.log('📧 Gmail configured, processing queue via Gmail service...');
           await GmailService.processEmailQueue();
+          console.log('✅ Email queue processed via Gmail service');
         } else {
-          try { await supabase.functions.invoke('email-queue-processor'); } catch (error) {
-            console.error('Error invoking email queue processor:', error);
+          console.log('📧 Gmail not configured, invoking email queue processor...');
+          try { 
+            const result = await supabase.functions.invoke('email-queue-processor');
+            console.log('✅ Email queue processor invoked successfully:', result);
+          } catch (error) {
+            console.error('❌ Error invoking email queue processor:', error);
           }
         }
       } catch (error) {
-        console.error('Error processing email queue:', error);
+        console.error('❌ Error processing email queue:', error);
       }
     } catch (error) {
-      console.error('Error queuing email:', error);
+      console.error('❌ Error queuing email:', error);
     }
   }
 
@@ -823,7 +1063,6 @@ export class CustomAdEmailService {
       if (!client) return;
 
       const service = await this.getCustomAdService(order.service_key);
-      if (!service) return;
 
       const estimatedCompletion = order.estimated_completion_date 
         ? new Date(order.estimated_completion_date).toISOString().split('T')[0]
@@ -862,7 +1101,6 @@ export class CustomAdEmailService {
       if (!designer) return;
 
       const service = await this.getCustomAdService(order.service_key);
-      if (!service) return;
 
       const estimatedCompletion = order.estimated_completion_date 
         ? new Date(order.estimated_completion_date).toISOString().split('T')[0]
@@ -895,17 +1133,31 @@ export class CustomAdEmailService {
   // Send email notification for designer proof submitted (Admin Courtesy Copy)
   static async sendProofSubmittedNotification(order: CustomAdOrder, _proof: CustomAdProof): Promise<void> {
     try {
+      console.log('📧 sendProofSubmittedNotification: Starting...');
+      
       const template = await this.getEmailTemplate('custom_ad_proof_submitted');
-      if (!template) return;
+      if (!template) {
+        console.error('❌ Email template not found for custom_ad_proof_submitted');
+        return;
+      }
+      console.log('✅ Email template found:', template.name);
 
       const client = await this.getUserProfile(order.user_id);
-      if (!client) return;
+      if (!client) {
+        console.error('❌ Client profile not found for user_id:', order.user_id);
+        return;
+      }
+      console.log('✅ Client profile found:', client.email);
 
       const designer = order.designer;
-      if (!designer) return;
+      if (!designer) {
+        console.error('❌ Designer not found in order data');
+        return;
+      }
+      console.log('✅ Designer found:', designer.full_name);
 
       const service = await this.getCustomAdService(order.service_key);
-      if (!service) return;
+      console.log('✅ Service found:', service.name);
 
       const variables = {
         client_name: order.user?.full_name || order.user?.full_name || `${order.first_name} ${order.last_name}`,
@@ -914,15 +1166,21 @@ export class CustomAdEmailService {
         designer_name: designer.full_name
       };
 
+      console.log('📧 Variables prepared:', variables);
+
       // Send to client
+      console.log('📧 Sending email to client:', client.email);
       await this.sendEmail(template, client.email, client.user?.full_name || `${client.first_name} ${client.last_name}`, variables);
+      console.log('✅ Email sent to client successfully');
 
       // Send to admins
+      console.log('📧 Sending notification to admins...');
       await this.sendNotificationToAdmins(order, 'proof_submitted', 'Designer Proof Submitted', 
         `Designer ${designer.full_name} has submitted a proof for order #${order.id}`);
+      console.log('✅ Admin notification sent successfully');
 
     } catch (error) {
-      console.error('Error sending proof submitted notification:', error);
+      console.error('❌ Error sending proof submitted notification:', error);
     }
   }
 
@@ -939,7 +1197,6 @@ export class CustomAdEmailService {
       if (!designer) return;
 
       const service = await this.getCustomAdService(order.service_key);
-      if (!service) return;
 
       const variables = {
         order_id: order.id,
