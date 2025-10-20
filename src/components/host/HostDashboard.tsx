@@ -33,7 +33,13 @@ export default function HostDashboard() {
       
       try {
         setLoading(true);
-        const [statsData, adsData, kiosksData, popData] = await Promise.all([
+        
+        // Add timeout protection (30 seconds)
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Dashboard data request timeout after 30 seconds')), 30000)
+        );
+        
+        const dataPromise = Promise.all([
           HostService.getHostStats(user.id),
           HostService.getHostAds(user.id),
           HostService.getHostKiosks(user.id),
@@ -43,12 +49,19 @@ export default function HostDashboard() {
             endDate: new Date().toISOString().split('T')[0]
           })
         ]);
+        
+        const [statsData, adsData, kiosksData, popData] = await Promise.race([dataPromise, timeoutPromise]) as any;
+        
         setStats(statsData);
         setAds(adsData);
         setKiosks(kiosksData);
         setPopSummary(popData);
       } catch (error) {
         console.error('Error loading dashboard data:', error);
+        // Show user-friendly error message
+        if (error instanceof Error && error.message.includes('timeout')) {
+          console.warn('Dashboard data request timed out - some data may be incomplete');
+        }
       } finally {
         setLoading(false);
       }

@@ -70,9 +70,9 @@ export default function ProofOfPlayPage() {
       setLoading(true);
       const userFilters = { ...filters, accountId: user?.id };
       
-      // Add timeout to prevent infinite loading
+      // Add timeout to prevent infinite loading (30 seconds)
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Request timeout')), 10000)
+        setTimeout(() => reject(new Error('Request timeout after 30 seconds')), 30000)
       );
       
       const dataPromise = Promise.all([
@@ -87,7 +87,10 @@ export default function ProofOfPlayPage() {
       setSummary(summaryData);
     } catch (error) {
       console.error('Error loading Proof-of-Play data:', error);
-      addNotification('error', 'Error', 'Failed to load Proof-of-Play data');
+      const errorMessage = error instanceof Error && error.message.includes('timeout') 
+        ? 'Request timed out. Please try again or contact support if the issue persists.'
+        : 'Failed to load Proof-of-Play data';
+      addNotification('error', 'Error', errorMessage);
     } finally {
       setLoading(false);
     }

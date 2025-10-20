@@ -343,30 +343,49 @@ export default function AnalyticsPage() {
   const fetchCSVAnalyticsData = useCallback(async (isInitialLoad = false) => {
     if (!user) return;
 
-    try {
-      if (isInitialLoad) {
-        setCsvLoading(true);
+    // Add timeout protection (45 seconds)
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('CSV analytics data request timeout after 45 seconds')), 45000)
+    );
+
+    const fetchData = async () => {
+      try {
+        if (isInitialLoad) {
+          setCsvLoading(true);
+        }
+        setCsvError(null);
+
+        // Fetch ALL data (last 90 days to cover all possible ranges)
+        const now = getLosAngelesTime();
+        const startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        
+        // Fetch CSV analytics data and summary
+        const [csvData, csvSummary] = await Promise.all([
+          AnalyticsService.getCSVAnalyticsData(user.id, startDate.toISOString(), now.toISOString()),
+          AnalyticsService.getCSVAnalyticsSummary(user.id, startDate.toISOString(), now.toISOString())
+        ]);
+
+        setCsvAnalyticsData(csvData);
+        setCsvAnalyticsSummary(csvSummary);
+
+      } catch (error) {
+        console.error('Error fetching CSV analytics data:', error);
+        setCsvError('Failed to load analytics reports. Please try again.');
+        addNotification('error', 'Analytics Reports Error', 'Failed to load analytics reports. Please try again.');
+      } finally {
+        if (isInitialLoad) {
+          setCsvLoading(false);
+        }
       }
-      setCsvError(null);
+    };
 
-      // Fetch ALL data (last 90 days to cover all possible ranges)
-      const now = getLosAngelesTime();
-      const startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-      
-      // Fetch CSV analytics data and summary
-      const [csvData, csvSummary] = await Promise.all([
-        AnalyticsService.getCSVAnalyticsData(user.id, startDate.toISOString(), now.toISOString()),
-        AnalyticsService.getCSVAnalyticsSummary(user.id, startDate.toISOString(), now.toISOString())
-      ]);
-
-      setCsvAnalyticsData(csvData);
-      setCsvAnalyticsSummary(csvSummary);
-
+    // Race between data fetching and timeout
+    try {
+      await Promise.race([fetchData(), timeoutPromise]);
     } catch (error) {
-      console.error('Error fetching CSV analytics data:', error);
-      setCsvError('Failed to load analytics reports. Please try again.');
-      addNotification('error', 'Analytics Reports Error', 'Failed to load analytics reports. Please try again.');
-    } finally {
+      console.error('CSV analytics data request timed out:', error);
+      setCsvError('Request timed out. Please try again or contact support if the issue persists.');
+      addNotification('error', 'Request Timeout', 'Analytics data request timed out. Please try again.');
       if (isInitialLoad) {
         setCsvLoading(false);
       }
@@ -447,11 +466,11 @@ export default function AnalyticsPage() {
         try {
           console.log(`Processing file ${i + 1}/${filesToProcess.length}: ${file.key}`);
           
-          // Add timeout for individual file processing
+          // Add timeout for individual file processing (20 seconds)
           const csvContent = await Promise.race([
             AWSS3Service.getObjectAsText(s3ConfigForAWS, file.key),
             new Promise((_, reject) => 
-              setTimeout(() => reject(new Error(`File ${file.key} timeout after 15 seconds`)), 15000)
+              setTimeout(() => reject(new Error(`File ${file.key} timeout after 20 seconds`)), 20000)
             )
           ]) as string;
           
