@@ -6,6 +6,7 @@ import { S3Service } from '../services/s3Service';
 import { AWSS3Service } from '../services/awsS3Service';
 import { MediaService } from '../services/mediaService';
 import { useNotification } from '../contexts/NotificationContext';
+import { logEnvironmentStatus } from '../utils/environmentValidation';
 
 interface CSVAnalyticsData {
   id: string;
@@ -77,19 +78,19 @@ export default function AnalyticsPage() {
 
   const dateRanges = ['1 Day', '7 Days', '30 Days', '90 Days'];
 
-  // Helper function to get Los Angeles time (UTC-7)
+  // Helper function to get Los Angeles time (UTC-7 or UTC-8)
   const getLosAngelesTime = () => {
     const now = new Date();
-    // Convert to Los Angeles time (UTC-7)
-    const laTime = new Date(now.getTime() - (7 * 60 * 60 * 1000));
+    // Use proper timezone conversion instead of manual offset
+    const laTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
     return laTime;
   };
 
   // Helper function to format date in Los Angeles time
   const formatDateInLATime = (dateString: string) => {
     const date = new Date(dateString);
-    // Convert to Los Angeles time (UTC-7)
-    const laDate = new Date(date.getTime() - (7 * 60 * 60 * 1000));
+    // Use proper timezone conversion
+    const laDate = new Date(date.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
     return laDate.toISOString().replace('T', ' ').replace('Z', ' LA Time');
   };
 
@@ -592,6 +593,8 @@ export default function AnalyticsPage() {
   // Fetch data on component mount
   useEffect(() => {
     if (user) {
+      // Log environment status for debugging
+      logEnvironmentStatus();
       fetchCSVAnalyticsData(true); // Initial CSV load
       fetchUserMediaAssets(); // Load user media assets for filtering
       

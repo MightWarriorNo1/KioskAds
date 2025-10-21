@@ -78,7 +78,7 @@ export default function HostAnalytics() {
 
   // Calculate metrics for specific time periods
   const calculateTimePeriodMetrics = (data: CSVAnalyticsData[], days: number) => {
-    const now = new Date();
+    const now = new Date(now.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
     const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
     
     const filteredData = data.filter(row => {
@@ -104,7 +104,7 @@ export default function HostAnalytics() {
   const getFilteredCSVData = () => {
     if (!csvAnalyticsData.length) return [];
     
-    const now = new Date();
+    const now = new Date(now.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
     const days = dateRange === '1 Day' ? 1 : dateRange === '7 Days' ? 7 : dateRange === '30 Days' ? 30 : 90;
     const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
     
