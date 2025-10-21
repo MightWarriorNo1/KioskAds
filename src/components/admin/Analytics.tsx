@@ -78,7 +78,7 @@ export default function HostAnalytics() {
 
   // Calculate metrics for specific time periods
   const calculateTimePeriodMetrics = (data: CSVAnalyticsData[], days: number) => {
-    const now = new Date(now.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
+    const now = new Date();
     const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
     
     const filteredData = data.filter(row => {
@@ -104,7 +104,7 @@ export default function HostAnalytics() {
   const getFilteredCSVData = () => {
     if (!csvAnalyticsData.length) return [];
     
-    const now = new Date(now.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
+    const now = new Date();
     const days = dateRange === '1 Day' ? 1 : dateRange === '7 Days' ? 7 : dateRange === '30 Days' ? 30 : 90;
     const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
     
@@ -128,40 +128,43 @@ export default function HostAnalytics() {
   const getFilteredS3Data = () => {
     if (!s3AnalyticsData.length) return [];
     
-    const now = new Date();
-    const days = dateRange === '1 Day' ? 1 : dateRange === '7 Days' ? 7 : dateRange === '30 Days' ? 30 : 90;
-    const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    // Get number of CSV files to include based on date range
+    const csvFilesToInclude = dateRange === '1 Day' ? 1 : dateRange === '7 Days' ? 7 : dateRange === '30 Days' ? 30 : 90;
     
-    // Normalize dates to start of day for accurate comparison
-    const normalizedStartDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-    const normalizedNow = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    // Group data by file_name to get unique files
+    const filesMap = new Map<string, S3AnalyticsData[]>();
+    s3AnalyticsData.forEach(row => {
+      if (!filesMap.has(row.file_name)) {
+        filesMap.set(row.file_name, []);
+      }
+      filesMap.get(row.file_name)!.push(row);
+    });
+    
+    // Get all unique file names and sort them (assuming they have some ordering)
+    const allFiles = Array.from(filesMap.keys()).sort();
+    
+    // Take the last N files based on the date range
+    const filesToInclude = allFiles.slice(-csvFilesToInclude);
     
     console.log('S3 Data Filtering Debug:', {
       totalS3Records: s3AnalyticsData.length,
       dateRange,
-      days,
-      startDate: startDate.toISOString(),
-      now: now.toISOString(),
-      normalizedStartDate: normalizedStartDate.toISOString(),
-      normalizedNow: normalizedNow.toISOString(),
-      sampleDates: s3AnalyticsData.slice(0, 3).map(row => ({
-        data_date: row.data_date,
-        media_id: row.media_id,
-        play_count: row.play_count
-      }))
+      csvFilesToInclude,
+      totalFiles: allFiles.length,
+      filesToInclude: filesToInclude,
+      sampleFiles: allFiles.slice(0, 3)
     });
     
+    // Filter data to only include records from the selected files
     const filtered = s3AnalyticsData.filter(row => {
-      const rowDate = new Date(row.data_date);
-      const normalizedRowDate = new Date(rowDate.getFullYear(), rowDate.getMonth(), rowDate.getDate());
-      const isInRange = normalizedRowDate >= normalizedStartDate && normalizedRowDate <= normalizedNow;
-      
-      return isInRange;
+      return filesToInclude.includes(row.file_name);
     });
     
     console.log('S3 Filtered Results:', {
       filteredCount: filtered.length,
+      filesIncluded: filesToInclude.length,
       sampleFiltered: filtered.slice(0, 3).map(row => ({
+        file_name: row.file_name,
         data_date: row.data_date,
         media_id: row.media_id,
         play_count: row.play_count
@@ -673,7 +676,7 @@ export default function HostAnalytics() {
         {hasS3Data && (
           <div className="mb-12">
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Shows total plays and duration for each unique Asset ID within the selected time period
+              Shows total plays and duration for each unique Asset ID from the selected number of CSV files
             </p>
             
             {(() => {
@@ -682,7 +685,7 @@ export default function HostAnalytics() {
               if (assetData.length === 0) {
                 return (
                   <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                    <p>No asset data found for the selected period ({dateRange})</p>
+                    <p>No asset data found in the selected CSV files ({dateRange})</p>
                   </div>
                 );
               }
