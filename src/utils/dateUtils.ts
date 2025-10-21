@@ -40,6 +40,22 @@ export function getCurrentLocalDate(): string {
 }
 
 /**
+ * Gets tomorrow's California timezone date in YYYY-MM-DD format
+ * @returns Tomorrow's California timezone date string
+ */
+export function getTomorrowLocalDate(): string {
+  const now = new Date();
+  // Convert to California timezone
+  const californiaTime = new Date(now.toLocaleString("en-US", {timeZone: CALIFORNIA_TIMEZONE}));
+  // Add one day
+  californiaTime.setDate(californiaTime.getDate() + 1);
+  const year = californiaTime.getFullYear();
+  const month = String(californiaTime.getMonth() + 1).padStart(2, '0');
+  const day = String(californiaTime.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
  * Validates that a date string is in the correct format and is a valid date
  * @param dateString - Date string to validate
  * @returns True if valid, false otherwise

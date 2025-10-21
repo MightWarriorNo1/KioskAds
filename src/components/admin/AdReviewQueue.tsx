@@ -278,7 +278,7 @@ export default function AdReviewQueue() {
       </div>
 
       {/* Queue Stats */}
-      <div className="grid md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -329,47 +329,50 @@ export default function AdReviewQueue() {
       </div>
 
       {/* Review Queue */}
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Queue List */}
-        <div className="lg:col-span-2">
+        <div className="xl:col-span-2">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Review Queue</h3>
-                <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
+                <div className="flex flex-wrap gap-1 bg-gray-100 rounded-lg p-1 overflow-x-auto">
                   <button
                     onClick={() => setActiveTab('client')}
-                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                    className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
                       activeTab === 'client'
                         ? 'bg-white text-gray-900 shadow-sm'
                         : 'text-gray-600 hover:text-gray-900'
                     }`}
                   >
-                    Client Campaigns ({pendingClientCampaigns.length})
+                    <span className="hidden sm:inline">Client Campaigns</span>
+                    <span className="sm:hidden">Client</span> ({pendingClientCampaigns.length})
                   </button>
                   <button
                     onClick={() => setActiveTab('host')}
-                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                    className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
                       activeTab === 'host'
                         ? 'bg-white text-gray-900 shadow-sm'
                         : 'text-gray-600 hover:text-gray-900'
                     }`}
                   >
-                    Host Ads ({hostAds.length + pendingHostCampaigns.length})
+                    <span className="hidden sm:inline">Host Ads</span>
+                    <span className="sm:hidden">Host</span> ({hostAds.length + pendingHostCampaigns.length})
                   </button>
                   <button
                     onClick={() => setActiveTab('swapped')}
-                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                    className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
                       activeTab === 'swapped'
                         ? 'bg-white text-gray-900 shadow-sm'
                         : 'text-gray-600 hover:text-gray-900'
                     }`}
                   >
-                    Swapped Assets ({swappedAssets.length})
+                    <span className="hidden sm:inline">Swapped Assets</span>
+                    <span className="sm:hidden">Swapped</span> ({swappedAssets.length})
                   </button>
                   <button
                     onClick={() => setActiveTab('all')}
-                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                    className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
                       activeTab === 'all'
                         ? 'bg-white text-gray-900 shadow-sm'
                         : 'text-gray-600 hover:text-gray-900'
@@ -443,8 +446,8 @@ export default function AdReviewQueue() {
                       }
                     }}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-center space-x-3 sm:space-x-4">
                         {(() => {
                           if (isCampaign(item)) {
                             // Prefer aggregated assets array; fallback to campaign_media if present
@@ -453,7 +456,7 @@ export default function AdReviewQueue() {
                               const src = getFilePreview(media.file_type, media.file_path);
                               const isVideo = media.file_type === 'video';
                             return (
-                              <div className="w-16 h-28 bg-black rounded-[0.5rem] overflow-hidden flex-shrink-0 shadow-lg">
+                              <div className="w-12 h-20 sm:w-16 sm:h-28 bg-black rounded-[0.5rem] overflow-hidden flex-shrink-0 shadow-lg">
                                 {isVideo ? (
                                   <video src={src} className="w-full h-full object-cover" muted loop autoPlay />
                                 ) : (
@@ -463,7 +466,7 @@ export default function AdReviewQueue() {
                             );
                             }
                             return (
-                              <div className="w-16 h-28 bg-gradient-to-br from-purple-100 to-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <div className="w-12 h-20 sm:w-16 sm:h-28 bg-gradient-to-br from-purple-100 to-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
                                 <CheckSquare className="h-8 w-8 text-purple-600" />
                               </div>
                             );
@@ -472,7 +475,7 @@ export default function AdReviewQueue() {
                           const isVideo = hostItem ? (item.media_type === 'video' || item.file_type === 'video') : item.file_type === 'video';
                           const src = hostItem ? (item.media_url || getFilePreview(item.file_type, item.file_path)) : getFilePreview(item.file_type, item.file_path);
                           return (
-                            <div className="w-16 h-28 bg-black rounded-[0.5rem] overflow-hidden flex-shrink-0 shadow-lg">
+                            <div className="w-12 h-20 sm:w-16 sm:h-28 bg-black rounded-[0.5rem] overflow-hidden flex-shrink-0 shadow-lg">
                               {isVideo ? (
                                 <video
                                   src={src}
@@ -491,8 +494,8 @@ export default function AdReviewQueue() {
                             </div>
                           );
                         })()}
-                        <div>
-                          <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white truncate">
                             {(() => {
                               if (isCampaign(item)) return item.name;
                               const hostItem = activeTab === 'all' ? isHostAdItem(item) : (activeTab === 'host' || activeTab === 'swapped');
@@ -519,7 +522,7 @@ export default function AdReviewQueue() {
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                             {isCampaign(item) ? 'Created' : 'Uploaded'} {new Date(item.created_at).toLocaleDateString()}
                           </p>
-                          <div className="flex items-center space-x-2 mt-2">
+                          <div className="flex flex-wrap items-center gap-1 sm:gap-2 mt-2">
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(item.status)}`}>
                               {item.status}
                             </span>
@@ -574,7 +577,7 @@ export default function AdReviewQueue() {
         </div>
 
         {/* Review Panel */}
-        <div className="lg:col-span-1">
+        <div className="xl:col-span-1">
           {(selectedAd || selectedHostAd || selectedCampaign) ? (
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 sticky top-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Review Details</h3>

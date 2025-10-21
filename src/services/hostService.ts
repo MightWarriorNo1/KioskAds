@@ -462,9 +462,19 @@ export class HostService {
       }
 
       // Determine assignment status based on start date
-      const startDate = new Date(assignmentData.startDate);
+      const startDate = new Date(assignmentData.startDate + 'T00:00:00'); // Ensure we're comparing dates, not times
       const now = new Date();
-      const isImmediate = startDate <= now;
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // Today at midnight
+      const isImmediate = startDate <= today;
+      console.log('[HostService.createAdAssignment] DEBUG: Date comparison details:', {
+        startDateString: assignmentData.startDate,
+        startDateParsed: startDate.toISOString(),
+        now: now.toISOString(),
+        today: today.toISOString(),
+        isImmediate: isImmediate,
+        timeDiff: startDate.getTime() - today.getTime()
+      });
+      
       console.log('[HostService.createAdAssignment] creating assignment', {
         hostId: assignmentData.hostId,
         adId: assignmentData.adId,
@@ -511,21 +521,35 @@ export class HostService {
           // Don't throw error - assignment was successful
         }
 
-        // Trigger Google Drive upload for this approved host ad to assigned kiosks
-        try {
-          console.log('[HostService.createAdAssignment] invoking edge function upload-approved-host-ad for hostAdId', assignmentData.adId);
-          const { data: invokeData, error: invokeErr } = await supabase.functions.invoke('upload-approved-host-ad', {
-            body: { hostAdId: assignmentData.adId }
-          });
-          if (invokeErr) {
-            console.error('[HostService.createAdAssignment] upload-approved-host-ad invocation error', invokeErr);
-          } else {
-            console.log('[HostService.createAdAssignment] upload-approved-host-ad invocation result', invokeData);
-          }
-        } catch (driveError) {
-          console.error('Error triggering Google Drive upload for quick assignment:', driveError);
-          // Swallow error so assignment creation isn't blocked
+      }
+
+      // Trigger Google Drive upload for this approved host ad to assigned kiosks (both immediate and scheduled)
+      try {
+        console.log('[HostService.createAdAssignment] DEBUG: Invoking edge function upload-approved-host-ad for hostAdId', assignmentData.adId, 'with assignment data:', {
+          startDate: assignmentData.startDate,
+          endDate: assignmentData.endDate,
+          isImmediate: isImmediate
+        });
+        
+        if (isImmediate) {
+          console.log('[HostService.createAdAssignment] DEBUG: This is an IMMEDIATE assignment - will upload to ACTIVE folder');
+        } else {
+          console.log('[HostService.createAdAssignment] DEBUG: This is a SCHEDULED assignment - will upload to SCHEDULED folder');
         }
+        const { data: invokeData, error: invokeErr } = await supabase.functions.invoke('upload-approved-host-ad', {
+          body: { 
+            hostAdId: assignmentData.adId,
+            isImmediate: isImmediate // Pass the already calculated isImmediate flag
+          }
+        });
+        if (invokeErr) {
+          console.error('[HostService.createAdAssignment] DEBUG: upload-approved-host-ad invocation error', invokeErr);
+        } else {
+          console.log('[HostService.createAdAssignment] DEBUG: upload-approved-host-ad invocation result', invokeData);
+        }
+      } catch (driveError) {
+        console.error('[HostService.createAdAssignment] DEBUG: Error triggering Google Drive upload:', driveError);
+        // Swallow error so assignment creation isn't blocked
       }
 
       return {

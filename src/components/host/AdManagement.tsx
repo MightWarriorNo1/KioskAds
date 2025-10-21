@@ -317,15 +317,6 @@ export default function AdManagement() {
           <p className="text-gray-600 dark:text-gray-400">Manage your uploaded advertisements</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3">
-          {ads.filter(ad => ad.status === 'approved').length > 0 && (
-            <Button
-              onClick={() => navigate('/host/ads/assign-approved')}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
-            >
-              <CheckCircle className="h-4 w-4" />
-              Assign Approved Ads
-            </Button>
-          )}
           <Button
             onClick={() => navigate('/host/ads/upload')}
             className="flex items-center gap-2"
@@ -715,8 +706,17 @@ export default function AdManagement() {
 
       {/* Cancel Confirmation Modal */}
       {showCancelModal && selectedAd && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => {
+            setShowCancelModal(false);
+            setSelectedAd(null);
+          }}
+        >
+          <div 
+            className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center gap-3 mb-4">
               <div className="flex-shrink-0">
                 <X className="h-6 w-6 text-orange-500" />

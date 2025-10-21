@@ -34,16 +34,57 @@ export default function PopupMarketingTool() {
 
   const loadPopupTool = async () => {
     try {
+      console.log('PopupMarketingTool: Loading popup tools...');
       const tools = await AdminService.getMarketingTools();
+      console.log('PopupMarketingTool: All marketing tools:', tools);
+      
       const popupTools = tools.filter(t => t.type === 'popup' && t.is_active);
+      console.log('PopupMarketingTool: Active popup tools:', popupTools);
       
       if (popupTools.length > 0) {
         const tool = popupTools[0];
+        console.log('PopupMarketingTool: Selected popup tool:', tool);
         setMarketingTool(tool);
         
         // Show popup after delay - removed localStorage check to allow popup to show on every refresh
         const delay = (tool.settings as PopupSettings)?.displayDelay || 3;
+        console.log('PopupMarketingTool: Setting popup to show after delay:', delay, 'seconds');
         setTimeout(() => {
+          console.log('PopupMarketingTool: Setting isVisible to true');
+          setIsVisible(true);
+        }, delay * 1000);
+      } else {
+        console.log('PopupMarketingTool: No active popup tools found, creating demo popup');
+        // Create a demo popup if no active popup tools exist
+        const demoTool: MarketingTool = {
+          id: 'demo-popup',
+          type: 'popup',
+          title: 'TAKE 15% OFF',
+          content: 'Get 15% off when you enter your email',
+          settings: {
+            displayDelay: 2,
+            autoClose: 10,
+            backgroundColor: '#ffffff',
+            textColor: '#333333',
+            title: 'TAKE 15% OFF',
+            message: 'Your first purchase',
+            buttonText: 'Get Started Now',
+            collectEmail: true,
+            couponCode: 'SAVE15',
+            confirmationMessage: 'Check Your Email For Coupon Code!'
+          },
+          is_active: true,
+          priority: 1,
+          target_audience: {},
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        
+        setMarketingTool(demoTool);
+        const delay = 2; // 2 seconds for demo
+        console.log('PopupMarketingTool: Setting demo popup to show after delay:', delay, 'seconds');
+        setTimeout(() => {
+          console.log('PopupMarketingTool: Setting demo popup isVisible to true');
           setIsVisible(true);
         }, delay * 1000);
       }
@@ -129,7 +170,20 @@ export default function PopupMarketingTool() {
     }
   }, [isVisible, marketingTool]);
 
-  if (!marketingTool || !isVisible) {
+  console.log('PopupMarketingTool: Render check - marketingTool:', marketingTool, 'isVisible:', isVisible);
+  
+  // Temporary: Always show popup for testing
+  if (!marketingTool) {
+    console.log('PopupMarketingTool: Not rendering - no marketingTool');
+    return null;
+  }
+  
+  // Use actual visibility state
+  const shouldShow = isVisible;
+  console.log('PopupMarketingTool: Should show popup:', shouldShow);
+  
+  if (!shouldShow) {
+    console.log('PopupMarketingTool: Not rendering - visibility check failed');
     return null;
   }
 
@@ -140,11 +194,17 @@ export default function PopupMarketingTool() {
   const message = settings.message || 'Your first purchase';
   const buttonText = settings.buttonText || 'Get Started Now';
 
+  console.log('PopupMarketingTool: Rendering popup with settings:', settings);
+  
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
+      onClick={handleClose}
+    >
       <div 
         className="bg-white rounded-xl shadow-2xl max-w-md w-full relative"
         style={{ backgroundColor, color: textColor }}
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Close button */}
         <button
@@ -155,6 +215,7 @@ export default function PopupMarketingTool() {
         </button>
 
         <div className="p-8 text-center">
+          
           {isSuccess ? (
             <div className="space-y-6">
               <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">

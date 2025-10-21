@@ -19,6 +19,7 @@ import ClientPortal from './pages/ClientPortal';
 import HostPortal from './pages/HostPortal';
 import AdminPortal from './pages/AdminPortal';
 import DesignerPortal from './pages/DesignerPortal';
+import DebugAssignmentPage from './pages/DebugAssignmentPage';
 import NotFound from './pages/NotFound';
 import ProtectedRoute from './components/ProtectedRoute';
 import AnnouncementBar from './components/shared/AnnouncementBar';
@@ -61,6 +62,14 @@ function App() {
                     element={
                       <ProtectedRoute allowedRoles={['host']}>
                         <HostPortal />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/debug-assignments" 
+                    element={
+                      <ProtectedRoute allowedRoles={['host', 'admin']}>
+                        <DebugAssignmentPage />
                       </ProtectedRoute>
                     } 
                   />

@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calendar, MapPin, Clock, CheckCircle, AlertCircle, Plus, X, Play } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, Clock, CheckCircle, AlertCircle, Play } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../contexts/NotificationContext';
 import { HostService, HostAd, HostKiosk, HostAdAssignment } from '../../services/hostService';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
-import { toLocalDateString, getCurrentLocalDate } from '../../utils/dateUtils';
+import { toLocalDateString, getTomorrowLocalDate } from '../../utils/dateUtils';
 
 interface AssignmentForm {
   kioskId: string;
@@ -28,7 +28,7 @@ export default function AdKioskAssignment() {
   const [showAssignmentForm, setShowAssignmentForm] = useState(false);
   const [assignmentForm, setAssignmentForm] = useState<AssignmentForm>({
     kioskId: '',
-    startDate: getCurrentLocalDate(),
+    startDate: getTomorrowLocalDate(),
     endDate: '',
     priority: 1
   });
@@ -97,6 +97,15 @@ export default function AdKioskAssignment() {
     try {
       setSubmitting(true);
       
+      console.log('[AdKioskAssignment] DEBUG: Creating assignment with data:', {
+        hostId: user.id,
+        adId: ad.id,
+        kioskId: assignmentForm.kioskId,
+        startDate: assignmentForm.startDate,
+        endDate: assignmentForm.endDate,
+        priority: assignmentForm.priority
+      });
+      
       const newAssignment = await HostService.createAdAssignment({
         hostId: user.id,
         adId: ad.id,
@@ -106,12 +115,14 @@ export default function AdKioskAssignment() {
         priority: assignmentForm.priority
       });
       
+      console.log('[AdKioskAssignment] DEBUG: Assignment created successfully:', newAssignment);
+      
       setAssignments(prev => [...prev, newAssignment]);
       setShowAssignmentForm(false);
       setQuickAssignMode(false);
       setAssignmentForm({
         kioskId: '',
-        startDate: getCurrentLocalDate(),
+        startDate: getTomorrowLocalDate(),
         endDate: '',
         priority: 1
       });
@@ -135,14 +146,25 @@ export default function AdKioskAssignment() {
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + 30);
       
+      console.log('[AdKioskAssignment] DEBUG: Quick assign with data:', {
+        hostId: user.id,
+        adId: ad.id,
+        kioskId: kioskId,
+        startDate: getTomorrowLocalDate(),
+        endDate: endDate.toISOString().split('T')[0],
+        priority: 1
+      });
+      
       const newAssignment = await HostService.createAdAssignment({
         hostId: user.id,
         adId: ad.id,
         kioskId: kioskId,
-        startDate: getCurrentLocalDate(),
+        startDate: getTomorrowLocalDate(),
         endDate: endDate.toISOString().split('T')[0],
         priority: 1
       });
+      
+      console.log('[AdKioskAssignment] DEBUG: Quick assignment created successfully:', newAssignment);
       
       setAssignments(prev => [...prev, newAssignment]);
       setQuickAssignMode(false);
@@ -387,7 +409,7 @@ export default function AdKioskAssignment() {
                       setQuickAssignMode(false);
                       setAssignmentForm({
                         kioskId: '',
-                        startDate: getCurrentLocalDate(),
+                        startDate: getTomorrowLocalDate(),
                         endDate: '',
                         priority: 1
                       });
@@ -447,7 +469,7 @@ export default function AdKioskAssignment() {
                       type="date"
                       value={assignmentForm.startDate}
                       onChange={(e) => setAssignmentForm(prev => ({ ...prev, startDate: toLocalDateString(e.target.value) }))}
-                      min={getCurrentLocalDate()}
+                      min={getTomorrowLocalDate()}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
                       required
                     />
@@ -461,7 +483,7 @@ export default function AdKioskAssignment() {
                       type="date"
                       value={assignmentForm.endDate}
                       onChange={(e) => setAssignmentForm(prev => ({ ...prev, endDate: toLocalDateString(e.target.value) }))}
-                      min={assignmentForm.startDate || getCurrentLocalDate()}
+                      min={assignmentForm.startDate || getTomorrowLocalDate()}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
                       required
                     />
@@ -494,7 +516,7 @@ export default function AdKioskAssignment() {
                       setShowAssignmentForm(false);
                       setAssignmentForm({
                         kioskId: '',
-                        startDate: getCurrentLocalDate(),
+                        startDate: getTomorrowLocalDate(),
                         endDate: '',
                         priority: 1
                       });

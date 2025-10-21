@@ -14,7 +14,9 @@ export default function MarketingOverlays() {
   const loadMarketingTools = async () => {
     try {
       setLoading(true);
+      console.log('MarketingOverlays: Loading marketing tools...');
       const toolsData = await AdminService.getMarketingTools();
+      console.log('MarketingOverlays: All marketing tools:', toolsData);
       
       // Filter active tools that are currently valid
       const now = new Date();
@@ -24,6 +26,7 @@ export default function MarketingOverlays() {
         (!tool.end_date || new Date(tool.end_date) >= now)
       );
       
+      console.log('MarketingOverlays: Active tools:', activeTools);
       setMarketingTools(activeTools);
     } catch (error) {
       console.error('Error loading marketing tools:', error);
@@ -37,11 +40,12 @@ export default function MarketingOverlays() {
   }
 
   const hasPopup = marketingTools.some(tool => tool.type === 'popup');
+  console.log('MarketingOverlays: hasPopup:', hasPopup, 'marketingTools:', marketingTools);
 
   return (
     <>
-      {/* Popup Marketing Tool - Overlay */}
-      {hasPopup && <PopupMarketingTool />}
+      {/* Popup Marketing Tool - Overlay - Always show, component handles demo fallback */}
+      <PopupMarketingTool />
       
       {/* Recent Sales Notification - Bottom left - Always show for demo */}
       <RecentSalesNotification />

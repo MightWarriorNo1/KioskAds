@@ -13,7 +13,8 @@ import {
   LogOut,
   Receipt,
   MessageSquare,
-  User
+  User,
+  Settings
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import NotificationToast from '../NotificationToast';
@@ -32,6 +33,7 @@ const navigation = [
   { name: 'Analytics', href: '/host/analytics', icon: FileText },
   { name: 'Create Custom Ads', href: '/host/custom-ads', icon: Megaphone },
   { name: 'Manage My Custom Ad', href: '/host/manage-custom-ads', icon: MessageSquare },
+  // { name: 'Debug Assignments', href: '/debug-assignments', icon: Settings },
   { name: 'Profile', href: '/host/profile', icon: User },
 ];
 
