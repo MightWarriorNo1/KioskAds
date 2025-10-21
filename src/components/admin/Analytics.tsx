@@ -4,6 +4,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { AWSS3Service } from '../../services/awsS3Service';
 import { S3Service } from '../../services/s3Service';
 import { AnalyticsService } from '../../services/analyticsService';
+import { MediaService } from '../../services/mediaService';
+import { supabase } from '../../lib/supabaseClient';
 
 interface CSVAnalyticsData {
   id: string;
@@ -61,6 +63,16 @@ export default function HostAnalytics() {
   const [s3Loading, setS3Loading] = useState(false);
   const [s3Error, setS3Error] = useState<string | null>(null);
   const [s3ConfigLoaded, setS3ConfigLoaded] = useState(false);
+  
+  // User Media Assets States
+  const [userMediaAssets, setUserMediaAssets] = useState<Array<{
+    id: string;
+    file_name: string;
+    file_path: string;
+    file_type: 'image' | 'video';
+    user_id: string;
+  }>>([]);
+  const [mediaAssetsLoading, setMediaAssetsLoading] = useState(false);
 
   const dateRanges = ['1 Day', '7 Days', '30 Days', '90 Days'];
 
@@ -74,6 +86,40 @@ export default function HostAnalytics() {
   const formatPercentage = (num: number | undefined): string => {
     if (num === undefined || num === null) return '0.00';
     return num.toFixed(2);
+  };
+
+  // Fetch user's media assets for filtering
+  const fetchUserMediaAssets = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      setMediaAssetsLoading(true);
+      console.log('Analytics: Fetching media assets for user:', user.id);
+      const mediaAssets = await MediaService.getUserMedia(user.id);
+      setUserMediaAssets(mediaAssets);
+      console.log('User media assets loaded:', mediaAssets.length);
+    } catch (error) {
+      console.error('Error fetching user media assets:', error);
+      addNotification('error', 'Media Assets Error', 'Failed to load user media assets');
+    } finally {
+      setMediaAssetsLoading(false);
+    }
+  }, [user, addNotification]);
+
+  // Helper function to check if an asset matches user's uploaded media assets
+  const isAssetFromUserMedia = (mediaId: string, assetName: string) => {
+    if (!userMediaAssets.length) return false;
+    
+    // Check if media_id matches any user media asset ID
+    const matchesById = userMediaAssets.some(asset => asset.id === mediaId);
+    
+    // Check if asset_name matches any user media asset file_name
+    const matchesByName = userMediaAssets.some(asset => 
+      asset.file_name && assetName && 
+      asset.file_name.toLowerCase() === assetName.toLowerCase()
+    );
+    
+    return matchesById || matchesByName;
   };
 
   // Calculate metrics for specific time periods
@@ -146,29 +192,9 @@ export default function HostAnalytics() {
     // Take the last N files based on the date range
     const filesToInclude = allFiles.slice(-csvFilesToInclude);
     
-    console.log('S3 Data Filtering Debug:', {
-      totalS3Records: s3AnalyticsData.length,
-      dateRange,
-      csvFilesToInclude,
-      totalFiles: allFiles.length,
-      filesToInclude: filesToInclude,
-      sampleFiles: allFiles.slice(0, 3)
-    });
-    
     // Filter data to only include records from the selected files
     const filtered = s3AnalyticsData.filter(row => {
       return filesToInclude.includes(row.file_name);
-    });
-    
-    console.log('S3 Filtered Results:', {
-      filteredCount: filtered.length,
-      filesIncluded: filesToInclude.length,
-      sampleFiltered: filtered.slice(0, 3).map(row => ({
-        file_name: row.file_name,
-        data_date: row.data_date,
-        media_id: row.media_id,
-        play_count: row.play_count
-      }))
     });
     
     return filtered;
@@ -178,15 +204,6 @@ export default function HostAnalytics() {
   const getAssetAnalytics = () => {
     const filteredData = getFilteredS3Data();
     
-    console.log('Asset Analytics Debug:', {
-      filteredDataLength: filteredData.length,
-      sampleFilteredData: filteredData.slice(0, 3).map(row => ({
-        media_id: row.media_id,
-        play_count: row.play_count,
-        play_duration: row.play_duration,
-        data_date: row.data_date
-      }))
-    });
     
     // Group by media_id (asset ID) only
     const assetMap = new Map<string, {
@@ -204,20 +221,10 @@ export default function HostAnalytics() {
       };
     }>();
 
-    filteredData.forEach((row, index) => {
+    filteredData.forEach((row) => {
       const assetId = row.media_id;
       const assetName = String(row.asset_name || (assetId.includes('.') ? assetId : `${assetId}.mp4`));
       
-      // Debug first few rows
-      if (index < 3) {
-        console.log(`Processing row ${index}:`, {
-          assetId,
-          assetName,
-          play_count: row.play_count,
-          play_duration: row.play_duration,
-          data_date: row.data_date
-        });
-      }
       
       if (!assetMap.has(assetId)) {
         assetMap.set(assetId, {
@@ -529,6 +536,7 @@ export default function HostAnalytics() {
   useEffect(() => {
     if (user) {
       fetchCSVAnalyticsData(true); // Initial CSV load
+      fetchUserMediaAssets(); // Load user media assets for filtering
       
       // Load S3 configuration and data only once
       if (!s3ConfigLoaded) {
@@ -552,7 +560,7 @@ export default function HostAnalytics() {
         loadS3Data();
       }
     }
-  }, [user, fetchCSVAnalyticsData, loadS3Configuration, fetchS3CSVFiles, s3ConfigLoaded]);
+  }, [user, fetchCSVAnalyticsData, fetchUserMediaAssets, loadS3Configuration, fetchS3CSVFiles, s3ConfigLoaded]);
 
 
 
@@ -563,12 +571,16 @@ export default function HostAnalytics() {
 
   
 
-  if (csvLoading || s3Loading) {
+  if (csvLoading || s3Loading || mediaAssetsLoading) {
     return (
       <div className="space-y-6">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading analytics data...</p>
+          <p className="mt-4 text-gray-600">
+            {csvLoading ? 'Loading analytics reports...' : 
+             s3Loading ? 'Loading S3 CSV files...' : 
+             'Loading media assets...'}
+          </p>
         </div>
       </div>
     );
@@ -606,15 +618,16 @@ export default function HostAnalytics() {
             <button
               onClick={async () => {
                 fetchCSVAnalyticsData(false); // Don't show loading state for refresh
+                fetchUserMediaAssets(); // Refresh user media assets
                 const config = await loadS3Configuration();
                 if (config) {
                   await fetchS3CSVFiles(config);
                 }
               }}
-              disabled={csvLoading || s3Loading}
+              disabled={csvLoading || s3Loading || mediaAssetsLoading}
               className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 text-xs sm:text-sm"
             >
-              <svg className={`w-3 h-3 sm:w-4 sm:h-4 ${(csvLoading || s3Loading) ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className={`w-3 h-3 sm:w-4 sm:h-4 ${(csvLoading || s3Loading || mediaAssetsLoading) ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
               <span className="hidden sm:inline">Refresh Data</span>
@@ -694,17 +707,6 @@ export default function HostAnalytics() {
               const totalPlays = assetData.reduce((sum, asset) => sum + asset.total_plays, 0);
               const totalDuration = assetData.reduce((sum, asset) => sum + asset.total_duration, 0);
               
-              // Debug: Log asset data
-              console.log('Asset Analytics Data:', {
-                totalAssets: assetData.length,
-                totalPlays,
-                totalDuration,
-                assets: assetData.map(asset => ({
-                  asset_id: asset.asset_id,
-                  total_plays: asset.total_plays,
-                  total_duration: asset.total_duration
-                }))
-              });
               
               return (
                 <>
@@ -755,24 +757,96 @@ export default function HostAnalytics() {
                           Period: {asset.display_date_range}
                         </p>
   
-                        {/* Ad Preview Placeholder */}
+                        {/* Ad Preview - Show actual media if available */}
                         <div className="relative w-full h-48 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden mb-4 flex items-center justify-center">
-                          <div className="w-full h-full bg-gradient-to-br from-blue-500 to-teal-500 flex items-center justify-center">
-                            <div className="text-center text-white">
-                              <div className="text-2xl font-bold mb-2">📺</div>
-                              <div className="text-lg font-semibold">Ad Preview</div>
-                              <div className="text-sm opacity-80">{asset.asset_name}</div>
-                            </div>
-                          </div>
-                          {/* Overlay text similar to image */}
-                          <div className="absolute inset-0 flex flex-col justify-center items-center text-white text-center p-4">
+                          {(() => {
+                            // Debug: Log asset matching attempt
+                            console.log('Asset Matching Debug:', {
+                              assetName: asset.asset_name,
+                              assetId: asset.asset_id,
+                              userMediaAssets: userMediaAssets.map(ma => ({
+                                id: ma.id,
+                                file_name: ma.file_name,
+                                file_type: ma.file_type
+                              }))
+                            });
+                            
+                            // Find matching media asset in database
+                            const matchingAsset = userMediaAssets.find(mediaAsset => 
+                              mediaAsset.file_name === asset.asset_name || 
+                              mediaAsset.id === asset.asset_id
+                            );
+                            
+                            console.log('Matching Asset Found:', matchingAsset);
+                            
+                            if (matchingAsset) {
+                              // Get public URL for the media asset using file_path
+                              const { data } = supabase.storage
+                                .from('media-assets')
+                                .getPublicUrl(matchingAsset.file_path);
+                              
+                              const mediaUrl = data?.publicUrl;
+                              
+                              console.log('Media URL Debug:', {
+                                file_path: matchingAsset.file_path,
+                                mediaUrl: mediaUrl,
+                                file_type: matchingAsset.file_type
+                              });
+                              
+                              if (mediaUrl) {
+                                if (matchingAsset.file_type === 'image') {
+                                  return (
+                                    <img 
+                                      src={mediaUrl} 
+                                      alt={asset.asset_name}
+                                      className="w-full h-full object-contain"
+                                      style={{ objectFit: 'contain' }}
+                                      onError={(e) => {
+                                        // Fallback to placeholder if image fails to load
+                                        e.currentTarget.style.display = 'none';
+                                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                      }}
+                                    />
+                                  );
+                                } else if (matchingAsset.file_type === 'video') {
+                                  return (
+                                    <video 
+                                      src={mediaUrl} 
+                                      className="w-full h-full object-contain"
+                                      style={{ objectFit: 'contain' }}
+                                      controls
+                                      onError={(e) => {
+                                        // Fallback to placeholder if video fails to load
+                                        e.currentTarget.style.display = 'none';
+                                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                      }}
+                                    />
+                                  );
+                                }
+                              }
+                            }
+                            
+                            // Fallback to placeholder
+                            return (
+                              <div className="w-full h-full bg-gradient-to-br from-blue-500 to-teal-500 flex items-center justify-center">
+                                <div className="text-center text-white">
+                                  <div className="text-2xl font-bold mb-2">📺</div>
+                                  <div className="text-lg font-semibold">Ad Preview</div>
+                                  <div className="text-sm opacity-80">{asset.asset_name}</div>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                          
+                          {/* Overlay text - only show if no media found */}
+                          {/* <div className="absolute inset-0 flex flex-col justify-center items-center text-white text-center p-4 pointer-events-none">
                             <span className="text-lg font-bold bg-black bg-opacity-50 px-3 py-2 rounded mb-2">
                               I AM YOUR AD
                             </span>
                             <span className="text-sm bg-black bg-opacity-50 px-2 py-1 rounded">
                               Asset: {asset.asset_name}
                             </span>
-                          </div>
+                          </div> */}
                         </div>
   
                         {/* Key Metrics - Total Count and Duration */}

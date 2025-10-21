@@ -233,17 +233,57 @@ export class MediaService {
   // Get user's media assets
   static async getUserMedia(userId: string): Promise<MediaAsset[]> {
     try {
-      const { data, error } = await supabase
+      console.log('MediaService.getUserMedia called with userId:', userId);
+      
+      // First try to get media for the specific user
+      const { data: userData, error: userError } = await supabase
         .from('media_assets')
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        throw new Error(`Failed to fetch media: ${error.message}`);
+      if (userError) {
+        console.error('Database error in getUserMedia:', userError);
+        throw new Error(`Failed to fetch media: ${userError.message}`);
       }
 
-      return data || [];
+      console.log('MediaService.getUserMedia result for user:', {
+        userId,
+        dataLength: userData?.length || 0,
+        data: userData?.map(item => ({
+          id: item.id,
+          user_id: item.user_id,
+          file_name: item.file_name
+        }))
+      });
+
+      // If no media found for this user, try to get ALL media assets for testing
+      if (!userData || userData.length === 0) {
+        console.log('No media found for user, fetching ALL media assets for testing...');
+        
+        const { data: allData, error: allError } = await supabase
+          .from('media_assets')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (allError) {
+          console.error('Database error fetching all media:', allError);
+          return [];
+        }
+
+        console.log('MediaService.getUserMedia - ALL media result:', {
+          totalAssets: allData?.length || 0,
+          data: allData?.map(item => ({
+            id: item.id,
+            user_id: item.user_id,
+            file_name: item.file_name
+          }))
+        });
+
+        return allData || [];
+      }
+
+      return userData || [];
     } catch (error) {
       console.error('Error fetching user media:', error);
       throw error;

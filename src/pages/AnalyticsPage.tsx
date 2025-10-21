@@ -6,6 +6,7 @@ import { S3Service } from '../services/s3Service';
 import { AWSS3Service } from '../services/awsS3Service';
 import { MediaService } from '../services/mediaService';
 import { useNotification } from '../contexts/NotificationContext';
+import { supabase } from '../lib/supabaseClient';
 
 interface CSVAnalyticsData {
   id: string;
@@ -190,44 +191,27 @@ export default function AnalyticsPage() {
   const getFilteredS3Data = () => {
     if (!s3AnalyticsData.length) return [];
     
-    const now = getLosAngelesTime();
-    const days = dateRange === '1 Day' ? 1 : dateRange === '7 Days' ? 7 : dateRange === '30 Days' ? 30 : 90;
-    const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    // Get number of CSV files to include based on date range
+    const csvFilesToInclude = dateRange === '1 Day' ? 1 : dateRange === '7 Days' ? 7 : dateRange === '30 Days' ? 30 : 90;
     
-    // Normalize dates to start of day for accurate comparison
-    const normalizedStartDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-    const normalizedNow = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
-    console.log('S3 Data Filtering Debug:', {
-      totalS3Records: s3AnalyticsData.length,
-      dateRange,
-      days,
-      startDate: startDate.toISOString(),
-      now: now.toISOString(),
-      normalizedStartDate: normalizedStartDate.toISOString(),
-      normalizedNow: normalizedNow.toISOString(),
-      sampleDates: s3AnalyticsData.slice(0, 3).map(row => ({
-        data_date: row.data_date,
-        media_id: row.media_id,
-        play_count: row.play_count
-      }))
+    // Group data by file_name to get unique files
+    const filesMap = new Map<string, S3AnalyticsData[]>();
+    s3AnalyticsData.forEach(row => {
+      if (!filesMap.has(row.file_name)) {
+        filesMap.set(row.file_name, []);
+      }
+      filesMap.get(row.file_name)!.push(row);
     });
     
+    // Get all unique file names and sort them (assuming they have some ordering)
+    const allFiles = Array.from(filesMap.keys()).sort();
+    
+    // Take the last N files based on the date range
+    const filesToInclude = allFiles.slice(-csvFilesToInclude);
+    
+    // Filter data to only include records from the selected files
     const filtered = s3AnalyticsData.filter(row => {
-      const rowDate = new Date(row.data_date);
-      const normalizedRowDate = new Date(rowDate.getFullYear(), rowDate.getMonth(), rowDate.getDate());
-      const isInRange = normalizedRowDate >= normalizedStartDate && normalizedRowDate <= normalizedNow;
-      
-      return isInRange;
-    });
-    
-    console.log('S3 Filtered Results:', {
-      filteredCount: filtered.length,
-      sampleFiltered: filtered.slice(0, 3).map(row => ({
-        data_date: row.data_date,
-        media_id: row.media_id,
-        play_count: row.play_count
-      }))
+      return filesToInclude.includes(row.file_name);
     });
     
     return filtered;
@@ -237,15 +221,6 @@ export default function AnalyticsPage() {
   const getAssetAnalytics = () => {
     const filteredData = getFilteredS3Data();
     
-    console.log('Asset Analytics Debug:', {
-      filteredDataLength: filteredData.length,
-      sampleFilteredData: filteredData.slice(0, 3).map(row => ({
-        media_id: row.media_id,
-        play_count: row.play_count,
-        play_duration: row.play_duration,
-        data_date: row.data_date
-      }))
-    });
     
     // Group by media_id (asset ID) only
     const assetMap = new Map<string, {
@@ -263,7 +238,7 @@ export default function AnalyticsPage() {
       };
     }>();
 
-    filteredData.forEach((row, index) => {
+    filteredData.forEach((row) => {
       const assetId = row.media_id;
       const assetName = String(row.asset_name || (assetId.includes('.') ? assetId : `${assetId}.mp4`));
       
@@ -272,16 +247,6 @@ export default function AnalyticsPage() {
         return; // Skip this row if it doesn't match user's media assets
       }
       
-      // Debug first few rows
-      if (index < 3) {
-        console.log(`Processing row ${index}:`, {
-          assetId,
-          assetName,
-          play_count: row.play_count,
-          play_duration: row.play_duration,
-          data_date: row.data_date
-        });
-      }
       
       if (!assetMap.has(assetId)) {
         assetMap.set(assetId, {
@@ -879,7 +844,7 @@ export default function AnalyticsPage() {
       {hasS3Data && (
         <div className="mb-12">
           <p className="text-gray-600 dark:text-gray-400 mb-6">
-            Shows total plays and duration
+            Shows total plays and duration for each unique Asset ID from the selected number of CSV files
           </p>
           
           {(() => {
@@ -888,7 +853,7 @@ export default function AnalyticsPage() {
             if (assetData.length === 0) {
               return (
                 <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                  <p>No asset data found for the selected period ({dateRange})</p>
+                  <p>No asset data found in the selected CSV files ({dateRange})</p>
                   <p className="text-sm mt-2">
                     Only assets that match your uploaded campaign media are displayed.
                   </p>
@@ -900,17 +865,6 @@ export default function AnalyticsPage() {
             const totalPlays = assetData.reduce((sum, asset) => sum + asset.total_plays, 0);
             const totalDuration = assetData.reduce((sum, asset) => sum + asset.total_duration, 0);
             
-            // Debug: Log asset data
-            console.log('Asset Analytics Data:', {
-              totalAssets: assetData.length,
-              totalPlays,
-              totalDuration,
-              assets: assetData.map(asset => ({
-                asset_id: asset.asset_id,
-                total_plays: asset.total_plays,
-                total_duration: asset.total_duration
-              }))
-            });
             
             return (
               <>
@@ -961,24 +915,96 @@ export default function AnalyticsPage() {
                         Period: {asset.display_date_range}
                       </p>
 
-                      {/* Ad Preview Placeholder */}
+                      {/* Ad Preview - Show actual media if available */}
                       <div className="relative w-full h-48 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden mb-4 flex items-center justify-center">
-                        <div className="w-full h-full bg-gradient-to-br from-blue-500 to-teal-500 flex items-center justify-center">
-                          <div className="text-center text-white">
-                            <div className="text-2xl font-bold mb-2">📺</div>
-                            <div className="text-lg font-semibold">Ad Preview</div>
-                            <div className="text-sm opacity-80">{asset.asset_name}</div>
-                          </div>
-                        </div>
-                        {/* Overlay text similar to image */}
-                        <div className="absolute inset-0 flex flex-col justify-center items-center text-white text-center p-4">
+                        {(() => {
+                          // Debug: Log asset matching attempt
+                          console.log('Asset Matching Debug:', {
+                            assetName: asset.asset_name,
+                            assetId: asset.asset_id,
+                            userMediaAssets: userMediaAssets.map(ma => ({
+                              id: ma.id,
+                              file_name: ma.file_name,
+                              file_type: ma.file_type
+                            }))
+                          });
+                          
+                          // Find matching media asset in database
+                          const matchingAsset = userMediaAssets.find(mediaAsset => 
+                            mediaAsset.file_name === asset.asset_name || 
+                            mediaAsset.id === asset.asset_id
+                          );
+                          
+                          console.log('Matching Asset Found:', matchingAsset);
+                          
+                          if (matchingAsset) {
+                            // Get public URL for the media asset using file_path
+                            const { data } = supabase.storage
+                              .from('media-assets')
+                              .getPublicUrl(matchingAsset.file_path);
+                            
+                            const mediaUrl = data?.publicUrl;
+                            
+                            console.log('Media URL Debug:', {
+                              file_path: matchingAsset.file_path,
+                              mediaUrl: mediaUrl,
+                              file_type: matchingAsset.file_type
+                            });
+                            
+                            if (mediaUrl) {
+                                if (matchingAsset.file_type === 'image') {
+                                  return (
+                                    <img 
+                                      src={mediaUrl} 
+                                      alt={asset.asset_name}
+                                      className="w-full h-full object-contain"
+                                      style={{ objectFit: 'contain' }}
+                                      onError={(e) => {
+                                        // Fallback to placeholder if image fails to load
+                                        e.currentTarget.style.display = 'none';
+                                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                      }}
+                                    />
+                                  );
+                                } else if (matchingAsset.file_type === 'video') {
+                                  return (
+                                    <video 
+                                      src={mediaUrl} 
+                                      className="w-full h-full object-contain"
+                                      style={{ objectFit: 'contain' }}
+                                      controls
+                                      onError={(e) => {
+                                        // Fallback to placeholder if video fails to load
+                                        e.currentTarget.style.display = 'none';
+                                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                      }}
+                                    />
+                                  );
+                                }
+                            }
+                          }
+                          
+                          // Fallback to placeholder
+                          return (
+                            <div className="w-full h-full bg-gradient-to-br from-blue-500 to-teal-500 flex items-center justify-center">
+                              <div className="text-center text-white">
+                                <div className="text-2xl font-bold mb-2">📺</div>
+                                <div className="text-lg font-semibold">Ad Preview</div>
+                                <div className="text-sm opacity-80">{asset.asset_name}</div>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                        
+                        {/* Overlay text - only show if no media found */}
+                        {/* <div className="absolute inset-0 flex flex-col justify-center items-center text-white text-center p-4 pointer-events-none">
                           <span className="text-lg font-bold bg-black bg-opacity-50 px-3 py-2 rounded mb-2">
                             I AM YOUR AD
                           </span>
                           <span className="text-sm bg-black bg-opacity-50 px-2 py-1 rounded">
                             Asset: {asset.asset_name}
                           </span>
-                        </div>
+                        </div> */}
                       </div>
 
                       {/* Key Metrics - Total Count and Duration */}
