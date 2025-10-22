@@ -2200,7 +2200,6 @@ export class AdminService {
         .select('*')
         .order('category', { ascending: true })
         .order('key', { ascending: true });
-
       if (error) {
         console.error('AdminService.getSystemSettings - Supabase error:', error);
         throw error;
@@ -2211,7 +2210,8 @@ export class AdminService {
       console.log('AdminService.getSystemSettings - Partner settings:', {
         partnerNameText: data?.find(s => s.key === 'partner_name_text'),
         partnerLogoUrl: data?.find(s => s.key === 'partner_logo_url'),
-        logoBackgroundColor: data?.find(s => s.key === 'partner_logo_background_color')
+        logoBackgroundColor: data?.find(s => s.key === 'partner_logo_background_color'),
+        partnerSectionHidden: data?.find(s => s.key === 'partner_section_hidden')
       });
       
       return data || [];
@@ -2238,6 +2238,14 @@ export class AdminService {
       } else {
         processedValue = value;
       }
+      
+      console.log('AdminService.updateSystemSetting - Updating setting:', {
+        key,
+        value,
+        processedValue,
+        valueType: typeof value,
+        processedValueType: typeof processedValue
+      });
       
       const { data, error } = await supabase
         .from('system_settings')

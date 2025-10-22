@@ -84,12 +84,14 @@ export class AdminNotificationService {
       // Send to all admins
       for (const admin of admins) {
         const variables = {
+          client_name: data.user_name, // Use client_name for template compatibility
           user_name: data.user_name,
           user_email: data.user_email,
           user_role: data.user_role,
           order_id: data.order_id || 'Unknown',
           service_name: data.service_name || 'Unknown Service',
           total_amount: data.total_amount?.toFixed(2) || '0.00',
+          estimated_completion: 'TBD', // Add missing variable
           created_at: new Date(data.created_at).toLocaleString('en-US', { 
           timeZone: 'America/Los_Angeles',
           year: 'numeric',

@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -25,6 +25,23 @@ import ProtectedRoute from './components/ProtectedRoute';
 import AnnouncementBar from './components/shared/AnnouncementBar';
 import LanderRedirect from './components/LanderRedirect';
 
+// Component to conditionally render AnnouncementBar
+function ConditionalAnnouncementBar() {
+  const location = useLocation();
+  
+  // Don't show banner on admin, host, client, or designer portals
+  const isPortalRoute = location.pathname.startsWith('/admin') || 
+                       location.pathname.startsWith('/host') || 
+                       location.pathname.startsWith('/client') || 
+                       location.pathname.startsWith('/designer');
+  
+  if (isPortalRoute) {
+    return null;
+  }
+  
+  return <AnnouncementBar />;
+}
+
 function App() {
   return (
     <ThemeProvider>
@@ -34,7 +51,7 @@ function App() {
             <Router>
             <ErrorBoundary>
               <div className="min-h-screen bg-[rgb(var(--surface))] dark:bg-gray-900">
-                <AnnouncementBar />
+                <ConditionalAnnouncementBar />
                 <Routes>
                   <Route path="/" element={<LandingPage />} />
                   <Route path="/signin" element={<SignIn />} />

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, CheckCircle, Mail } from 'lucide-react';
-import { AdminService, MarketingTool } from '../../services/adminService';
+import { MarketingTool } from '../../services/adminService';
 import { MailchimpService } from '../../services/mailchimpService';
 import { CouponEmailService } from '../../services/couponEmailService';
 import { useNotification } from '../../contexts/NotificationContext';
@@ -19,8 +19,11 @@ interface PopupSettings {
   confirmationMessage?: string;
 }
 
-export default function PopupMarketingTool() {
-  const [marketingTool, setMarketingTool] = useState<MarketingTool | null>(null);
+interface PopupMarketingToolProps {
+  marketingTool: MarketingTool;
+}
+
+export default function PopupMarketingTool({ marketingTool }: PopupMarketingToolProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -29,69 +32,20 @@ export default function PopupMarketingTool() {
   const { showConfirmation } = useConfirmation();
 
   useEffect(() => {
-    loadPopupTool();
-  }, []);
-
-  const loadPopupTool = async () => {
-    try {
-      console.log('PopupMarketingTool: Loading popup tools...');
-      const tools = await AdminService.getMarketingTools();
-      console.log('PopupMarketingTool: All marketing tools:', tools);
-      
-      const popupTools = tools.filter(t => t.type === 'popup' && t.is_active);
-      console.log('PopupMarketingTool: Active popup tools:', popupTools);
-      
-      if (popupTools.length > 0) {
-        const tool = popupTools[0];
-        console.log('PopupMarketingTool: Selected popup tool:', tool);
-        setMarketingTool(tool);
-        
-        // Show popup after delay - removed localStorage check to allow popup to show on every refresh
-        const delay = (tool.settings as PopupSettings)?.displayDelay || 3;
-        console.log('PopupMarketingTool: Setting popup to show after delay:', delay, 'seconds');
-        setTimeout(() => {
-          console.log('PopupMarketingTool: Setting isVisible to true');
-          setIsVisible(true);
-        }, delay * 1000);
-      } else {
-        console.log('PopupMarketingTool: No active popup tools found, creating demo popup');
-        // Create a demo popup if no active popup tools exist
-        const demoTool: MarketingTool = {
-          id: 'demo-popup',
-          type: 'popup',
-          title: 'TAKE 15% OFF',
-          content: 'Get 15% off when you enter your email',
-          settings: {
-            displayDelay: 2,
-            autoClose: 10,
-            backgroundColor: '#ffffff',
-            textColor: '#333333',
-            title: 'TAKE 15% OFF',
-            message: 'Your first purchase',
-            buttonText: 'Get Started Now',
-            collectEmail: true,
-            couponCode: 'SAVE15',
-            confirmationMessage: 'Check Your Email For Coupon Code!'
-          },
-          is_active: true,
-          priority: 1,
-          target_audience: {},
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-        
-        setMarketingTool(demoTool);
-        const delay = 2; // 2 seconds for demo
-        console.log('PopupMarketingTool: Setting demo popup to show after delay:', delay, 'seconds');
-        setTimeout(() => {
-          console.log('PopupMarketingTool: Setting demo popup isVisible to true');
-          setIsVisible(true);
-        }, delay * 1000);
-      }
-    } catch (error) {
-      console.error('Error loading popup tool:', error);
+    console.log('PopupMarketingTool: useEffect triggered with marketingTool:', marketingTool);
+    if (marketingTool) {
+      console.log('PopupMarketingTool: Received marketing tool:', marketingTool);
+      // Show popup after delay
+      const delay = (marketingTool.settings as PopupSettings)?.displayDelay || 3;
+      console.log('PopupMarketingTool: Setting popup to show after delay:', delay, 'seconds');
+      setTimeout(() => {
+        console.log('PopupMarketingTool: Setting isVisible to true');
+        setIsVisible(true);
+      }, delay * 1000);
+    } else {
+      console.log('PopupMarketingTool: No marketing tool provided');
     }
-  };
+  }, [marketingTool]);
 
   const handleClose = () => {
     setIsVisible(false);

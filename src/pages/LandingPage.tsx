@@ -7,7 +7,6 @@ import ProudlyPartneredWith from '../components/shared/ProudlyPartneredWith';
 // import TestNotification from '../components/marketing/TestNotification';
 
 export default function LandingPage() {
-
   return (
     <div className="min-h-screen bg-[rgb(var(--bg))] dark:bg-gradient-to-br dark:from-slate-900 dark:via-blue-900 dark:to-slate-800">
       {/* Marketing Overlays (Banner, Popup, Sales Notification) */}
@@ -98,7 +97,7 @@ export default function LandingPage() {
       </section>
 
 {/* Custom Ads Section */}
-<section className="px-4 sm:px-6 py-16 sm:py-20">
+      <section className="px-4 sm:px-6 py-16 sm:py-20">
         <div className="max-w-7xl mx-auto text-center">
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 text-black dark:text-white">Need Professional Ad Creation?</h2>
           <p className="text-lg sm:text-xl mb-8 max-w-3xl mx-auto text-black dark:text-white/90">
@@ -106,7 +105,7 @@ export default function LandingPage() {
             custom photography, or professional videography services.
           </p>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
-            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4 sm:p-6 text-center hover:scale-105 transition-transform duration-300">
+            <div className="card p-6 sm:p-8 text-center text-black dark:text-white/90 hover:shadow-lg transition-shadow duration-300 relative">
               <div className="relative mb-4 sm:mb-6">
                 <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center mx-auto mb-4 shadow-lg">
                   <Aperture className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
@@ -119,7 +118,7 @@ export default function LandingPage() {
               <p className="text-xs sm:text-sm text-black dark:text-white/80 mb-3">Using your assets</p>
               <div className="text-xl sm:text-2xl font-bold text-black dark:text-white">$125</div>
             </div>
-            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4 sm:p-6 text-center hover:scale-105 transition-transform duration-300">
+            <div className="card p-6 sm:p-8 text-center text-black dark:text-white/90 hover:shadow-lg transition-shadow duration-300 relative">
               <div className="relative mb-4 sm:mb-6">
                 <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center mx-auto mb-4 shadow-lg">
                   <Camera className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
@@ -132,7 +131,7 @@ export default function LandingPage() {
               <p className="text-xs sm:text-sm text-black dark:text-white/80 mb-3">Custom photo session</p>
               <div className="text-xl sm:text-2xl font-bold text-black dark:text-white">$199</div>
             </div>
-            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4 sm:p-6 text-center hover:scale-105 transition-transform duration-300 sm:col-span-2 lg:col-span-1">
+            <div className="card p-6 sm:p-8 text-center text-black dark:text-white/90 hover:shadow-lg transition-shadow duration-300 relative">
               <div className="relative mb-4 sm:mb-6">
                 <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center mx-auto mb-4 shadow-lg">
                   <Videotape className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
@@ -148,12 +147,13 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+    
       
       {/* Proudly Partnered With Section */}
       <ProudlyPartneredWith className="bg-gray-50 dark:bg-gray-800/30" />
 
       {/* Testimonials Section */}
-      <section className="px-4 sm:px-6 py-16 sm:py-20">
+      <section className="px-4 sm:px-6">
         <div className="max-w-7xl mx-auto">
           <MarketingToolsManager className="max-w-4xl mx-auto" />
         </div>

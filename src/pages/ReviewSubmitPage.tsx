@@ -24,6 +24,7 @@ interface CampaignData {
   mediaFile?: File;
   slotsPerWeek?: number;
   uploadedMediaAsset?: any;
+  selectedCustomAd?: any;
 }
 
 export default function ReviewSubmitPage() {
@@ -66,6 +67,7 @@ export default function ReviewSubmitPage() {
   const totalSlots = campaignData.totalSlots || 1;
   const baseRate = campaignData.baseRate || 40.00;
   const uploadedMediaAsset = campaignData.uploadedMediaAsset;
+  const selectedCustomAd = campaignData.selectedCustomAd;
 
   const steps = [
     { number: 1, name: 'Setup Service', current: false, completed: true },
@@ -109,7 +111,7 @@ export default function ReviewSubmitPage() {
   };
 
   const createCampaignAfterPayment = async () => {
-    if (!user || !uploadedMediaAsset) return;
+    if (!user || (!uploadedMediaAsset && !selectedCustomAd)) return;
     setIsSubmitting(true);
     try {
       const campaignName = `${kiosks.length > 1 ? `${kiosks[0]?.name} +${kiosks.length - 1}` : kiosks[0]?.name} - ${selectedWeeks.length} week${selectedWeeks.length > 1 ? 's' : ''} campaign`;
@@ -130,7 +132,8 @@ export default function ReviewSubmitPage() {
         user_id: user.id,
         kiosk_ids: kiosks.map(k => k.id),
         target_locations: Array.from(new Set(kiosks.map(k => k.city).filter(Boolean))),
-        media_asset_id: uploadedMediaAsset.id
+        media_asset_id: uploadedMediaAsset?.id,
+        custom_ad_id: selectedCustomAd?.id
       });
       if (!newCampaign) {
         throw new Error('Failed to create campaign - please try again');
@@ -169,7 +172,7 @@ export default function ReviewSubmitPage() {
   };
 
   const handleSubmit = async () => {
-    if (!user || !uploadedMediaAsset) return;
+    if (!user || (!uploadedMediaAsset && !selectedCustomAd)) return;
     if (!hasPaid) {
       setIsPaymentOpen(true);
       return;
@@ -330,11 +333,26 @@ export default function ReviewSubmitPage() {
             </div>
             <h3 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">Media Asset</h3>
           </div>
-          {uploadedMediaAsset && (
+          {(uploadedMediaAsset || selectedCustomAd) && (
             <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 md:p-4">
               <div className="flex items-center space-x-3 md:space-x-4">
                 <div className="w-12 h-12 md:w-16 md:h-16 bg-gray-200 dark:bg-gray-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                  {uploadedMediaAsset.file_type === 'image' ? (
+                  {selectedCustomAd ? (
+                    // Custom Ad Preview
+                    selectedCustomAd.type === 'image' ? (
+                      <img 
+                        src={selectedCustomAd.url} 
+                        alt="Custom ad preview" 
+                        className="w-full h-full object-cover rounded-lg"
+                      />
+                    ) : (
+                      <div className="text-gray-500 dark:text-gray-400">
+                        <svg className="w-6 h-6 md:w-8 md:h-8" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
+                        </svg>
+                      </div>
+                    )
+                  ) : uploadedMediaAsset.file_type === 'image' ? (
                     <img 
                       src={uploadedMediaAsset.metadata?.publicUrl} 
                       alt="Media preview" 
@@ -350,12 +368,14 @@ export default function ReviewSubmitPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <h4 className="font-medium text-gray-900 dark:text-white text-sm md:text-base truncate">
-                    {uploadedMediaAsset.file_name}
+                    {selectedCustomAd ? (selectedCustomAd.fileName || selectedCustomAd.title) : uploadedMediaAsset.file_name}
                   </h4>
                   <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                    {uploadedMediaAsset.file_type === 'image' ? 'Image' : 'Video'} • 
-                    {uploadedMediaAsset.dimensions?.width}x{uploadedMediaAsset.dimensions?.height}
-                    {uploadedMediaAsset.duration && ` • ${Math.round(uploadedMediaAsset.duration)}s`}
+                    {selectedCustomAd ? (
+                      `${selectedCustomAd.type === 'video' ? 'Video' : 'Image'} • Custom Ad`
+                    ) : (
+                      `${uploadedMediaAsset.file_type === 'image' ? 'Image' : 'Video'} • ${uploadedMediaAsset.dimensions?.width}x${uploadedMediaAsset.dimensions?.height}${uploadedMediaAsset.duration ? ` • ${Math.round(uploadedMediaAsset.duration)}s` : ''}`
+                    )}
                   </p>
                   <div className="flex items-center space-x-2 mt-1">
                     <CheckCircle className="h-3 w-3 md:h-4 md:w-4 text-green-500" />

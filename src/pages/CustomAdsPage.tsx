@@ -98,6 +98,7 @@ export default function CustomAdsPage() {
   const [selectedService, setSelectedService] = useState<ServiceTile | null>(null);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
   const [showOrderForm, setShowOrderForm] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const { user } = useAuth();
   const [formData, setFormData] = useState<OrderFormData>({
     firstName: '',
@@ -136,7 +137,7 @@ export default function CustomAdsPage() {
   // Update form data when user changes
   useEffect(() => {
     const loadUserProfile = async () => {
-      if (user) {
+      if (user && !isResetting) {
         try {
           // Fetch user profile to get full_name from profiles table
           const profile = await ProfileService.getProfile(user.id);
@@ -292,9 +293,15 @@ export default function CustomAdsPage() {
 
 
   const handleStartOver = () => {
+    // Set resetting flag to prevent user profile loading
+    setIsResetting(true);
+    
+    // Reset all states to initial values
     setCurrentStep(1);
     setSelectedService(null);
     setShowOrderForm(false);
+    setOrderSubmitted(false);
+    setSubmittedOrderId(null);
     setFormData({
       firstName: '',
       lastName: '',
@@ -308,8 +315,6 @@ export default function CustomAdsPage() {
     });
     setFormErrors({});
     setFileValidationErrors([]);
-    setOrderSubmitted(false);
-    setSubmittedOrderId(null);
   };
 
   const handleDisclaimerConfirm = () => {
@@ -380,6 +385,16 @@ export default function CustomAdsPage() {
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [showAddressSuggestions]);
+
+  // Handle resetting flag
+  useEffect(() => {
+    if (isResetting) {
+      const timer = setTimeout(() => {
+        setIsResetting(false);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isResetting]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);

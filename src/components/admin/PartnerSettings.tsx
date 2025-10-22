@@ -9,6 +9,7 @@ interface PartnerSettingsData {
   partnerNameText: string;
   partnerLogoUrl: string;
   logoBackgroundColor: string;
+  isHidden: boolean;
 }
 
 interface PartnerLogoFormData {
@@ -24,7 +25,8 @@ export default function PartnerSettings() {
   const [settings, setSettings] = useState<PartnerSettingsData>({
     partnerNameText: 'Proudly Partnered With',
     partnerLogoUrl: '',
-    logoBackgroundColor: '#ffffff'
+    logoBackgroundColor: '#ffffff',
+    isHidden: false
   });
   const [partnerLogos, setPartnerLogos] = useState<PartnerLogo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,6 +54,7 @@ export default function PartnerSettings() {
       const partnerNameSetting = systemSettings.find(s => s.key === 'partner_name_text');
       const partnerLogoSetting = systemSettings.find(s => s.key === 'partner_logo_url');
       const logoBackgroundColorSetting = systemSettings.find(s => s.key === 'partner_logo_background_color');
+      const partnerHiddenSetting = systemSettings.find(s => s.key === 'partner_section_hidden');
       
       // Handle JSONB values - they are stored as JSON-encoded strings
       const getStringValue = (value: unknown, defaultValue: string): string => {
@@ -72,13 +75,16 @@ export default function PartnerSettings() {
       const loadedSettings = {
         partnerNameText: getStringValue(partnerNameSetting?.value, 'Proudly Partnered With'),
         partnerLogoUrl: getStringValue(partnerLogoSetting?.value, ''),
-        logoBackgroundColor: getStringValue(logoBackgroundColorSetting?.value, '#ffffff')
+        logoBackgroundColor: getStringValue(logoBackgroundColorSetting?.value, '#ffffff'),
+        isHidden: partnerHiddenSetting?.value === true || partnerHiddenSetting?.value === 'true'
       };
 
       console.log('PartnerSettings - Loaded settings:', {
         partnerNameSetting: partnerNameSetting?.value,
         partnerLogoSetting: partnerLogoSetting?.value,
         logoBackgroundColorSetting: logoBackgroundColorSetting?.value,
+        partnerHiddenSetting: partnerHiddenSetting?.value,
+        partnerHiddenSettingType: typeof partnerHiddenSetting?.value,
         loadedSettings
       });
 
@@ -98,7 +104,7 @@ export default function PartnerSettings() {
     loadSettings();
   }, [loadSettings]);
 
-  const handleInputChange = (field: keyof PartnerSettingsData, value: string) => {
+  const handleInputChange = (field: keyof PartnerSettingsData, value: string | boolean) => {
     setSettings(prev => ({
       ...prev,
       [field]: value
@@ -183,14 +189,17 @@ export default function PartnerSettings() {
       console.log('PartnerSettings - Saving settings:', {
         partnerNameText: settings.partnerNameText,
         partnerLogoUrl: settings.partnerLogoUrl,
-        logoBackgroundColor: settings.logoBackgroundColor
+        logoBackgroundColor: settings.logoBackgroundColor,
+        isHidden: settings.isHidden,
+        isHiddenType: typeof settings.isHidden
       });
 
       // Save all settings
       await Promise.all([
         AdminService.updateSystemSetting('partner_name_text', settings.partnerNameText),
         AdminService.updateSystemSetting('partner_logo_url', settings.partnerLogoUrl),
-        AdminService.updateSystemSetting('partner_logo_background_color', settings.logoBackgroundColor)
+        AdminService.updateSystemSetting('partner_logo_background_color', settings.logoBackgroundColor),
+        AdminService.updateSystemSetting('partner_section_hidden', settings.isHidden)
       ]);
       setHasChanges(false);
       
@@ -392,24 +401,56 @@ export default function PartnerSettings() {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Logo Background Color
             </label>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
               <input
                 type="color"
                 value={settings.logoBackgroundColor}
                 onChange={(e) => handleInputChange('logoBackgroundColor', e.target.value)}
-                className="w-12 h-10 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer"
+                className="w-12 h-10 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer flex-shrink-0"
               />
               <input
                 type="text"
                 value={settings.logoBackgroundColor}
                 onChange={(e) => handleInputChange('logoBackgroundColor', e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
+                className="w-full sm:flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
                 placeholder="#ffffff"
               />
             </div>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               Choose the background color for partner logos in the "Proudly Partnered With" section.
             </p>
+          </div>
+
+          {/* Hide/Show Section Toggle */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Section Visibility
+            </label>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => handleInputChange('isHidden', !settings.isHidden)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+                  settings.isHidden ? 'bg-red-600' : 'bg-green-600'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    settings.isHidden ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+              <div className="flex flex-col">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {settings.isHidden ? 'Hide Section' : 'Show Section'}
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {settings.isHidden 
+                    ? 'The "Proudly Partnered With" section will be hidden from the homepage'
+                    : 'The "Proudly Partnered With" section will be visible on the homepage'
+                  }
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

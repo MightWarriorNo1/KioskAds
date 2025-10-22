@@ -51,6 +51,18 @@ export default function ManageMyCustomAdPage() {
     type: string;
   }>>([]);
 
+  // Helper function to check if user has already taken action on any proof
+  const hasUserActedOnProofs = (order: CustomAdOrder): boolean => {
+    if (!order.proofs || order.proofs.length === 0) return false;
+    
+    // Check if any proof has been approved or rejected (user has taken action)
+    // Also check if the order itself has been approved
+    return order.workflow_status === 'approved' || 
+           order.proofs.some(proof => 
+             proof.status === 'approved' || proof.status === 'rejected'
+           );
+  };
+
   // Function to resolve signed URLs for downloads
   const resolveSignedUrl = async (rawUrl: string, downloadName?: string): Promise<string> => {
     try {
@@ -195,8 +207,8 @@ export default function ManageMyCustomAdPage() {
     if (!selectedAd) return;
     
     // Navigate to kiosk selection to start the campaign creation flow
-    // This is the same flow as "Upload Your Own Vertical Ad"
-    navigate('/client/kiosk-selection');
+    // This will use the custom ad selection flow instead of file upload
+    navigate('/client/kiosk-selection', { state: { useCustomAd: true } });
   };
 
   const getStatusIcon = (status: string) => {
@@ -640,7 +652,15 @@ export default function ManageMyCustomAdPage() {
                                   try {
                                     await CustomAdsService.approveProof(proof.id);
                                     addNotification('success', 'Proof Approved', 'Proof has been approved successfully!');
-                                    loadCustomAds(); // Refresh to get updated data
+                                    await loadCustomAds(); // Refresh to get updated data
+                                    
+                                    // Update the selected ad with the new data
+                                    if (selectedAd) {
+                                      const updatedAd = await CustomAdsService.getOrder(selectedAd.id);
+                                      if (updatedAd) {
+                                        setSelectedAd(updatedAd);
+                                      }
+                                    }
                                   } catch (error) {
                                     console.error('Error approving proof:', error);
                                     addNotification('error', 'Approval Failed', 'Failed to approve proof. Please try again.');
@@ -653,18 +673,25 @@ export default function ManageMyCustomAdPage() {
                                 <span>Approve</span>
                               </Button>
                               <Button
-                                onClick={() => {
+                                onClick={async () => {
                                   const feedback = prompt('Please provide feedback for the requested changes:');
                                   if (feedback && feedback.trim()) {
-                                    CustomAdsService.rejectProof(proof.id, feedback.trim())
-                                      .then(() => {
-                                        addNotification('success', 'Feedback Sent', 'Your feedback has been sent to the designer.');
-                                        loadCustomAds(); // Refresh to get updated data
-                                      })
-                                      .catch((error) => {
-                                        console.error('Error rejecting proof:', error);
-                                        addNotification('error', 'Request Failed', 'Failed to send feedback. Please try again.');
-                                      });
+                                    try {
+                                      await CustomAdsService.rejectProof(proof.id, feedback.trim());
+                                      addNotification('success', 'Feedback Sent', 'Your feedback has been sent to the designer.');
+                                      await loadCustomAds(); // Refresh to get updated data
+                                      
+                                      // Update the selected ad with the new data
+                                      if (selectedAd) {
+                                        const updatedAd = await CustomAdsService.getOrder(selectedAd.id);
+                                        if (updatedAd) {
+                                          setSelectedAd(updatedAd);
+                                        }
+                                      }
+                                    } catch (error) {
+                                      console.error('Error rejecting proof:', error);
+                                      addNotification('error', 'Request Failed', 'Failed to send feedback. Please try again.');
+                                    }
                                   }
                                 }}
                                 variant="secondary"
@@ -693,7 +720,7 @@ export default function ManageMyCustomAdPage() {
                 )}
 
                 {/* Action Buttons for Designer Assigned Orders */}
-                {selectedAd.workflow_status === 'designer_assigned' && (
+                {selectedAd.workflow_status === 'designer_assigned' && !hasUserActedOnProofs(selectedAd) && (
                   <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
                       <CheckCircle className="w-5 h-5 mr-2" />

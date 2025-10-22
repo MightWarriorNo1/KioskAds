@@ -67,8 +67,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gradient-to-br dark:from-slate-900 dark:via-blue-900 dark:to-slate-800">
       <NotificationToast />
-      
-
       <header className="bg-white dark:bg-slate-800 shadow-sm border-b border-gray-200 sticky top-0 z-50">
           <div className="flex items-center justify-between h-16 px-6">
             <div className="flex items-center space-x-4">
@@ -136,9 +134,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           </div>
         </header>
       {/* Sidebar */}
+      <div>
       <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed top-16 bottom-0 left-0 z-40 w-64 bg-white dark:bg-slate-800 shadow-xl border-r border-gray-200 dark:border-slate-700 transform transition-transform duration-300 ease-in-out`}>
         <div className="flex flex-col h-full">
-
           {/* Navigation */}
           <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
             {navigation.map((item) => {
@@ -182,6 +180,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             {children}
           </div>
         </main>
+      </div>
       </div>
 
       {/* Overlay */}

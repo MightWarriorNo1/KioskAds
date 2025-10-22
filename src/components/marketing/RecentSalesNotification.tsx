@@ -13,81 +13,30 @@ interface SaleNotification {
   profilePicture?: string;
 }
 
-export default function RecentSalesNotification() {
-  const [marketingTool, setMarketingTool] = useState<MarketingTool | null>(null);
+interface RecentSalesNotificationProps {
+  marketingTool: MarketingTool;
+}
+
+export default function RecentSalesNotification({ marketingTool }: RecentSalesNotificationProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [displayedSales, setDisplayedSales] = useState<SaleNotification[]>([]);
   const [closingSales, setClosingSales] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
 
-  const loadMarketingTool = async () => {
-    try {
-      const tools = await AdminService.getMarketingTools();
-      const salesNotification = tools.find(tool => 
-        tool.type === 'sales_notification' && 
-        tool.is_active &&
-        (!tool.start_date || new Date(tool.start_date) <= new Date()) &&
-        (!tool.end_date || new Date(tool.end_date) >= new Date())
-      );
-      
-      if (salesNotification) {
-        console.log('RecentSalesNotification: Found active sales notification tool');
-        setMarketingTool(salesNotification);
-        const delay = (salesNotification.settings as { displayDelay?: number })?.displayDelay || 5;
-        setTimeout(() => setIsVisible(true), delay * 1000);
-      } else {
-        console.log('RecentSalesNotification: No active sales notification tool, showing demo');
-        // Show demo version if no marketing tool is configured
-        setMarketingTool({
-          id: 'demo',
-          type: 'sales_notification',
-          title: 'Recent Sales',
-          content: 'Recent sales notifications',
-          settings: {
-            displayDelay: 3,
-            duration: 5,
-            showProfilePicture: true,
-            showLocation: true,
-            timeFrame: 'all'
-          },
-          is_active: true,
-          priority: 0,
-          target_audience: {},
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        } as MarketingTool);
-        setTimeout(() => {
-          console.log('RecentSalesNotification: Setting demo visible');
-          setIsVisible(true);
-        }, 1000);
-      }
-    } catch (error) {
-      console.error('Error loading marketing tool:', error);
-      // Show demo version on error
-      setMarketingTool({
-        id: 'demo',
-        type: 'sales_notification',
-        title: 'Recent Sales',
-        content: 'Recent sales notifications',
-        settings: {
-          displayDelay: 3,
-          duration: 5,
-          showProfilePicture: true,
-          showLocation: true,
-          timeFrame: 'all'
-        },
-        is_active: true,
-        priority: 0,
-        target_audience: {},
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      } as MarketingTool);
+  useEffect(() => {
+    console.log('RecentSalesNotification: useEffect triggered with marketingTool:', marketingTool);
+    if (marketingTool) {
+      console.log('RecentSalesNotification: Received marketing tool:', marketingTool);
+      const delay = (marketingTool.settings as { displayDelay?: number })?.displayDelay || 5;
+      console.log('RecentSalesNotification: Setting notification to show after delay:', delay, 'seconds');
       setTimeout(() => {
-        console.log('RecentSalesNotification: Setting error demo visible');
+        console.log('RecentSalesNotification: Setting isVisible to true');
         setIsVisible(true);
-      }, 1000);
+      }, delay * 1000);
+    } else {
+      console.log('RecentSalesNotification: No marketing tool provided');
     }
-  };
+  }, [marketingTool]);
 
   const loadRecentSales = async () => {
     if (isLoading) {
@@ -142,7 +91,6 @@ export default function RecentSalesNotification() {
 
   useEffect(() => {
     console.log('RecentSalesNotification: Component mounted');
-    loadMarketingTool();
     loadRecentSales();
     
     // Cleanup function to prevent multiple calls

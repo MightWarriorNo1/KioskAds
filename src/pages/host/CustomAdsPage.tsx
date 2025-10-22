@@ -90,6 +90,7 @@ export default function HostCustomAdsPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedService, setSelectedService] = useState<ServiceTile | null>(null);
   const [showOrderForm, setShowOrderForm] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const { user } = useAuth();
   const [formData, setFormData] = useState<OrderFormData>({
     firstName: '',
@@ -138,7 +139,7 @@ export default function HostCustomAdsPage() {
   // Update form data when user changes
   useEffect(() => {
     const loadUserProfile = async () => {
-      if (user) {
+      if (user && !isResetting) {
         try {
           // Fetch user profile to get full_name from profiles table
           const profile = await ProfileService.getProfile(user.id);
@@ -237,6 +238,16 @@ export default function HostCustomAdsPage() {
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [showAddressSuggestions]);
+
+  // Handle resetting flag
+  useEffect(() => {
+    if (isResetting) {
+      const timer = setTimeout(() => {
+        setIsResetting(false);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isResetting]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
@@ -1418,12 +1429,16 @@ export default function HostCustomAdsPage() {
               <div className="flex justify-center space-x-4">
                 <Button
                   onClick={() => {
+                    // Set resetting flag to prevent user profile loading
+                    setIsResetting(true);
+                    
+                    // Reset all states to initial values
+                    setCurrentStep(1);
+                    setSelectedService(null);
+                    setShowOrderForm(false);
                     setOrderSubmitted(false);
                     setSubmittedOrderId(null);
-                    setShowOrderForm(false);
-                    setSelectedService(null);
                     setPaymentStep('form');
-                    setCurrentStep(1);
                     // Reset form data
                     setFormData({
                       firstName: '',

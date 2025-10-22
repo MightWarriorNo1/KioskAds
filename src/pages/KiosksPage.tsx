@@ -248,7 +248,7 @@ function KiosksPage() {
 
         {/* Call to Action */}
         <div className="flex justify-center">
-          <button className="btn-primary px-6 py-3 text-base font-medium">
+          <button className="btn-primary px-6 py-3 text-base font-medium" onClick={() => navigate('/signin')}>
             Get Started
             <span className="inline-block ml-2">→</span>
           </button>

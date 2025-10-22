@@ -361,7 +361,7 @@ export default function MarketingTools() {
       {/* Tabs */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="border-b border-gray-200 dark:border-gray-700">
-          <nav className="flex space-x-8 px-6">
+          <nav className="flex flex-wrap space-x-2 sm:space-x-8 px-4 sm:px-6">
             <button
               onClick={() => setActiveTab('tools')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
@@ -370,7 +370,11 @@ export default function MarketingTools() {
                   : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'
               }`}
             >
-              Marketing Tools
+              <div className="flex items-center space-x-2">
+                <Megaphone className="h-4 w-4" />
+                <span className="hidden sm:inline">Marketing Tools</span>
+                <span className="sm:hidden">Tools</span>
+              </div>
             </button>
             <button
               onClick={() => setActiveTab('testimonials')}
@@ -380,7 +384,11 @@ export default function MarketingTools() {
                   : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'
               }`}
             >
-              Testimonials
+              <div className="flex items-center space-x-2">
+                <Star className="h-4 w-4" />
+                <span className="hidden sm:inline">Testimonials</span>
+                <span className="sm:hidden">Reviews</span>
+              </div>
             </button>
             <button
               onClick={() => setActiveTab('partner-settings')}
@@ -390,12 +398,16 @@ export default function MarketingTools() {
                   : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'
               }`}
             >
-              Partner Settings
+              <div className="flex items-center space-x-2">
+                <MessageSquare className="h-4 w-4" />
+                <span className="hidden sm:inline">Partner Settings</span>
+                <span className="sm:hidden">Partners</span>
+              </div>
             </button>
           </nav>
         </div>
 
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {activeTab === 'tools' ? (
             <div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Marketing Tools</h3>
@@ -416,14 +428,14 @@ export default function MarketingTools() {
                     const TypeIcon = getTypeIcon(tool.type);
                     return (
                       <div key={tool.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <div className="p-2 bg-purple-100 rounded-lg">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="flex items-center space-x-3 min-w-0 flex-1">
+                            <div className="p-2 bg-purple-100 rounded-lg flex-shrink-0">
                               <TypeIcon className="h-5 w-5 text-purple-600" />
                             </div>
-                            <div>
-                              <h4 className="text-lg font-medium text-gray-900 dark:text-white">{tool.title}</h4>
-                              <div className="flex items-center space-x-2 mt-1">
+                            <div className="min-w-0 flex-1">
+                              <h4 className="text-lg font-medium text-gray-900 dark:text-white truncate">{tool.title}</h4>
+                              <div className="flex flex-wrap items-center gap-2 mt-1">
                                 <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getTypeColor(tool.type)}`}>
                                   {tool.type.replace('_', ' ')}
                                 </span>
@@ -436,7 +448,7 @@ export default function MarketingTools() {
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center space-x-2">
+                          <div className="flex items-center justify-end space-x-1 sm:space-x-2 flex-shrink-0">
                             <button 
                               onClick={() => handleToggleActive(tool)}
                               className="p-2 text-gray-400 hover:text-gray-600"
@@ -495,9 +507,9 @@ export default function MarketingTools() {
                 <div className="grid gap-4">
                   {testimonials.map((testimonial) => (
                     <div key={testimonial.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex items-center space-x-3 min-w-0 flex-1">
+                          <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center flex-shrink-0">
                             {testimonial.client_avatar_url ? (
                               <img 
                                 src={testimonial.client_avatar_url} 
@@ -510,12 +522,12 @@ export default function MarketingTools() {
                               </span>
                             )}
                           </div>
-                          <div>
-                            <h4 className="text-lg font-medium text-gray-900 dark:text-white">{testimonial.client_name}</h4>
+                          <div className="min-w-0 flex-1">
+                            <h4 className="text-lg font-medium text-gray-900 dark:text-white truncate">{testimonial.client_name}</h4>
                             {testimonial.client_company && (
-                              <p className="text-sm text-gray-600 dark:text-gray-400">{testimonial.client_company}</p>
+                              <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{testimonial.client_company}</p>
                             )}
-                            <div className="flex items-center space-x-2 mt-1">
+                            <div className="flex flex-wrap items-center gap-2 mt-1">
                               <div className="flex items-center">
                                 {[...Array(5)].map((_, i) => (
                                   <Star 
@@ -541,7 +553,7 @@ export default function MarketingTools() {
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center justify-end space-x-1 sm:space-x-2 flex-shrink-0">
                           <button 
                             onClick={() => handleToggleActive(testimonial)}
                             className="p-2 text-gray-400 hover:text-gray-600"
@@ -579,8 +591,8 @@ export default function MarketingTools() {
 
       {/* Create/Edit Modal */}
       {(showCreateModal || editingItem) && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-4 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                 {editingItem ? 'Edit' : 'Create'} {activeTab === 'testimonials' ? 'Testimonial' : 'Marketing Tool'}
@@ -601,7 +613,7 @@ export default function MarketingTools() {
               {activeTab === 'testimonials' ? (
                 // Testimonial form
                 <>
-                  <div className="grid md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Client Name</label>
                       <input
@@ -643,7 +655,7 @@ export default function MarketingTools() {
                       placeholder="Share your experience with our platform..."
                     />
                   </div>
-                  <div className="grid md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Rating</label>
                       <select
@@ -666,7 +678,7 @@ export default function MarketingTools() {
                         min="0"
                       />
                     </div>
-                    <div className="flex items-center space-x-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
                       <label className="flex items-center">
                         <input
                           type="checkbox"
@@ -691,7 +703,7 @@ export default function MarketingTools() {
               ) : (
                 // Marketing tool form
                 <>
-                  <div className="grid md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Type</label>
                       <select
@@ -735,7 +747,7 @@ export default function MarketingTools() {
                       placeholder="Enter content..."
                     />
                   </div>
-                  <div className="grid md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Start Date (Optional)</label>
                       <input
@@ -771,7 +783,7 @@ export default function MarketingTools() {
                   {/* Coupon Code Selection */}
                   <div className="space-y-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                     <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Coupon Code Settings</h4>
-                    <div className="grid md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Coupon Code</label>
                         <input
@@ -820,7 +832,7 @@ export default function MarketingTools() {
               </div>
               {formData.type === 'announcement_bar' && (
                 <div className="space-y-4">
-                  <div className="grid md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Position</label>
                       <select
@@ -854,7 +866,7 @@ export default function MarketingTools() {
                     </div>
                   </div>
 
-                  <div className="grid md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Vertical Padding (px)</label>
                       <input
@@ -883,7 +895,7 @@ export default function MarketingTools() {
                     </div>
                   </div>
 
-                  <div className="grid md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Font Size (px)</label>
                       <input
@@ -912,7 +924,7 @@ export default function MarketingTools() {
                     </div>
                   </div>
 
-                  <div className="grid md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Margin Bottom (px)</label>
                       <input
@@ -954,7 +966,7 @@ export default function MarketingTools() {
                     </div>
                   </div>
 
-                  <div className="grid md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <div className="flex items-center">
                       <input
                         type="checkbox"
@@ -967,7 +979,7 @@ export default function MarketingTools() {
                         Collect Email Instead of Button
                       </label>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Button Label</label>
                         <input
@@ -997,7 +1009,7 @@ export default function MarketingTools() {
                   {Boolean((formData.settings as any).collectEmail) && (
                     <div className="space-y-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                       <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Email Input Styling</h4>
-                      <div className="grid md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email Input Background Color</label>
                           <input
@@ -1026,7 +1038,7 @@ export default function MarketingTools() {
 
               {formData.type === 'popup' && (
                 <div className="space-y-4">
-                  <div className="grid md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Display Delay (1-60 seconds)</label>
                       <input
@@ -1054,7 +1066,7 @@ export default function MarketingTools() {
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">0 = no auto close</p>
                     </div>
                   </div>
-                  <div className="grid md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Background Color</label>
                       <input
@@ -1125,7 +1137,7 @@ export default function MarketingTools() {
 
               {formData.type === 'sales_notification' && (
                 <div className="space-y-4">
-                  <div className="grid md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Display Delay (1-60 seconds)</label>
                       <input
@@ -1153,7 +1165,7 @@ export default function MarketingTools() {
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">How long each notification shows</p>
                     </div>
                   </div>
-                  <div className="grid md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Background Color</label>
                       <input
@@ -1175,7 +1187,7 @@ export default function MarketingTools() {
                       />
                     </div>
                   </div>
-                  <div className="grid md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="flex items-center">
                       <input
                         type="checkbox"
@@ -1224,8 +1236,8 @@ export default function MarketingTools() {
 
       {/* Test Email Modal */}
       {showTestEmailModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-4 sm:p-6 w-full max-w-md">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Send Coupon Email

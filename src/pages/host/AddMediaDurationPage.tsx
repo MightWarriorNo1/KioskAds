@@ -72,6 +72,19 @@ export default function HostAddMediaDurationPage() {
   const handleCustomAdSelected = (customAd: any) => {
     setSelectedCustomAdForCampaign(customAd);
     setShowCustomAdModal(false);
+    
+    // Set the preview and file information for display
+    setFilePreview(customAd.url);
+    
+    // Create a mock File object for the uploadedFile state to display file info
+    const mockFile = {
+      name: customAd.fileName || customAd.title,
+      size: customAd.size || 0,
+      type: customAd.type === 'video' ? 'video/mp4' : 'image/jpeg'
+    } as File;
+    
+    setUploadedFile(mockFile);
+    setShowConfig(true);
   };
 
   const steps = [

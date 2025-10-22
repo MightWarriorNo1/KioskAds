@@ -126,7 +126,7 @@ export default function DashboardLayout({
       </header>
 
       {/* Sidebar - Fixed Position */}
-      <div className={`${mobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed top-16 bottom-0 left-0 z-40 w-64 bg-white dark:bg-slate-800 shadow-xl border-r border-gray-200 dark:border-slate-700 transform transition-transform duration-300 ease-in-out`}>
+        <div className={`${mobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 top-16 bottom-0 left-0 z-40 w-64 bg-white dark:bg-slate-800 fixed shadow-xl border-r border-gray-200 dark:border-slate-700 transform transition-transform duration-300 ease-in-out`}>
           <div className="flex flex-col h-full">
             {/* Navigation */}
             <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
@@ -153,24 +153,22 @@ export default function DashboardLayout({
                   </Link>
                 );
               })}
-            </nav>
-
-            
+            </nav>  
           </div>
         </div>
 
-      {/* Main Content */}
-      <div className="lg:ml-64 lg:pt-16">
-        <main className="p-6">
-          <div className="max-w-7xl mx-auto">
-            <div className="mb-8">
-              <h1 className="text-3xl font-bold mb-2">{title}</h1>
-              {subtitle && <p className="text-lg text-gray-600 dark:text-gray-300">{subtitle}</p>}
+        {/* Main Content */}
+        <div className="lg:ml-64 lg:pt-16">
+          <main className="p-6">
+            <div className="max-w-7xl mx-auto">
+              <div className="mb-8">
+                <h1 className="text-3xl font-bold mb-2">{title}</h1>
+                {subtitle && <p className="text-lg text-gray-600 dark:text-gray-300">{subtitle}</p>}
+              </div>
+              {children}
             </div>
-            {children}
-          </div>
-        </main>
-      </div>
+          </main>
+        </div>
 
       {/* Overlay for mobile sidebar */}
       {mobileOpen && (

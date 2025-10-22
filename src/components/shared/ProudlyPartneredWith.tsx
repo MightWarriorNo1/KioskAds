@@ -13,7 +13,8 @@ export default function ProudlyPartneredWith({ className = '' }: ProudlyPartnere
   const [partnerSettings, setPartnerSettings] = useState({
     partnerNameText: 'Proudly Partnered With',
     partnerLogoUrl: '',
-    logoBackgroundColor: '#ffffff'
+    logoBackgroundColor: '#ffffff',
+    isHidden: false
   });
 
   const loadData = useCallback(async () => {
@@ -33,6 +34,7 @@ export default function ProudlyPartneredWith({ className = '' }: ProudlyPartnere
       const partnerNameSetting = settingsData.find(s => s.key === 'partner_name_text');
       const partnerLogoSetting = settingsData.find(s => s.key === 'partner_logo_url');
       const logoBackgroundColorSetting = settingsData.find(s => s.key === 'partner_logo_background_color');
+      const partnerHiddenSetting = settingsData.find(s => s.key === 'partner_section_hidden');
       
       // Handle JSONB values - they are stored as JSON-encoded strings
       const getStringValue = (value: unknown, defaultValue: string): string => {
@@ -59,7 +61,8 @@ export default function ProudlyPartneredWith({ className = '' }: ProudlyPartnere
       const partnerSettingsData = {
         partnerNameText: getStringValue(partnerNameSetting?.value, 'Proudly Partnered With'),
         partnerLogoUrl: getStringValue(partnerLogoSetting?.value, ''),
-        logoBackgroundColor: validBackgroundColor
+        logoBackgroundColor: validBackgroundColor,
+        isHidden: partnerHiddenSetting?.value === true || partnerHiddenSetting?.value === 'true'
       };
       
       
@@ -149,8 +152,21 @@ export default function ProudlyPartneredWith({ className = '' }: ProudlyPartnere
     );
   }
 
+  console.log('ProudlyPartneredWith - Rendering check:', {
+    activePartnerLogos: activePartnerLogos.length,
+    partnerSettings,
+    isHidden: partnerSettings.isHidden,
+    partnerHiddenSetting: partnerSettings
+  });
+
   if (activePartnerLogos.length === 0) {
+    console.log('ProudlyPartneredWith - Not rendering: No active partner logos');
     return null; // Don't show section if no partner logos
+  }
+
+  if (partnerSettings.isHidden) {
+    console.log('ProudlyPartneredWith - Not rendering: Section is hidden');
+    return null; // Don't show section if hidden
   }
 
   return (

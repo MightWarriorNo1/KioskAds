@@ -386,7 +386,7 @@ export default function CustomAdManagement() {
             <div className="p-6">
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
                 <h2 className="text-xl font-semibold">Order Details</h2>
-                <div className="flex flex-col sm:flex-row gap-2 lg:gap-3">
+                <div className="flex flex-col sm:flex-row gap-2 lg:gap-2 lg:max-w-md">
                   <select
                     value={selectedOrder.workflow_status || 'submitted'}
                     onChange={(e) => handleStatusUpdate(selectedOrder.id, e.target.value as any)}
@@ -403,11 +403,11 @@ export default function CustomAdManagement() {
 
                   {/* Assign Designer */}
                   {designers.length > 0 && (
-                    <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2 flex-1 min-w-0">
                       <select
                         value={selectedDesignerId}
                         onChange={(e) => setSelectedDesignerId(e.target.value)}
-                        className="input text-sm w-full sm:w-auto"
+                        className="input text-sm w-full sm:w-auto flex-1 min-w-0"
                         disabled={selectedOrder.workflow_status === 'approved'}
                       >
                         <option value="">Assign Designer…</option>
@@ -419,7 +419,7 @@ export default function CustomAdManagement() {
                         size="sm" 
                         onClick={handleAssignDesigner} 
                         disabled={!selectedDesignerId || assigning || selectedOrder.workflow_status === 'approved'}
-                        className="w-full sm:w-auto"
+                        className="w-full sm:w-auto whitespace-nowrap flex-shrink-0"
                       >
                         {assigning ? 'Assigning…' : 'Assign'}
                       </Button>

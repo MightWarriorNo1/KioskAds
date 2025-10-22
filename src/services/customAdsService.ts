@@ -335,9 +335,7 @@ export class CustomAdsService {
       try {
         const order = await this.getOrder(data.id as string);
         if (order) {
-          // Send order submitted notification (internal workflow)
-          await CustomAdEmailService.sendOrderSubmittedNotification(order);
-          // Send order purchased notification (client confirmation)
+          // Send order purchased notification (client confirmation) - this is the main client email
           await CustomAdEmailService.sendOrderPurchasedNotification(order);
 
           // Send admin notification

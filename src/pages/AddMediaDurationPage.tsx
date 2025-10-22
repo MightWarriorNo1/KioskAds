@@ -75,6 +75,19 @@ export default function AddMediaDurationPage() {
   const handleCustomAdSelected = (customAd: any) => {
     setSelectedCustomAdForCampaign(customAd);
     setShowCustomAdModal(false);
+    
+    // Set the preview and file information for display
+    setFilePreview(customAd.url);
+    
+    // Create a mock File object for the uploadedFile state to display file info
+    const mockFile = {
+      name: customAd.fileName || customAd.title,
+      size: customAd.size || 0,
+      type: customAd.type === 'video' ? 'video/mp4' : 'image/jpeg'
+    } as File;
+    
+    setUploadedFile(mockFile);
+    setShowConfig(true);
   };
 
   const steps = [
@@ -677,6 +690,7 @@ export default function AddMediaDurationPage() {
                         setUploadError(null);
                         setShowConfig(false);
                         setBackgroundColor('#000000');
+                        setSelectedCustomAdForCampaign(null);
                       }}
                       className="mt-4 w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center space-x-2"
                     >

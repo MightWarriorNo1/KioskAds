@@ -88,11 +88,11 @@ export default function ApprovedCustomAdModal({
       onClick={onClose}
     >
       <div 
-        className="bg-white dark:bg-gray-800 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden"
+        className="bg-white dark:bg-gray-800 rounded-xl max-w-4xl w-full max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
           <div>
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
               Select Approved Custom Ad
@@ -110,7 +110,7 @@ export default function ApprovedCustomAdModal({
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+        <div className="p-6 overflow-y-auto flex-1 min-h-0">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -211,7 +211,7 @@ export default function ApprovedCustomAdModal({
 
         {/* Footer */}
         {customAds.length > 0 && (
-          <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
             <button
               onClick={onClose}
               className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white transition-colors"

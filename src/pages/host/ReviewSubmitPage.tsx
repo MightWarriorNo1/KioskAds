@@ -23,6 +23,7 @@ interface CampaignData {
   mediaFile?: File;
   slotsPerWeek?: number;
   uploadedMediaAsset?: any;
+  selectedCustomAd?: any;
 }
 
 export default function HostReviewSubmitPage() {
@@ -65,6 +66,7 @@ export default function HostReviewSubmitPage() {
   const totalSlots = campaignData.totalSlots || 1;
   const baseRate = campaignData.baseRate || 40.00;
   const uploadedMediaAsset = campaignData.uploadedMediaAsset;
+  const selectedCustomAd = campaignData.selectedCustomAd;
 
   const steps = [
     { number: 1, name: 'Setup Service', current: false, completed: true },
@@ -91,7 +93,7 @@ export default function HostReviewSubmitPage() {
   };
 
   const createCampaignAfterPayment = async () => {
-    if (!user || !uploadedMediaAsset) return;
+    if (!user || (!uploadedMediaAsset && !selectedCustomAd)) return;
     setIsSubmitting(true);
     try {
       const campaignName = `${kiosks.length > 1 ? `${kiosks[0]?.name} +${kiosks.length - 1}` : kiosks[0]?.name} - ${selectedWeeks.length} week${selectedWeeks.length > 1 ? 's' : ''} campaign`;
@@ -143,7 +145,7 @@ export default function HostReviewSubmitPage() {
   };
 
   const handleSubmit = async () => {
-    if (!user || !uploadedMediaAsset) return;
+    if (!user || (!uploadedMediaAsset && !selectedCustomAd)) return;
     if (!hasPaid) {
       setIsPaymentOpen(true);
       return;

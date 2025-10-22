@@ -242,10 +242,10 @@ export default function SignIn() {
           </button>
 
           <div className="text-center pt-4">
-            <span className="text-sm text-gray-600 dark:text-gray-400">Don't have an account? </span>
+            <span className="text-lg text-gray-600 dark:text-gray-400">Don't have an account? </span>
             <Link 
               to="/signup" 
-              className="text-sm font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors duration-200"
+              className="text-lg font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors duration-200"
             >
               Create one now
             </Link>
