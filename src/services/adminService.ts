@@ -3213,6 +3213,126 @@ Ad Management System`,
     }
   }
 
+  // Load all revenue data for client-side filtering
+  static async getAllRevenueData(): Promise<{
+    allPayments: Array<{
+      id: string;
+      amount: number;
+      payment_date: string;
+      user_id: string;
+      campaign_id?: string;
+      status: string;
+      profiles?: {
+        id: string;
+        full_name: string;
+        email: string;
+      };
+      campaigns?: {
+        id: string;
+        name: string;
+      };
+    }>;
+    allProfiles: Array<{
+      id: string;
+      full_name: string;
+      email: string;
+    }>;
+    allCampaigns: Array<{
+      id: string;
+      name: string;
+    }>;
+    stripeConnectStats: {
+      totalPayouts: number;
+      totalPayoutAmount: number;
+      activeHosts: number;
+      pendingPayouts: number;
+    };
+  }> {
+    try {
+      // Get all payment history data
+      const { data: allPayments, error: paymentsError } = await supabase
+        .from('payment_history')
+        .select('*')
+        .eq('status', 'succeeded');
+
+      if (paymentsError) throw paymentsError;
+
+      // Get all user profiles
+      const userIds = [...new Set(allPayments?.map(p => p.user_id) || [])];
+      const { data: allProfiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      // Get all campaigns
+      const campaignIds = [...new Set(allPayments?.map(p => p.campaign_id).filter(Boolean) || [])];
+      const { data: allCampaigns, error: campaignsError } = await supabase
+        .from('campaigns')
+        .select('id, name')
+        .in('id', campaignIds);
+
+      if (campaignsError) throw campaignsError;
+
+      // Combine the data
+      const paymentsWithDetails = allPayments?.map(payment => ({
+        ...payment,
+        profiles: allProfiles?.find(p => p.id === payment.user_id),
+        campaigns: allCampaigns?.find(c => c.id === payment.campaign_id)
+      })) || [];
+
+      // Get Stripe Connect stats
+      let totalPayouts = 0;
+      let totalPayoutAmount = 0;
+      let pendingPayouts = 0;
+      let activeHosts = 0;
+
+      try {
+        const { data: stripeStats } = await supabase
+          .from('host_payouts')
+          .select('amount, status');
+
+        if (stripeStats) {
+          totalPayouts = stripeStats.length;
+          totalPayoutAmount = stripeStats.reduce((sum, payout) => sum + payout.amount, 0);
+          pendingPayouts = stripeStats.filter(payout => payout.status === 'pending').length;
+        }
+      } catch (error) {
+        console.warn('Could not fetch host payouts:', error);
+      }
+
+      try {
+        const { data: hosts } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('stripe_connect_enabled', true)
+          .not('stripe_connect_account_id', 'is', null);
+
+        if (hosts) {
+          activeHosts = hosts.length;
+        }
+      } catch (error) {
+        console.warn('Could not fetch active hosts:', error);
+      }
+
+      return {
+        allPayments: paymentsWithDetails,
+        allProfiles: allProfiles || [],
+        allCampaigns: allCampaigns || [],
+        stripeConnectStats: {
+          totalPayouts,
+          totalPayoutAmount,
+          activeHosts,
+          pendingPayouts
+        }
+      };
+    } catch (error) {
+      console.error('Error fetching all revenue data:', error);
+      throw error;
+    }
+  }
+
   // Revenue Analytics Methods - now loads all data from payment_history table
   static async getRevenueAnalytics(dateRange: { start: string; end: string }): Promise<{
     totalRevenue: number;

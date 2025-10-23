@@ -475,8 +475,8 @@ export default function AdminHostAdManagement() {
               </div>
               
               <div className="space-y-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                  <div className="flex-1 min-w-0">
                     {editingAd === ad.id ? (
                       <div className="space-y-2">
                         <input
@@ -512,39 +512,42 @@ export default function AdminHostAdManagement() {
                       </>
                     )}
                   </div>
-                  <div className="flex items-center gap-1 ml-2">
+                  <div className="flex items-center gap-1 sm:ml-2 flex-shrink-0">
                     <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(ad.status)}`}>
                       {getStatusIcon(ad.status)}
-                      {ad.status.replace('_', ' ')}
+                      <span className="hidden sm:inline">{ad.status.replace('_', ' ')}</span>
+                      <span className="sm:hidden">{ad.status.replace('_', ' ').charAt(0).toUpperCase()}</span>
                     </span>
                   </div>
                 </div>
                 
-                <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
-                  <div className="flex items-center gap-1">
-                    <User className="h-4 w-4" />
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm text-gray-600 dark:text-gray-400">
+                  <div className="flex items-center gap-1 min-w-0">
+                    <User className="h-4 w-4 flex-shrink-0" />
                     <span className="truncate">{ad.profiles.full_name}</span>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 flex-shrink-0">
                     <Clock className="h-4 w-4" />
                     <span>{ad.duration}s</span>
                   </div>
                 </div>
                 
-                <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-4 w-4" />
-                    <span>{ad.created_at}</span>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm text-gray-600 dark:text-gray-400">
+                  <div className="flex items-center gap-1 min-w-0">
+                    <Calendar className="h-4 w-4 flex-shrink-0" />
+                    <span className="truncate text-xs sm:text-sm">
+                      {new Date(ad.created_at).toLocaleDateString()}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Building className="h-4 w-4" />
-                    <span className="truncate">{ad.profiles.company_name || ad.profiles.email}</span>
+                  <div className="flex items-center gap-1 min-w-0">
+                    <Building className="h-4 w-4 flex-shrink-0" />
+                    <span className="truncate text-xs sm:text-sm">{ad.profiles.company_name || ad.profiles.email}</span>
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
                   {editingAd === ad.id ? (
-                    <div className="flex gap-2 w-full">
+                    <div className="flex flex-col sm:flex-row gap-2 w-full">
                       <Button
                         variant="secondary"
                         size="sm"
@@ -570,17 +573,19 @@ export default function AdminHostAdManagement() {
                         variant="secondary"
                         size="sm"
                         onClick={() => openAssignments(ad.id)}
-                        className="flex-1"
+                        className="flex-1 sm:flex-none"
                       >
                         <Monitor className="h-4 w-4 mr-1" />
-                        Assignments
+                        <span className="hidden sm:inline">Assignments</span>
+                        <span className="sm:hidden">Assign</span>
                       </Button>
                       
-                      <div className="relative">
+                      <div className="relative flex-shrink-0">
                         <Button
                           variant="secondary"
                           size="sm"
                           onClick={() => toggleDropdown(ad.id)}
+                          className="w-full sm:w-auto"
                         >
                           <MoreVertical className="h-4 w-4" />
                         </Button>

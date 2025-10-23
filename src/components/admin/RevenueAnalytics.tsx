@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { 
   DollarSign, 
   TrendingUp, 
@@ -107,13 +107,49 @@ export default function RevenueAnalytics() {
   const [metrics, setMetrics] = useState<RevenueMetrics | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [transactionsLoading, setTransactionsLoading] = useState(false);
+  const [transactionsLoading] = useState(false);
   const [showTransactions] = useState(true);
   const [dateRange, setDateRange] = useState<DateRange>({
     start: new Date(2020, 0, 1).toISOString().split('T')[0], // January 1, 2020 for "all" period
     end: new Date().toISOString().split('T')[0]
   });
   const [selectedPeriod, setSelectedPeriod] = useState<'7d' | '30d' | '90d' | '1y' | 'all'>('all');
+  
+  // Store all data for client-side filtering
+  const [allData, setAllData] = useState<{
+    allPayments: Array<{
+      id: string;
+      amount: number;
+      payment_date: string;
+      user_id: string;
+      campaign_id?: string;
+      status: string;
+      profiles?: {
+        id: string;
+        full_name: string;
+        email: string;
+      };
+      campaigns?: {
+        id: string;
+        name: string;
+      };
+    }>;
+    allProfiles: Array<{
+      id: string;
+      full_name: string;
+      email: string;
+    }>;
+    allCampaigns: Array<{
+      id: string;
+      name: string;
+    }>;
+    stripeConnectStats: {
+      totalPayouts: number;
+      totalPayoutAmount: number;
+      activeHosts: number;
+      pendingPayouts: number;
+    };
+  } | null>(null);
   const [filters, setFilters] = useState<TransactionFilters>({
     transactionType: 'all',
     adType: 'all',
@@ -127,39 +163,136 @@ export default function RevenueAnalytics() {
   const [availableClients, setAvailableClients] = useState<Array<{id: string; name: string; email: string}>>([]);
   const [availableHosts, setAvailableHosts] = useState<Array<{id: string; name: string; email: string}>>([]);
   const { addNotification } = useNotification();
-
-  // Debounced effect to prevent too many API calls
+  
+  // Use refs to avoid dependency issues
+  const dateRangeRef = useRef(dateRange);
+  const filtersRef = useRef(filters);
+  
+  // Update refs when values change
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      loadRevenueMetrics();
-    }, 300); // 300ms debounce
-
-    return () => clearTimeout(timeoutId);
-  }, [dateRange, selectedPeriod]);
-
-  // Load transactions when date range changes
+    dateRangeRef.current = dateRange;
+  }, [dateRange]);
+  
   useEffect(() => {
-    if (showTransactions) {
-      loadTransactions();
-    }
-  }, [dateRange, showTransactions]);
+    filtersRef.current = filters;
+  }, [filters]);
 
-  // Load filter options
-  useEffect(() => {
-    loadFilterOptions();
-  }, []);
-
-  const loadRevenueMetrics = async () => {
+  // Load all data once on component mount
+  const loadAllData = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await AdminService.getRevenueAnalytics(dateRange);
-      setMetrics(data);
+      console.log('Loading all revenue data...');
+      const data = await AdminService.getAllRevenueData();
+      console.log('All revenue data loaded:', data);
+      setAllData(data);
     } catch (error) {
-      console.error('Error loading revenue metrics:', error);
-      addNotification('error', 'Error', 'Failed to load revenue analytics');
-      
-      // Set empty metrics to prevent UI crashes
-      setMetrics({
+      console.error('Error loading all revenue data:', error);
+      addNotification('error', 'Error', 'Failed to load revenue data');
+    } finally {
+      setLoading(false);
+    }
+  }, [addNotification]);
+
+  // Client-side filtering function
+  const filterDataByPeriod = useCallback((period: '7d' | '30d' | '90d' | '1y' | 'all', allPayments: Array<{
+    id: string;
+    amount: number;
+    payment_date: string;
+    user_id: string;
+    campaign_id?: string;
+    status: string;
+    profiles?: {
+      id: string;
+      full_name: string;
+      email: string;
+    };
+    campaigns?: {
+      id: string;
+      name: string;
+    };
+  }>) => {
+    if (!allPayments || allPayments.length === 0) return [];
+    
+    const end = new Date();
+    const start = new Date();
+    
+    switch (period) {
+      case '7d':
+        start.setDate(start.getDate() - 7);
+        break;
+      case '30d':
+        start.setDate(start.getDate() - 30);
+        break;
+      case '90d':
+        start.setDate(start.getDate() - 90);
+        break;
+      case '1y':
+        start.setFullYear(start.getFullYear() - 1);
+        break;
+      case 'all':
+        start.setFullYear(2020, 0, 1);
+        break;
+    }
+    
+    return allPayments.filter(payment => {
+      const paymentDate = new Date(payment.payment_date);
+      return paymentDate >= start && paymentDate <= end;
+    });
+  }, []);
+
+  // Calculate metrics from filtered data
+  const calculateMetrics = useCallback((filteredPayments: Array<{
+    id: string;
+    amount: number;
+    payment_date: string;
+    user_id: string;
+    campaign_id?: string;
+    status: string;
+    profiles?: {
+      id: string;
+      full_name: string;
+      email: string;
+    };
+    campaigns?: {
+      id: string;
+      name: string;
+    };
+  }>, allData: {
+    allPayments: Array<{
+      id: string;
+      amount: number;
+      payment_date: string;
+      user_id: string;
+      campaign_id?: string;
+      status: string;
+      profiles?: {
+        id: string;
+        full_name: string;
+        email: string;
+      };
+      campaigns?: {
+        id: string;
+        name: string;
+      };
+    }>;
+    allProfiles: Array<{
+      id: string;
+      full_name: string;
+      email: string;
+    }>;
+    allCampaigns: Array<{
+      id: string;
+      name: string;
+    }>;
+    stripeConnectStats: {
+      totalPayouts: number;
+      totalPayoutAmount: number;
+      activeHosts: number;
+      pendingPayouts: number;
+    };
+  }) => {
+    if (!filteredPayments || filteredPayments.length === 0) {
+      return {
         totalRevenue: 0,
         monthlyRevenue: 0,
         revenueGrowth: 0,
@@ -168,31 +301,102 @@ export default function RevenueAnalytics() {
         topClients: [],
         revenueByMonth: [],
         paymentMethodBreakdown: [],
-        stripeConnectStats: {
-          totalPayouts: 0,
-          totalPayoutAmount: 0,
-          activeHosts: 0,
-          pendingPayouts: 0
-        }
-      });
-    } finally {
-      setLoading(false);
+        stripeConnectStats: allData.stripeConnectStats
+      };
     }
-  };
 
-  const loadTransactions = async () => {
-    try {
-      setTransactionsLoading(true);
-      const data = await AdminService.getTransactions(dateRange, filters);
-      setTransactions(data);
-    } catch (error) {
-      console.error('Error loading transactions:', error);
-      addNotification('error', 'Error', 'Failed to load transactions');
-      setTransactions([]);
-    } finally {
-      setTransactionsLoading(false);
+    const totalRevenue = filteredPayments.reduce((sum, payment) => sum + payment.amount, 0);
+    const totalTransactions = filteredPayments.length;
+    const averageTransactionValue = totalTransactions > 0 ? totalRevenue / totalTransactions : 0;
+
+    // Calculate monthly revenue (current month)
+    const currentMonth = new Date();
+    const monthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+    const monthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+    
+    const monthlyPayments = filteredPayments.filter(payment => {
+      const paymentDate = new Date(payment.payment_date);
+      return paymentDate >= monthStart && paymentDate <= monthEnd;
+    });
+    const monthlyRevenue = monthlyPayments.reduce((sum, payment) => sum + payment.amount, 0);
+
+    // Calculate growth (compare with previous period)
+    const previousStart = new Date();
+    const previousEnd = new Date();
+    const periodLength = new Date().getTime() - new Date(dateRange.start).getTime();
+    previousStart.setTime(previousStart.getTime() - periodLength);
+    previousEnd.setTime(previousEnd.getTime() - periodLength);
+    
+    const previousPayments = allData.allPayments.filter((payment) => {
+      const paymentDate = new Date(payment.payment_date);
+      return paymentDate >= previousStart && paymentDate <= previousEnd;
+    });
+    const previousRevenue = previousPayments.reduce((sum, payment) => sum + payment.amount, 0);
+    const revenueGrowth = previousRevenue > 0 ? ((totalRevenue - previousRevenue) / previousRevenue) * 100 : 0;
+
+    // Get top clients
+    const clientSpending = new Map();
+    filteredPayments.forEach(payment => {
+      const userId = payment.user_id;
+      const user = payment.profiles;
+      const current = clientSpending.get(userId) || {
+        id: userId,
+        name: user?.full_name || 'Unknown',
+        email: user?.email || 'unknown@example.com',
+        totalSpent: 0,
+        transactionCount: 0
+      };
+      
+      current.totalSpent += payment.amount;
+      current.transactionCount += 1;
+      clientSpending.set(userId, current);
+    });
+
+    const topClients = Array.from(clientSpending.values())
+      .sort((a, b) => b.totalSpent - a.totalSpent)
+      .slice(0, 10);
+
+    // Calculate revenue by month for the last 12 months
+    const revenueByMonth = [];
+    for (let i = 11; i >= 0; i--) {
+      const month = new Date();
+      month.setMonth(month.getMonth() - i);
+      const monthStart = new Date(month.getFullYear(), month.getMonth(), 1);
+      const monthEnd = new Date(month.getFullYear(), month.getMonth() + 1, 0);
+      
+      const monthPayments = filteredPayments.filter(payment => {
+        const paymentDate = new Date(payment.payment_date);
+        return paymentDate >= monthStart && paymentDate <= monthEnd;
+      });
+
+      const monthRevenue = monthPayments.reduce((sum, payment) => sum + payment.amount, 0);
+      const monthTransactions = monthPayments.length;
+      
+      revenueByMonth.push({
+        month: month.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+        revenue: monthRevenue,
+        transactions: monthTransactions
+      });
     }
-  };
+
+    // Payment method breakdown (simplified)
+    const paymentMethodBreakdown = [
+      { method: 'Credit Card', count: filteredPayments.length, amount: totalRevenue, percentage: 100 }
+    ];
+
+    return {
+      totalRevenue,
+      monthlyRevenue,
+      revenueGrowth,
+      totalTransactions,
+      averageTransactionValue,
+      topClients,
+      revenueByMonth,
+      paymentMethodBreakdown,
+      stripeConnectStats: allData.stripeConnectStats
+    };
+  }, [dateRange.start]);
+
 
   const loadFilterOptions = async () => {
     try {
@@ -209,15 +413,17 @@ export default function RevenueAnalytics() {
     }
   };
 
-  const handleFilterChange = (key: keyof TransactionFilters, value: string) => {
+  const handleFilterChange = useCallback((key: keyof TransactionFilters, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
-  };
+  }, []);
 
-  const applyFilters = () => {
-    loadTransactions();
-  };
+  const applyFilters = useCallback(() => {
+    // Client-side filtering is handled automatically by the useEffect
+    // No need to make database calls
+    console.log('Filters applied - client-side filtering will update data');
+  }, []);
 
-  const clearFilters = () => {
+  const clearFilters = useCallback(() => {
     setFilters({
       transactionType: 'all',
       adType: 'all',
@@ -227,7 +433,7 @@ export default function RevenueAnalytics() {
       status: 'all',
       searchQuery: ''
     });
-  };
+  }, []);
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(transaction => {
@@ -277,12 +483,14 @@ export default function RevenueAnalytics() {
     });
   }, [transactions, filters]);
 
-  const handlePeriodChange = (period: '7d' | '30d' | '90d' | '1y' | 'all') => {
-    // Only update if the period actually changed
-    if (selectedPeriod === period) return;
+
+  const handlePeriodChange = useCallback((period: '7d' | '30d' | '90d' | '1y' | 'all') => {
+    console.log('Period changed to:', period);
     
+    // Only update the selected period - no database calls needed
     setSelectedPeriod(period);
     
+    // Update date range for display purposes
     const end = new Date();
     const start = new Date();
     
@@ -300,8 +508,7 @@ export default function RevenueAnalytics() {
         start.setFullYear(start.getFullYear() - 1);
         break;
       case 'all':
-        // Set start date to a very early date to get all data
-        start.setFullYear(2020, 0, 1); // January 1, 2020
+        start.setFullYear(2020, 0, 1);
         break;
     }
     
@@ -310,11 +517,11 @@ export default function RevenueAnalytics() {
       end: end.toISOString().split('T')[0]
     };
     
-    // Only update date range if it actually changed
-    if (newDateRange.start !== dateRange.start || newDateRange.end !== dateRange.end) {
-      setDateRange(newDateRange);
-    }
-  };
+    console.log('New date range:', newDateRange);
+    setDateRange(newDateRange);
+    
+    // The useEffect will handle the client-side filtering automatically
+  }, []);
 
   const exportData = async () => {
     try {
@@ -357,6 +564,50 @@ export default function RevenueAnalytics() {
   const formatPercentage = (value: number) => {
     return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
   };
+
+  // Load all data once on component mount
+  useEffect(() => {
+    loadAllData();
+  }, [loadAllData]);
+
+  // Update metrics when period changes (client-side filtering)
+  useEffect(() => {
+    if (allData) {
+      const filteredPayments = filterDataByPeriod(selectedPeriod, allData.allPayments);
+      const newMetrics = calculateMetrics(filteredPayments, allData);
+      setMetrics(newMetrics);
+      
+      // Also update transactions for the filtered period
+      if (showTransactions) {
+        setTransactions(filteredPayments.map(payment => ({
+          id: payment.id,
+          type: payment.campaign_id ? 'campaign' : 'custom_ad',
+          amount: payment.amount,
+          date: payment.payment_date,
+          status: payment.status,
+          client: {
+            id: payment.user_id,
+            name: payment.profiles?.full_name || 'Unknown',
+            email: payment.profiles?.email || 'unknown@example.com'
+          },
+          campaign: payment.campaigns ? {
+            id: payment.campaigns.id,
+            name: payment.campaigns.name
+          } : undefined,
+          customAd: !payment.campaign_id ? {
+            id: payment.id,
+            service_key: 'Custom Ad',
+            details: 'Custom advertisement order'
+          } : undefined
+        })));
+      }
+    }
+  }, [selectedPeriod, allData, filterDataByPeriod, calculateMetrics, showTransactions]);
+
+  // Load filter options
+  useEffect(() => {
+    loadFilterOptions();
+  }, []);
 
   if (loading) {
     return (

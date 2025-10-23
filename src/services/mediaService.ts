@@ -172,12 +172,12 @@ export class MediaService {
       const insertData: Inserts<'media_assets'> = {
         user_id: params.userId,
         file_name: params.fileName,
-        // Store the external path for traceability; actual content remains in custom-ad bucket
-        file_path: `external/custom-ad/${params.sourceId || 'unknown'}/${params.fileName}`,
+        // Store the actual custom ad URL as file_path for proper preview generation
+        file_path: params.publicUrl,
         file_size: params.fileSize,
         file_type: (inferredType as any),
         mime_type: params.mimeType,
-        dimensions: params.dimensions,
+        dimensions: params.dimensions || { width: 1080, height: 1920 },
         duration: params.duration ? Math.round(params.duration) : undefined,
         status: 'approved',
         metadata: {
@@ -194,7 +194,9 @@ export class MediaService {
         file_name: params.fileName,
         source_id: params.sourceId,
         file_size: params.fileSize,
-        mime_type: params.mimeType
+        mime_type: params.mimeType,
+        publicUrl: params.publicUrl,
+        file_path: params.publicUrl
       });
 
       const { data, error } = await supabase
@@ -538,10 +540,20 @@ export class MediaService {
 
   // Get media preview URL
   static getMediaPreviewUrl(filePath: string): string {
+    console.log('getMediaPreviewUrl called with filePath:', filePath);
+    
+    // If filePath is already a full URL (like custom ad URLs), return it directly
+    if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+      console.log('Returning full URL directly:', filePath);
+      return filePath;
+    }
+    
+    // Otherwise, treat it as a path within the media-assets bucket
     const { data } = supabase.storage
       .from('media-assets')
       .getPublicUrl(filePath);
     
+    console.log('Generated URL from path:', data.publicUrl);
     return data.publicUrl;
   }
 

@@ -166,7 +166,7 @@ export default function HostAddMediaDurationPage() {
     }
   };
 
-  const canContinue = (uploadedFile && !isUploadingToSupabase && fileValidation && !fileValidationError) || selectedCustomAdForCampaign;
+  const canContinue = (uploadedFile && !isUploadingToSupabase && fileValidation && !fileValidationError) || (selectedCustomAdForCampaign && !isUploadingToSupabase);
 
   return (
     <div>
@@ -221,28 +221,66 @@ export default function HostAddMediaDurationPage() {
               <div className="space-y-4">
                 {selectedCustomAdForCampaign ? (
                   <div className="space-y-4">
-                    <div className="flex items-center justify-center">
-                      <CheckSquare className="h-12 w-12 text-green-600" />
+                    {/* Preview */}
+                    <div className="flex justify-center">
+                      <KioskPreview
+                        mediaUrl={selectedCustomAdForCampaign.url}
+                        mediaType={selectedCustomAdForCampaign.type === 'video' ? 'video' : 'image'}
+                        title={selectedCustomAdForCampaign.title}
+                        className="w-48 h-96"
+                      />
                     </div>
+                    
                     <div className="text-center">
                       <h5 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                         {selectedCustomAdForCampaign.title}
                       </h5>
-                      <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+                      <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
                         Custom ad design ready for deployment
                       </p>
+                      {/* Proof Details */}
+                      <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4 mb-4">
+                        <div className="flex items-center justify-center mb-2">
+                          <CheckSquare className="h-5 w-5 text-green-600 mr-2" />
+                          <span className="text-sm text-green-800 dark:text-green-300 font-semibold">
+                            Proof {new Date(selectedCustomAdForCampaign.createdAt).toLocaleDateString('en-GB', {
+                              day: '2-digit',
+                              month: '2-digit', 
+                              year: 'numeric'
+                            })}, {new Date(selectedCustomAdForCampaign.createdAt).toLocaleTimeString('en-GB', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              second: '2-digit',
+                              hour12: false
+                            })}
+                          </span>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-xs text-green-700 dark:text-green-400">
+                            Version {selectedCustomAdForCampaign.versionNumber} • Approved
+                          </div>
+                          {isUploadingToSupabase && (
+                            <div className="mt-2 text-xs text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 mr-2"></div>
+                              Creating media asset...
+                            </div>
+                          )}
+                        </div>
+                      </div>
                       <div className="flex justify-center space-x-3">
                         <button
                           onClick={handleSelectCustomAd}
-                          className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                          disabled={isUploadingToSupabase}
+                          className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           Change Selection
                         </button>
                         <button
                           onClick={() => setShowConfig(true)}
-                          className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+                          disabled={isUploadingToSupabase}
+                          className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          Use This Ad
+                          {isUploadingToSupabase ? 'Processing...' : 'Use This Ad'}
                         </button>
                       </div>
                     </div>
@@ -302,7 +340,7 @@ export default function HostAddMediaDurationPage() {
             <input ref={fileInputRef} type="file" className="hidden" accept="image/jpeg,image/png,video/mp4" onChange={e => e.target.files?.[0] && handleFileSelect(e.target.files[0])} />
             
             {/* Validation Requirements */}
-            <div className="mt-4 text-xs text-gray-500 space-y-1">
+            <div className="mt-4 text-xs text-gray-500 dark:text-gray-400 space-y-1">
               <p><strong>Supported formats:</strong> JPG, PNG, MP4</p>
               <p><strong>Max sizes:</strong> Images 10MB • Videos 500MB</p>
               <p><strong>Resolution:</strong> 1080×1920 or 2160×3840 (9:16 aspect ratio)</p>
@@ -353,16 +391,26 @@ export default function HostAddMediaDurationPage() {
             let uploadedMediaAsset;
             
             if (selectedCustomAdForCampaign) {
-              // Handle custom ad selection
-              uploadedMediaAsset = {
-                id: selectedCustomAdForCampaign.id,
-                url: selectedCustomAdForCampaign.url,
-                type: selectedCustomAdForCampaign.type,
-                title: selectedCustomAdForCampaign.title,
-                fileName: selectedCustomAdForCampaign.fileName,
-                size: selectedCustomAdForCampaign.size,
-                isCustomAd: true
-              };
+              // Handle custom ad selection - create a media asset from the custom ad
+              try {
+                setIsUploadingToSupabase(true);
+                uploadedMediaAsset = await MediaService.createMediaFromApprovedCustomAd({
+                  userId: user.id,
+                  sourceId: selectedCustomAdForCampaign.proofId,
+                  fileName: selectedCustomAdForCampaign.fileName,
+                  publicUrl: selectedCustomAdForCampaign.url,
+                  fileSize: selectedCustomAdForCampaign.size,
+                  mimeType: selectedCustomAdForCampaign.type === 'video' ? 'video/mp4' : 'image/jpeg',
+                  fileType: selectedCustomAdForCampaign.type === 'video' ? 'video' : 'image',
+                  dimensions: { width: 1080, height: 1920 } // Default vertical ad dimensions (9:16 aspect ratio)
+                });
+              } catch (error) {
+                console.error('Error creating media asset from custom ad:', error);
+                setUploadError('Failed to process custom ad. Please try again.');
+                return;
+              } finally {
+                setIsUploadingToSupabase(false);
+              }
             } else {
               // Handle file upload
               uploadedMediaAsset = await handleUpload();

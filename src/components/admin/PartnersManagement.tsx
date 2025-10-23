@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Eye, EyeOff, MapPin, Image as ImageIcon, ExternalLink, Save, X, Upload } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, EyeOff, MapPin, Image as ImageIcon, ExternalLink, Save, X, Upload, Settings } from 'lucide-react';
 import { PartnersService, Partner, CreatePartnerData, UpdatePartnerData } from '../../services/partnersService';
 import { useNotification } from '../../contexts/NotificationContext';
 import { supabase } from '../../lib/supabaseClient';
@@ -15,6 +15,8 @@ export default function PartnersManagement() {
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [partnersLinkVisible, setPartnersLinkVisible] = useState(true);
+  const [loadingSettings, setLoadingSettings] = useState(false);
 
   const [formData, setFormData] = useState<CreatePartnerData>({
     title: '',
@@ -34,7 +36,64 @@ export default function PartnersManagement() {
 
   useEffect(() => {
     loadPartners();
+    loadPartnersLinkSettings();
   }, []);
+
+  const loadPartnersLinkSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'partners_link_visible')
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
+        console.error('Error loading partners link settings:', error);
+        return;
+      }
+
+      if (data) {
+        setPartnersLinkVisible(data.value);
+      }
+    } catch (error) {
+      console.error('Error loading partners link settings:', error);
+    }
+  };
+
+  const togglePartnersLinkVisibility = async () => {
+    try {
+      setLoadingSettings(true);
+      const newValue = !partnersLinkVisible;
+      
+      const { error } = await supabase
+        .from('system_settings')
+        .upsert({
+          key: 'partners_link_visible',
+          value: newValue,
+          description: 'Controls whether the "Our Partners" link is visible in the site header navigation',
+          category: 'navigation',
+          is_public: true
+        }, {
+          onConflict: 'key'
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      setPartnersLinkVisible(newValue);
+      addNotification(
+        'success', 
+        'Success', 
+        `Partners link ${newValue ? 'enabled' : 'disabled'} in site header`
+      );
+    } catch (error) {
+      console.error('Error updating partners link visibility:', error);
+      addNotification('error', 'Error', 'Failed to update partners link visibility');
+    } finally {
+      setLoadingSettings(false);
+    }
+  };
 
   const loadPartners = async () => {
     try {
@@ -209,13 +268,55 @@ export default function PartnersManagement() {
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Partners Management</h2>
           <p className="text-gray-600 dark:text-gray-400">Manage partner locations and information</p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="btn-primary flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Add Partner
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="btn-primary flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Add Partner
+          </button>
+        </div>
+      </div>
+
+      {/* Site Header Link Toggle */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+              Site Header Link
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Control whether the "Our Partners" link appears in the site header navigation
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={togglePartnersLinkVisibility}
+              disabled={loadingSettings}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+                partnersLinkVisible ? 'bg-green-600' : 'bg-gray-400'
+              } ${loadingSettings ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  partnersLinkVisible ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {partnersLinkVisible ? 'Visible' : 'Hidden'}
+              </span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {partnersLinkVisible 
+                  ? 'Partners link is shown in site header'
+                  : 'Partners link is hidden from site header'
+                }
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Filters */}

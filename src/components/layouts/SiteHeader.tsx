@@ -3,13 +3,41 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import Logo from '../shared/Logo';
 import ThemeToggle from '../shared/ThemeToggle';
-import { Menu, X } from 'lucide-react';   
+import { Menu, X } from 'lucide-react';
+import { supabase } from '../../lib/supabaseClient';   
 
 export default function SiteHeader() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [partnersLinkVisible, setPartnersLinkVisible] = useState(true);
+
+  // Load partners link visibility setting
+  useEffect(() => {
+    const loadPartnersLinkSetting = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('system_settings')
+          .select('value')
+          .eq('key', 'partners_link_visible')
+          .single();
+
+        if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
+          console.error('Error loading partners link setting:', error);
+          return;
+        }
+
+        if (data) {
+          setPartnersLinkVisible(data.value);
+        }
+      } catch (error) {
+        console.error('Error loading partners link setting:', error);
+      }
+    };
+
+    loadPartnersLinkSetting();
+  }, []);
 
   // Handle hash changes for pricing section
   useEffect(() => {
@@ -131,16 +159,18 @@ export default function SiteHeader() {
           >
             Pricing
           </a>
-          <Link 
-            to="/partners" 
-            className={`transition-colors ${
-              isActive('/partners') 
-                ? 'text-primary-600 dark:text-primary-400 font-semibold' 
-                : 'text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
-            }`}
-          >
-            Our Partners
-          </Link>
+          {partnersLinkVisible && (
+            <Link 
+              to="/partners" 
+              className={`transition-colors ${
+                isActive('/partners') 
+                  ? 'text-primary-600 dark:text-primary-400 font-semibold' 
+                  : 'text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
+              }`}
+            >
+              Our Partners
+            </Link>
+          )}
           <Link 
             to="/contact" 
             className={`transition-colors ${
@@ -221,17 +251,19 @@ export default function SiteHeader() {
             >
               Pricing
             </a>
-            <Link 
-              to="/partners" 
-              onClick={() => setMobileMenuOpen(false)}
-              className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
-                isActive('/partners') 
-                  ? 'text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20' 
-                  : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800'
-              }`}
-            >
-              Our Partners
-            </Link>
+            {partnersLinkVisible && (
+              <Link 
+                to="/partners" 
+                onClick={() => setMobileMenuOpen(false)}
+                className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                  isActive('/partners') 
+                    ? 'text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20' 
+                    : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800'
+                }`}
+              >
+                Our Partners
+              </Link>
+            )}
             <Link 
               to="/contact" 
               onClick={() => setMobileMenuOpen(false)}
