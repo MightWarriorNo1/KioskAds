@@ -62,7 +62,7 @@ export default function HostLanding() {
             {[
               { n: '1', t: 'We Install', d: 'We deliver and install the kiosk at no cost to you.' },
               { n: '2', t: 'Kiosk Runs Ads', d: 'The kiosk runs targeted digital ads for local brands.' },
-              { n: '3', t: 'You Earn Revenue', d: 'You earn 5% of ad revenues and promote your own offers.' },
+              { n: '3', t: 'You Earn Revenue', d: 'You earn 15% of ad revenues and promote your own offers.' },
               { n: '4', t: 'We Support You', d: 'We handle all content, technical support, and compliance.' },
             ].map((s) => (
               <div key={s.n} className="card p-5">
