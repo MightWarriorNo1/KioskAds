@@ -1,6 +1,5 @@
-import { S3Client, GetObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, ListObjectsV2Command, GetObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { S3ProxyService } from './s3ProxyService';
 
 export interface S3Config {
   bucketName: string;
@@ -29,25 +28,33 @@ export class AWSS3Service {
 
   // List objects in S3 bucket with optional prefix
   static async listObjects(
-    _config: S3Config, 
+    config: S3Config, 
     prefix: string = '', 
     maxKeys: number = 1000
   ): Promise<S3Object[]> {
     try {
-      // Use S3ProxyService to avoid CORS issues
-      const proxyObjects = await S3ProxyService.listObjects({
-        prefix: prefix,
-        maxKeys: maxKeys,
+      const s3Client = this.createS3Client(config);
+      
+      const command = new ListObjectsV2Command({
+        Bucket: config.bucketName,
+        Prefix: prefix,
+        MaxKeys: maxKeys,
       });
 
-      return proxyObjects.map(obj => ({
-        key: obj.Key,
+      const response = await s3Client.send(command);
+      
+      if (!response.Contents) {
+        return [];
+      }
+
+      return response.Contents.map(obj => ({
+        key: obj.Key || '',
         size: obj.Size,
         lastModified: obj.LastModified,
         etag: obj.ETag,
       }));
     } catch (error) {
-      console.error('Error listing S3 objects via proxy:', error);
+      console.error('Error listing S3 objects:', error);
       throw new Error(`Failed to list objects: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -82,12 +89,41 @@ export class AWSS3Service {
   }
 
   // Download object as text (for CSV files)
-  static async getObjectAsText(_config: S3Config, key: string): Promise<string> {
+  static async getObjectAsText(config: S3Config, key: string): Promise<string> {
     try {
-      // Use S3ProxyService to avoid CORS issues
-      return await S3ProxyService.getObject(key);
+      const s3Client = this.createS3Client(config);
+      
+      const command = new GetObjectCommand({
+        Bucket: config.bucketName,
+        Key: key,
+      });
+
+      const response = await s3Client.send(command);
+      
+      if (!response.Body) {
+        throw new Error('No body in response');
+      }
+
+      // Convert stream to text
+      const chunks: Uint8Array[] = [];
+      const reader = response.Body.transformToWebStream().getReader();
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+      }
+      
+      const buffer = new Uint8Array(chunks.reduce((acc, chunk) => acc + chunk.length, 0));
+      let offset = 0;
+      for (const chunk of chunks) {
+        buffer.set(chunk, offset);
+        offset += chunk.length;
+      }
+      
+      return new TextDecoder().decode(buffer);
     } catch (error) {
-      console.error('Error downloading object as text via proxy:', error);
+      console.error('Error downloading object as text:', error);
       throw new Error(`Failed to download object: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -114,23 +150,31 @@ export class AWSS3Service {
   }
 
   // Test S3 connection and permissions
-  static async testConnection(config: S3Config): Promise<{
+  static async testConnection(config: S3Config, options?: { prefix?: string }): Promise<{
     success: boolean;
     message: string;
-    details?: Record<string, unknown>;
+    details?: any;
   }> {
     try {
-      // Test connection using proxy service
-      const result = await S3ProxyService.testConnection();
+      const s3Client = this.createS3Client(config);
+      
+      // Try to list objects to test connection and permissions
+      const command = new ListObjectsV2Command({
+        Bucket: config.bucketName,
+        Prefix: options?.prefix ?? '',
+        MaxKeys: 1,
+      });
+
+      const response = await s3Client.send(command);
       
       return {
-        success: result.success,
-        message: result.message,
+        success: true,
+        message: 'S3 connection test successful!',
         details: {
           bucket: config.bucketName,
           region: config.region,
           accessKeyId: config.accessKeyId.substring(0, 8) + '...',
-          ...result.details,
+          objectCount: response.KeyCount || 0,
         }
       };
     } catch (error) {
@@ -147,7 +191,7 @@ export class AWSS3Service {
   }
 
   // Parse CSV content into array of objects
-  static parseCSV(csvContent: string): Record<string, string>[] {
+  static parseCSV(csvContent: string): Record<string, any>[] {
     try {
       const lines = csvContent.trim().split('\n');
       if (lines.length < 2) {
@@ -155,11 +199,11 @@ export class AWSS3Service {
       }
 
       const headers = lines[0].split(',').map(header => header.trim().replace(/"/g, ''));
-      const rows: Record<string, string>[] = [];
+      const rows: Record<string, any>[] = [];
 
       for (let i = 1; i < lines.length; i++) {
         const values = lines[i].split(',').map(value => value.trim().replace(/"/g, ''));
-        const row: Record<string, string> = {};
+        const row: Record<string, any> = {};
 
         headers.forEach((header, index) => {
           row[header] = values[index] || '';
