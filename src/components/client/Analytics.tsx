@@ -51,14 +51,23 @@ export default function Analytics() {
         setIsLoading(true);
       }
       
-      // Get date range based on selected time range
+      // Get date range based on selected time range - Safari compatible
       const getDateRange = (range: string) => {
         const now = new Date();
         const days = range === '7d' ? 7 : range === '30d' ? 30 : range === '90d' ? 90 : 365;
         const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+        
+        // Safari-compatible date formatting
+        const formatDateForSafari = (date: Date) => {
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        };
+        
         return {
-          startDate: startDate.toISOString().split('T')[0],
-          endDate: now.toISOString().split('T')[0]
+          startDate: formatDateForSafari(startDate),
+          endDate: formatDateForSafari(now)
         };
       };
 

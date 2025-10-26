@@ -159,10 +159,25 @@ export default function HostAnalytics() {
     const normalizedNow = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
     const filtered = csvAnalyticsData.filter(row => {
-      const rowDate = new Date(row.data_date);
+      // Safari-compatible date parsing
+      if (!row.data_date || typeof row.data_date !== 'string') {
+        return false;
+      }
+      
+      const dateMatch = row.data_date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (!dateMatch) {
+        return false;
+      }
+      
+      const [, year, month, day] = dateMatch;
+      const rowDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      
+      if (isNaN(rowDate.getTime())) {
+        return false;
+      }
+      
       const normalizedRowDate = new Date(rowDate.getFullYear(), rowDate.getMonth(), rowDate.getDate());
       const isInRange = normalizedRowDate >= normalizedStartDate && normalizedRowDate <= normalizedNow;
-      
       
       return isInRange;
     });

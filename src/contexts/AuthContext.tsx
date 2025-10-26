@@ -49,18 +49,19 @@ async function mapSupabaseUserToUser(supabaseUser: SupabaseUser, lastKnownRole?:
   }
 
   try {
-    // Add timeout to prevent hanging
+    // Add timeout to prevent hanging - Safari compatible
     const profilePromise = supabase
       .from('profiles')
       .select('role')
       .eq('id', supabaseUser.id)
       .single();
     
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Profile lookup timeout')), 5000)
+    const timeoutPromise = new Promise<never>((_, reject) => 
+      setTimeout(() => reject(new Error('Profile lookup timeout')), 8000) // Increased timeout for Safari
     );
     
-    const { data: profile, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
+    const result = await Promise.race([profilePromise, timeoutPromise]);
+    const { data: profile, error } = result as any;
     
     if (!error && profile && (profile as any).role) {
       role = (profile as any).role as UserRole;
@@ -83,12 +84,20 @@ async function mapSupabaseUserToUser(supabaseUser: SupabaseUser, lastKnownRole?:
   } catch (e) {
     console.error('Profile lookup error:', e);
     
-    // Handle specific permission errors
+    // Handle specific permission errors and Safari-specific issues
     if (e && typeof e === 'object' && 'code' in e) {
       const error = e as any;
       if (error.code === '42501') {
         console.warn('Permission denied error - this may indicate database configuration issues');
         // Don't fail completely, use fallback role
+      }
+    }
+    
+    // Handle Safari-specific timeout errors more gracefully
+    if (e && typeof e === 'object' && 'message' in e) {
+      const error = e as any;
+      if (error.message && error.message.includes('timeout')) {
+        console.warn('Profile lookup timeout - using fallback role for Safari compatibility');
       }
     }
     
