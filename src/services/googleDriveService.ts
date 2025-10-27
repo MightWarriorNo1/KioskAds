@@ -1614,4 +1614,146 @@ export class GoogleDriveService {
       console.error('Error scheduling daily uploads:', error);
     }
   }
+
+  // Delete a folder from Google Drive
+  static async deleteFolder(config: GoogleDriveConfig, folderId: string): Promise<void> {
+    try {
+      await GoogleDriveApiService.deleteFile(config, folderId);
+    } catch (error) {
+      console.error('Error deleting folder from Google Drive:', error);
+      throw error;
+    }
+  }
+
+  // Delete kiosk folders from Google Drive
+  static async deleteKioskFolders(config: GoogleDriveConfig, folderIds: string[]): Promise<void> {
+    try {
+      const deletePromises = folderIds.map(folderId => 
+        this.deleteFolder(config, folderId).catch(error => {
+          // If folder is already deleted (404), treat as success
+          if (error instanceof Error && error.message && error.message.includes('File not found')) {
+            console.log(`Folder ${folderId} already deleted (404), treating as success`);
+            return; // Success - folder already deleted
+          }
+          console.warn(`Failed to delete folder ${folderId}:`, error);
+          // Don't throw here to allow other folders to be deleted
+        })
+      );
+      
+      await Promise.all(deletePromises);
+    } catch (error) {
+      console.error('Error deleting kiosk folders:', error);
+      throw error;
+    }
+  }
+
+  // Delete the main kiosk folder (and all its contents) from Google Drive
+  static async deleteKioskMainFolder(config: GoogleDriveConfig, kioskName: string, folderIds: string[]): Promise<void> {
+    try {
+      console.log(`Attempting to delete main folder for kiosk: ${kioskName}`);
+      
+      // Use the existing folder IDs to find the parent folder
+      // This is more reliable than searching by name
+      const { GoogleDriveApiServiceBrowser } = await import('./googleDriveApiServiceBrowser');
+      
+      let mainKioskFolderId: string | null = null;
+      
+      // Try to get the parent folder ID from any of the subfolders
+      for (const folderId of folderIds) {
+        if (!folderId) continue;
+        
+        try {
+          console.log(`Getting folder info for ${folderId} to find parent`);
+          const folderInfo = await GoogleDriveApiServiceBrowser.getFile(config, folderId);
+          
+          if (folderInfo.parents && folderInfo.parents.length > 0) {
+            const parentId = folderInfo.parents[0];
+            console.log(`Found parent folder ID: ${parentId} for subfolder: ${folderId}`);
+            
+            // Verify this is actually the kiosk folder by checking its name
+            try {
+              const parentInfo = await GoogleDriveApiServiceBrowser.getFile(config, parentId);
+              console.log(`Parent folder name: "${parentInfo.name}"`);
+              
+              if (parentInfo.name === kioskName) {
+                mainKioskFolderId = parentId;
+                console.log(`Confirmed main kiosk folder: ${kioskName} (ID: ${parentId})`);
+                break;
+              }
+            } catch (parentError) {
+              console.warn(`Failed to get parent folder info for ${parentId}:`, parentError);
+            }
+          }
+        } catch (error) {
+          console.warn(`Failed to get folder info for ${folderId}:`, error);
+          continue;
+        }
+      }
+      
+      if (mainKioskFolderId) {
+        // Delete the main kiosk folder (this will delete all its contents including subfolders)
+        await this.deleteFolder(config, mainKioskFolderId);
+        console.log(`Successfully deleted main kiosk folder: ${kioskName} (ID: ${mainKioskFolderId})`);
+        return;
+      } else {
+        console.warn(`Could not find main kiosk folder for "${kioskName}", falling back to individual folder deletion`);
+        await this.deleteKioskFolders(config, folderIds);
+        return;
+      }
+      
+    } catch (error) {
+      console.error('Error deleting main kiosk folder:', error);
+      // Only fall back to individual deletion if the main folder deletion actually failed
+      // (not if it succeeded but we got an error trying to delete already-deleted subfolders)
+      if (error instanceof Error && error.message && error.message.includes('File not found')) {
+        console.log('Main folder deletion succeeded (subfolders already deleted), no fallback needed');
+        return;
+      }
+      
+      try {
+        console.log('Falling back to deleting individual folders');
+        await this.deleteKioskFolders(config, folderIds);
+        console.log('Successfully deleted individual folders as fallback');
+      } catch (fallbackError) {
+        console.error('Fallback deletion also failed:', fallbackError);
+        throw error; // Throw the original error
+      }
+    }
+  }
+
+  // Helper method to find a folder by name within a parent folder
+  private static async findFolderByName(config: GoogleDriveConfig, folderName: string, parentId?: string): Promise<{ id: string; name: string } | null> {
+    try {
+      const { GoogleDriveApiServiceBrowser } = await import('./googleDriveApiServiceBrowser');
+      
+      console.log(`Searching for folder "${folderName}"${parentId ? ` in parent ${parentId}` : ''}`);
+      
+      let files;
+      if (parentId) {
+        // List files in the parent folder and filter by name
+        files = await GoogleDriveApiServiceBrowser.listFiles(config, parentId, 200);
+        console.log(`Found ${files.length} files in parent folder ${parentId}`);
+      } else {
+        // Search in root folder
+        const query = `mimeType='application/vnd.google-apps.folder' and trashed=false`;
+        files = await GoogleDriveApiServiceBrowser.searchFiles(config, query);
+        console.log(`Found ${files.length} folders in root`);
+      }
+      
+      const folder = files.find((f: { name: string; mimeType: string; id: string }) => 
+        f.name === folderName && f.mimeType === 'application/vnd.google-apps.folder'
+      );
+      
+      if (folder) {
+        console.log(`Found folder "${folderName}" with ID: ${folder.id}`);
+      } else {
+        console.log(`Folder "${folderName}" not found`);
+      }
+      
+      return folder ? { id: folder.id, name: folder.name } : null;
+    } catch (error) {
+      console.error(`Error finding folder "${folderName}":`, error);
+      return null;
+    }
+  }
 }

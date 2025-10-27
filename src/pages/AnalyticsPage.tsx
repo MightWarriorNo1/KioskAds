@@ -78,7 +78,7 @@ export default function AnalyticsPage() {
 
   const dateRanges = ['1 Day', '7 Days', '30 Days', '90 Days'];
 
-  // Helper function to get Los Angeles time (UTC-7) - Safari compatible
+  // Helper function to get Los Angeles time (UTC-7)
   const getLosAngelesTime = () => {
     const now = new Date();
     // Convert to Los Angeles time (UTC-7)
@@ -86,31 +86,9 @@ export default function AnalyticsPage() {
     return laTime;
   };
 
-  // Helper function to format date in Los Angeles time - Safari compatible
+  // Helper function to format date in Los Angeles time
   const formatDateInLATime = (dateString: string) => {
-    // Safari-compatible date parsing
-    if (!dateString || typeof dateString !== 'string') {
-      return 'Invalid Date';
-    }
-    
-    // Handle YYYY-MM-DD format specifically for Safari
-    const dateMatch = dateString.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (dateMatch) {
-      const [, year, month, day] = dateMatch;
-      const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-      if (isNaN(date.getTime())) {
-        return 'Invalid Date';
-      }
-      // Convert to Los Angeles time (UTC-7)
-      const laDate = new Date(date.getTime() - (7 * 60 * 60 * 1000));
-      return laDate.toISOString().replace('T', ' ').replace('Z', ' LA Time');
-    }
-    
-    // Fallback for other date formats
     const date = new Date(dateString);
-    if (isNaN(date.getTime())) {
-      return 'Invalid Date';
-    }
     // Convert to Los Angeles time (UTC-7)
     const laDate = new Date(date.getTime() - (7 * 60 * 60 * 1000));
     return laDate.toISOString().replace('T', ' ').replace('Z', ' LA Time');
@@ -198,25 +176,10 @@ export default function AnalyticsPage() {
     const normalizedNow = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
     const filtered = csvAnalyticsData.filter(row => {
-      // Safari-compatible date parsing
-      if (!row.data_date || typeof row.data_date !== 'string') {
-        return false;
-      }
-      
-      const dateMatch = row.data_date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-      if (!dateMatch) {
-        return false;
-      }
-      
-      const [, year, month, day] = dateMatch;
-      const rowDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-      
-      if (isNaN(rowDate.getTime())) {
-        return false;
-      }
-      
+      const rowDate = new Date(row.data_date);
       const normalizedRowDate = new Date(rowDate.getFullYear(), rowDate.getMonth(), rowDate.getDate());
       const isInRange = normalizedRowDate >= normalizedStartDate && normalizedRowDate <= normalizedNow;
+      
       
       return isInRange;
     });

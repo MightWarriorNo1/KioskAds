@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Monitor, MapPin, Wifi, WifiOff, Settings, Search, Download, Upload, RefreshCw, FileText, X, Folder, User, UserPlus, UserMinus, Plus } from 'lucide-react';
+import { Monitor, MapPin, Wifi, WifiOff, Settings, Search, Download, Upload, RefreshCw, FileText, X, Folder, User, UserPlus, UserMinus, Plus, Trash2 } from 'lucide-react';
 import { useNotification } from '../../contexts/NotificationContext';
 import { AdminService } from '../../services/adminService';
 import { supabase } from '../../lib/supabaseClient';
@@ -181,6 +181,21 @@ export default function KioskManagement() {
       commissionRate: 70.00
     });
     setShowAssignModal(true);
+  };
+
+  const handleDeleteKiosk = async (kiosk: Kiosk) => {
+    if (!confirm(`Are you sure you want to delete "${kiosk.name}"? This will permanently remove the kiosk and all its Google Drive folders. This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await AdminService.deleteKiosk(kiosk.id);
+      addNotification('success', 'Kiosk Deleted', `Kiosk "${kiosk.name}" and its Google Drive folders have been successfully deleted`);
+      await loadKiosks(); // Refresh the kiosk list
+    } catch (error) {
+      console.error('Error deleting kiosk:', error);
+      addNotification('error', 'Delete Failed', 'Failed to delete kiosk. Please try again.');
+    }
   };
 
   const handleAssignHost = async () => {
@@ -688,6 +703,13 @@ export default function KioskManagement() {
                             <button onClick={() => handleShowSettings(kiosk)} className="text-purple-600 hover:text-purple-900 dark:text-purple-400 dark:hover:text-purple-300">
                               <Settings className="h-4 w-4" />
                             </button>
+                            <button 
+                              onClick={() => handleDeleteKiosk(kiosk)} 
+                              className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                              title="Delete Kiosk"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -792,6 +814,13 @@ export default function KioskManagement() {
                         >
                           <Settings className="h-3 w-3" />
                           <span>Settings</span>
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteKiosk(kiosk)} 
+                          className="flex items-center justify-center space-x-1 px-2 py-2 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 dark:bg-red-900 dark:text-red-300 dark:hover:bg-red-800 transition-colors"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          <span>Delete</span>
                         </button>
                       </div>
                     </div>

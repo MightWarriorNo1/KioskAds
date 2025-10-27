@@ -3066,6 +3066,75 @@ Ad Management System`,
     }
   }
 
+  // Delete kiosk and its Google Drive folders
+  static async deleteKiosk(kioskId: string): Promise<void> {
+    try {
+      // First, get the kiosk data and its Google Drive folder assignments
+      const { data: kioskData, error: kioskError } = await supabase
+        .from('kiosks')
+        .select(`
+          *,
+          kiosk_gdrive_folders!kiosk_id(
+            id,
+            active_folder_id,
+            archive_folder_id,
+            scheduled_folder_id,
+            gdrive_config_id,
+            google_drive_configs!gdrive_config_id(*)
+          )
+        `)
+        .eq('id', kioskId)
+        .single();
+
+      if (kioskError) throw kioskError;
+      if (!kioskData) throw new Error('Kiosk not found');
+
+      // Delete Google Drive folders if they exist
+      if (kioskData.kiosk_gdrive_folders && kioskData.kiosk_gdrive_folders.length > 0) {
+        const { GoogleDriveService } = await import('./googleDriveService');
+        
+        for (const folderAssignment of kioskData.kiosk_gdrive_folders) {
+          try {
+            const config = folderAssignment.google_drive_configs;
+            if (config) {
+              const folderIds = [
+                folderAssignment.active_folder_id,
+                folderAssignment.archive_folder_id,
+                folderAssignment.scheduled_folder_id
+              ].filter(Boolean); // Remove null/undefined values
+
+              if (folderIds.length > 0) {
+                await GoogleDriveService.deleteKioskMainFolder(config, kioskData.name, folderIds);
+                console.log(`Deleted Google Drive main folder for kiosk ${kioskData.name}`);
+              }
+            }
+          } catch (driveError) {
+            console.warn(`Failed to delete Google Drive folders for kiosk ${kioskData.name}:`, driveError);
+            // Continue with database deletion even if Google Drive deletion fails
+          }
+        }
+      }
+
+      // Delete the kiosk from database (this will cascade delete related records)
+      const { error: deleteError } = await supabase
+        .from('kiosks')
+        .delete()
+        .eq('id', kioskId);
+
+      if (deleteError) throw deleteError;
+
+      // Log the admin action
+      await this.logAdminAction('delete_kiosk', 'kiosks', kioskId, {
+        kiosk_name: kioskData.name,
+        kiosk_location: kioskData.location
+      });
+
+    } catch (error) {
+      console.error('Error deleting kiosk:', error);
+      throw error;
+    }
+  }
+
   // Get Google Drive configurations
   static async getGoogleDriveConfigs(): Promise<any[]> {
     try {

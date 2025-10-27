@@ -82,7 +82,17 @@ export class GoogleDriveApiServiceBrowser {
       throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorData.error?.message || ''}`);
     }
 
-    return response.json();
+    // Handle empty responses (like DELETE operations)
+    const text = await response.text();
+    if (!text) {
+      return null; // Empty response is valid for DELETE operations
+    }
+
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      throw new Error(`Failed to parse JSON response: ${text}`);
+    }
   }
 
   /**
