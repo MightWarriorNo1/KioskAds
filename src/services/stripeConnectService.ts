@@ -62,9 +62,31 @@ export class StripeConnectService {
         const statusCode = (error as any).status || (error as any).context?.status || 
                           (error as any).statusCode || undefined;
         
-        const enhancedError: any = new Error(error.message || 'Failed to get account status');
+        // Check if error details are in the data field
+        const errorMessage = error.message || 
+                            (data as any)?.error || 
+                            (data as any)?.details ||
+                            'Failed to get account status';
+        
+        const enhancedError: any = new Error(errorMessage);
         if (statusCode) {
           enhancedError.status = statusCode;
+        }
+        // Preserve error details if available
+        if ((data as any)?.details) {
+          enhancedError.details = (data as any).details;
+        }
+        throw enhancedError;
+      }
+      
+      // Check if data contains an error (some edge functions return errors in data)
+      if (data && typeof data === 'object' && 'error' in data) {
+        const statusCode = (data as any).status || 500;
+        const errorMessage = (data as any).error || 'Failed to get account status';
+        const enhancedError: any = new Error(errorMessage);
+        enhancedError.status = statusCode;
+        if ((data as any).details) {
+          enhancedError.details = (data as any).details;
         }
         throw enhancedError;
       }
@@ -76,10 +98,11 @@ export class StripeConnectService {
       return data;
     } catch (error: any) {
       console.error('Error getting Stripe Connect account status:', error);
-      // Preserve status code if it exists
-      if (error.status) {
+      // Preserve status code and details if they exist
+      if (error.status || error.details) {
         const enhancedError: any = new Error(error.message || 'Failed to get account status');
-        enhancedError.status = error.status;
+        if (error.status) enhancedError.status = error.status;
+        if (error.details) enhancedError.details = error.details;
         throw enhancedError;
       }
       throw error;
