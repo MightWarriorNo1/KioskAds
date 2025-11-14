@@ -57,10 +57,31 @@ export class StripeConnectService {
         body: { hostId }
       });
 
-      if (error) throw error;
+      if (error) {
+        // Extract status code from error (Supabase FunctionsHttpError may have it in context or status)
+        const statusCode = (error as any).status || (error as any).context?.status || 
+                          (error as any).statusCode || undefined;
+        
+        const enhancedError: any = new Error(error.message || 'Failed to get account status');
+        if (statusCode) {
+          enhancedError.status = statusCode;
+        }
+        throw enhancedError;
+      }
+      
+      if (!data) {
+        throw new Error('No account data returned');
+      }
+      
       return data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error getting Stripe Connect account status:', error);
+      // Preserve status code if it exists
+      if (error.status) {
+        const enhancedError: any = new Error(error.message || 'Failed to get account status');
+        enhancedError.status = error.status;
+        throw enhancedError;
+      }
       throw error;
     }
   }

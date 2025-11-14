@@ -512,7 +512,7 @@ export default function CustomAdsPage() {
 
     try {
       const intent = await BillingService.createPaymentIntent({
-        amount: Math.round(selectedService.price * 100),
+        amount: selectedService.price,
         currency: 'usd',
         metadata: {
           serviceId: selectedService.id,

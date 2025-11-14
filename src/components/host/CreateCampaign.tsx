@@ -125,7 +125,7 @@ export default function CreateCampaign() {
 
 			// Initialize Stripe payment intent
 			const intent = await BillingService.createPaymentIntent({
-				amount: Math.round(totalAmount * 100),
+				amount: totalAmount,
 				currency: 'usd',
 				metadata: {
 					purpose: 'host_campaign',

@@ -373,7 +373,7 @@ export default function HostCustomAdsPage() {
 
     try {
       const intent = await BillingService.createPaymentIntent({
-        amount: Math.round(selectedService.price * 100),
+        amount: selectedService.price, // Pass amount in dollars, will be converted to cents in the service
         currency: 'usd',
         metadata: {
           serviceId: selectedService.id,

@@ -38,8 +38,21 @@ export default function StripeConnectSetup({ onSetupComplete }: StripeConnectSet
         setHasAccountId(!!profile?.stripe_connect_account_id);
         
         if (enabled || profile?.stripe_connect_account_id) {
-          const status = await StripeConnectService.getAccountStatus(user.id);
-          setAccountStatus(status);
+          try {
+            const status = await StripeConnectService.getAccountStatus(user.id);
+            setAccountStatus(status);
+          } catch (statusError: any) {
+            // Handle case where account doesn't exist or is invalid
+            // This can happen if the Stripe account was deleted or is invalid
+            console.warn('Could not retrieve Stripe account status:', statusError);
+            // Clear the account ID if it's invalid
+            if (statusError?.message?.includes('not found') || 
+                statusError?.message?.includes('deleted') ||
+                statusError?.status === 404) {
+              setHasAccountId(false);
+              setAccountStatus(null);
+            }
+          }
         }
       } catch (error) {
         console.error('Error checking account status:', error);

@@ -51,7 +51,7 @@ export default function PurchaseModal({ isOpen, onClose, package: pkg, onPurchas
     if (!pkg) return;
     setIsProcessing(true);
     setMessage(null);
-    const intent = await BillingService.createPaymentIntent({ amount: Math.round(pkg.price * 100), currency: 'usd', metadata: { packageId: pkg.id } });
+    const intent = await BillingService.createPaymentIntent({ amount: pkg.price, currency: 'usd', metadata: { packageId: pkg.id } });
     if (intent?.clientSecret) {
       setClientSecret(intent.clientSecret);
       setStep('payment');
