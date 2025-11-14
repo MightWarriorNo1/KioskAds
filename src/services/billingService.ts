@@ -657,6 +657,7 @@ export class BillingService {
     paymentMethodId: string;
     metadata?: Record<string, string>; 
     userId?: string;
+    kioskIds?: string[];
   }): Promise<{ success: boolean; paymentIntentId?: string; error?: string }> {
     try {
       // Get customer ID if userId is provided
@@ -670,7 +671,7 @@ export class BillingService {
         customerId = profile?.stripe_customer_id;
       }
 
-      const requestBody = {
+      const requestBody: Record<string, unknown> = {
         amount: Math.round(params.amount * 100), // Convert dollars to cents
         currency: params.currency || 'usd',
         paymentMethodId: params.paymentMethodId,
@@ -680,6 +681,10 @@ export class BillingService {
           userId: params.userId
         },
       };
+
+      if (params.kioskIds && params.kioskIds.length > 0) {
+        requestBody.kioskIds = params.kioskIds;
+      }
       
       const { data, error } = await supabase.functions.invoke('process-payment', {
         body: requestBody,

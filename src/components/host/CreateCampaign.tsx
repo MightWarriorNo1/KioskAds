@@ -127,6 +127,7 @@ export default function CreateCampaign() {
 			const intent = await BillingService.createPaymentIntent({
 				amount: totalAmount,
 				currency: 'usd',
+				kioskIds: selectedKioskIds,
 				metadata: {
 					purpose: 'host_campaign',
 					user_id: user.id,

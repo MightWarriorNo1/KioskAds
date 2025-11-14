@@ -890,7 +890,7 @@ export default function RevenueAnalytics() {
           </Card>
 
           {/* Stripe Connect Stats */}
-          <Card className="p-6">
+          {/* <Card className="p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Stripe Connect Analytics
@@ -931,7 +931,7 @@ export default function RevenueAnalytics() {
                 </p>
               </div>
             </div>
-          </Card>
+          </Card> */}
 
           {/* Transactions Section */}
           {showTransactions && (
@@ -1057,13 +1057,13 @@ export default function RevenueAnalytics() {
                   >
                     Apply Filters
                   </Button>
-                  <Button
+                  {/* <Button
                     onClick={clearFilters}
                     variant="ghost"
                     size="sm"
                   >
                     Clear All
-                  </Button>
+                  </Button> */}
                 </div>
               </div>
 
