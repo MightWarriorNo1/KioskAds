@@ -67,7 +67,7 @@ export interface RecentSale {
 }
 
 export class BillingService {
-  static async createPaymentIntent(params: { amount: number; currency?: string; metadata?: Record<string, string>; setupForFutureUse?: boolean }): Promise<{ clientSecret: string } | null> {
+  static async createPaymentIntent(params: { amount: number; currency?: string; metadata?: Record<string, string>; setupForFutureUse?: boolean; kioskIds?: string[] }): Promise<{ clientSecret: string } | null> {
     try {
       const requestBody: Record<string, unknown> = {
         amount: Math.round(params.amount * 100), // Convert dollars to cents
@@ -75,6 +75,10 @@ export class BillingService {
         metadata: params.metadata,
         setupForFutureUse: params.setupForFutureUse || false,
       };
+      // Pass kiosk IDs if provided (for host commission split calculation)
+      if (params.kioskIds && params.kioskIds.length > 0) {
+        requestBody.kioskIds = params.kioskIds;
+      }
       const { data, error } = await supabase.functions.invoke('create-payment-intent', {
         body: requestBody,
       });

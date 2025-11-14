@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ExternalLink, CheckCircle, AlertCircle, Loader2, CreditCard, DollarSign, Shield } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../contexts/NotificationContext';
-import { StripeConnectService, StripeConnectAccount } from '../../services/stripeConnectService';
+import { StripeConnectService } from '../../services/stripeConnectService';
 import { supabase } from '../../lib/supabaseClient';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
@@ -11,12 +11,11 @@ interface StripeConnectSetupProps {
   onSetupComplete?: () => void;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export default function StripeConnectSetup(_props: StripeConnectSetupProps) {
+export default function StripeConnectSetup({ onSetupComplete }: StripeConnectSetupProps) {
   const { user } = useAuth();
   const { addNotification } = useNotification();
   const [isConnecting, setIsConnecting] = useState(false);
-  const [accountStatus, setAccountStatus] = useState<StripeConnectAccount | null>(null);
+  const [accountStatus, setAccountStatus] = useState<any>(null);
   const [isEnabled, setIsEnabled] = useState(false);
   const [hasAccountId, setHasAccountId] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -42,28 +41,13 @@ export default function StripeConnectSetup(_props: StripeConnectSetupProps) {
           try {
             const status = await StripeConnectService.getAccountStatus(user.id);
             setAccountStatus(status);
-          } catch (statusError: unknown) {
+          } catch (statusError: any) {
             // Handle case where account doesn't exist or is invalid
             // This can happen if the Stripe account was deleted, revoked, or is invalid
             console.warn('Could not retrieve Stripe account status:', statusError);
-            
-            const error = statusError as { message?: string; status?: number; type?: string };
-            const errorMessage = error?.message || '';
-            const errorType = error?.type || '';
-            
-            // Check for platform configuration requirement
-            if (error?.status === 503 || 
-                errorType === 'platform_configuration_required' ||
-                errorMessage.includes('Platform configuration required') ||
-                errorMessage.includes('review the responsibilities of managing losses')) {
-              addNotification('error', 'Platform Setup Required', 
-                'Stripe Connect requires platform configuration. Please contact your administrator to complete the setup in the Stripe dashboard.');
-              // Don't clear account status for platform issues - it's not a user account problem
-              return;
-            }
-            
             // Clear the account ID if it's invalid
-            if (error?.status === 404 ||
+            const errorMessage = statusError?.message || '';
+            if (statusError?.status === 404 ||
                 errorMessage.includes('not found') || 
                 errorMessage.includes('deleted') ||
                 errorMessage.includes('access has been revoked') ||
@@ -88,7 +72,7 @@ export default function StripeConnectSetup(_props: StripeConnectSetupProps) {
     };
 
     checkAccountStatus();
-  }, [user?.id, addNotification]);
+  }, [user?.id]);
 
   const handleConnectStripe = async () => {
     if (!user?.id) return;
@@ -199,7 +183,7 @@ export default function StripeConnectSetup(_props: StripeConnectSetupProps) {
             <Button 
               onClick={handleConnectStripe}
               disabled={isConnecting}
-              variant="secondary"
+              variant="outline"
               className="border-green-300 text-green-700 hover:bg-green-50 dark:border-green-600 dark:text-green-300 dark:hover:bg-green-900/20"
             >
               {isConnecting ? (

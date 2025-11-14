@@ -51,7 +51,23 @@ export default function PurchaseModal({ isOpen, onClose, package: pkg, onPurchas
     if (!pkg) return;
     setIsProcessing(true);
     setMessage(null);
-    const intent = await BillingService.createPaymentIntent({ amount: pkg.price, currency: 'usd', metadata: { packageId: pkg.id } });
+    
+    // Extract kiosk IDs from campaignDetails if available (for host commission split)
+    let kioskIds: string[] | undefined;
+    if (campaignDetails?.kiosks) {
+      if (Array.isArray(campaignDetails.kiosks) && campaignDetails.kiosks.length > 0) {
+        kioskIds = typeof campaignDetails.kiosks[0] === 'string'
+          ? campaignDetails.kiosks as string[]
+          : (campaignDetails.kiosks as { id: string; name: string }[]).map(k => k.id);
+      }
+    }
+    
+    const intent = await BillingService.createPaymentIntent({ 
+      amount: pkg.price, 
+      currency: 'usd', 
+      metadata: { packageId: pkg.id },
+      kioskIds: kioskIds
+    });
     if (intent?.clientSecret) {
       setClientSecret(intent.clientSecret);
       setStep('payment');
