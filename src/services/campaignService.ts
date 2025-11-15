@@ -325,6 +325,14 @@ export class CampaignService {
         }
       }
 
+      // Store host revenue if campaign uses host-owned kiosks
+      try {
+        await this.storeHostRevenue(campaign.id, campaignData.kiosk_ids, campaignData.total_cost, campaignData.start_date);
+      } catch (error) {
+        console.warn('Failed to store host revenue:', error);
+        // Don't fail the campaign creation if host revenue storage fails
+      }
+
       // Send email notifications for new campaign
       try {
         const { data: user } = await supabase
@@ -619,6 +627,118 @@ export class CampaignService {
     } catch (error) {
       console.error('Error sending campaign status email:', error);
       // Don't throw error to avoid breaking the main workflow
+    }
+  }
+
+  /**
+   * Store host revenue for a campaign when it uses host-owned kiosks
+   * @param campaignId - The ID of the campaign
+   * @param kioskIds - Array of kiosk IDs used in the campaign
+   * @param totalCost - Total cost of the campaign
+   * @param startDate - Campaign start date
+   */
+  static async storeHostRevenue(
+    campaignId: string,
+    kioskIds: string[],
+    totalCost: number,
+    startDate: string
+  ): Promise<void> {
+    if (!kioskIds || kioskIds.length === 0) {
+      return;
+    }
+
+    try {
+      // Get host kiosk assignments for these kiosks
+      const { data: hostKiosks, error: hostKioskError } = await supabase
+        .from('host_kiosks')
+        .select('kiosk_id, host_id, commission_rate')
+        .in('kiosk_id', kioskIds)
+        .eq('status', 'active');
+
+      if (hostKioskError) {
+        console.error('Error fetching host kiosks:', hostKioskError);
+        return;
+      }
+
+      if (!hostKiosks || hostKiosks.length === 0) {
+        // No host-owned kiosks, nothing to store
+        return;
+      }
+
+      console.log(`Storing host revenue for campaign ${campaignId}: ${hostKiosks.length} host kiosk(s) found`);
+
+      // Calculate revenue per kiosk (distribute total cost equally among kiosks)
+      const revenuePerKiosk = totalCost / kioskIds.length;
+
+      // Group by host to aggregate revenue
+      const hostRevenueMap = new Map<string, {
+        hostId: string;
+        kioskIds: string[];
+        totalRevenue: number;
+        commissionRate: number;
+      }>();
+
+      for (const hk of hostKiosks) {
+        const hostId = hk.host_id;
+        const commissionRate = parseFloat(hk.commission_rate || '70.00');
+        
+        if (!hostRevenueMap.has(hostId)) {
+          hostRevenueMap.set(hostId, {
+            hostId,
+            kioskIds: [],
+            totalRevenue: 0,
+            commissionRate
+          });
+        }
+
+        const hostInfo = hostRevenueMap.get(hostId)!;
+        hostInfo.kioskIds.push(hk.kiosk_id);
+        hostInfo.totalRevenue += revenuePerKiosk;
+      }
+
+      // Store revenue for each host
+      const revenueRecords = [];
+      const campaignStartDate = new Date(startDate).toISOString().split('T')[0];
+
+      for (const [hostId, hostInfo] of hostRevenueMap.entries()) {
+        // Calculate commission for this host
+        const commissionAmount = (hostInfo.totalRevenue * hostInfo.commissionRate) / 100;
+
+        // Create revenue record for each kiosk owned by this host
+        for (const kioskId of hostInfo.kioskIds) {
+          const kioskRevenue = revenuePerKiosk;
+          const kioskCommission = (kioskRevenue * hostInfo.commissionRate) / 100;
+
+          revenueRecords.push({
+            host_id: hostId,
+            kiosk_id: kioskId,
+            date: campaignStartDate,
+            revenue: kioskRevenue,
+            commission: kioskCommission,
+            impressions: 0,
+            clicks: 0
+          });
+        }
+
+        console.log(`Host ${hostId}: Revenue $${hostInfo.totalRevenue.toFixed(2)}, Commission $${commissionAmount.toFixed(2)} (${hostInfo.commissionRate}%)`);
+      }
+
+      // Insert all revenue records
+      if (revenueRecords.length > 0) {
+        const { error: insertError } = await supabase
+          .from('host_revenue')
+          .insert(revenueRecords);
+
+        if (insertError) {
+          console.error('Error inserting host revenue:', insertError);
+          throw insertError;
+        }
+
+        console.log(`Successfully stored ${revenueRecords.length} host revenue record(s) for campaign ${campaignId}`);
+      }
+    } catch (error) {
+      console.error('Error storing host revenue:', error);
+      throw error;
     }
   }
 }

@@ -48,10 +48,24 @@ export default function RevenueTracker() {
             startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
         }
 
-        const [revenueDataResult, summaryResult] = await Promise.all([
-          HostService.getHostRevenue(user.id, startDate, endDate),
-          HostService.getHostRevenueSummary(user.id, startDate, endDate)
-        ]);
+        // Fetch revenue data once and calculate summary from it
+        const revenueDataResult = await HostService.getHostRevenue(user.id, startDate, endDate);
+        
+        // Calculate summary from revenue data
+        const summaryResult = revenueDataResult.reduce(
+          (acc, record) => ({
+            total_revenue: acc.total_revenue + (Number(record.revenue) || 0),
+            total_commission: acc.total_commission + (Number(record.commission) || 0),
+            total_impressions: acc.total_impressions + (Number(record.impressions) || 0),
+            total_clicks: acc.total_clicks + (Number(record.clicks) || 0)
+          }),
+          {
+            total_revenue: 0,
+            total_commission: 0,
+            total_impressions: 0,
+            total_clicks: 0
+          }
+        );
 
         setRevenueData(revenueDataResult);
         setRevenueSummary(summaryResult);
@@ -90,16 +104,18 @@ export default function RevenueTracker() {
     const kioskStats = new Map<string, { name: string; revenue: number; impressions: number; clicks: number }>();
     
     revenueData.forEach(record => {
+      if (!record.kiosk) return; // Skip records without kiosk data
+      
       const existing = kioskStats.get(record.kiosk_id) || {
-        name: record.kiosk.name,
+        name: record.kiosk?.name || 'Unknown Kiosk',
         revenue: 0,
         impressions: 0,
         clicks: 0
       };
       
-      existing.revenue += record.revenue;
-      existing.impressions += record.impressions;
-      existing.clicks += record.clicks;
+      existing.revenue += Number(record.revenue) || 0;
+      existing.impressions += Number(record.impressions) || 0;
+      existing.clicks += Number(record.clicks) || 0;
       
       kioskStats.set(record.kiosk_id, existing);
     });
@@ -119,11 +135,11 @@ export default function RevenueTracker() {
       ['Date', 'Kiosk', 'Impressions', 'Clicks', 'Revenue', 'Commission'].join(','),
       ...revenueData.map(record => [
         record.date,
-        record.kiosk.name,
-        record.impressions,
-        record.clicks,
-        record.revenue,
-        record.commission
+        record.kiosk?.name || 'Unknown Kiosk',
+        Number(record.impressions) || 0,
+        Number(record.clicks) || 0,
+        Number(record.revenue) || 0,
+        Number(record.commission) || 0
       ].join(','))
     ].join('\n');
 
@@ -194,7 +210,7 @@ export default function RevenueTracker() {
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Revenue</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                ${revenueSummary.total_revenue.toLocaleString()}
+                ${revenueSummary.total_revenue.toFixed(2)}
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400">{getTimeRangeLabel()}</p>
             </div>
@@ -209,7 +225,7 @@ export default function RevenueTracker() {
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Your Commission</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                ${revenueSummary.total_commission.toLocaleString()}
+                ${revenueSummary.total_commission.toFixed(2)}
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400">{getTimeRangeLabel()}</p>
             </div>
@@ -263,18 +279,36 @@ export default function RevenueTracker() {
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-              {revenueData.slice(0, 10).map((record) => (
-                <tr key={record.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                  <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
-                    {new Date(record.date).toLocaleDateString()}
+              {revenueData.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-4 text-sm text-center text-gray-500 dark:text-gray-400">
+                    No revenue data available for the selected time range
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">{record.kiosk.name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">{record.impressions.toLocaleString()}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">{record.clicks.toLocaleString()}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">${record.revenue.toFixed(2)}</td>
-                  <td className="px-6 py-4 text-sm text-green-600 dark:text-green-400">${record.commission.toFixed(2)}</td>
                 </tr>
-              ))}
+              ) : (
+                revenueData.slice(0, 10).map((record) => (
+                  <tr key={record.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                      {new Date(record.date).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                      {record.kiosk?.name || 'Unknown Kiosk'}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                      {(Number(record.impressions) || 0).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                      {(Number(record.clicks) || 0).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                      ${(Number(record.revenue) || 0).toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-green-600 dark:text-green-400">
+                      ${(Number(record.commission) || 0).toFixed(2)}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

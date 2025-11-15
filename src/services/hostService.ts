@@ -805,22 +805,34 @@ export class HostService {
     total_clicks: number;
   }> {
     try {
-      const { data, error } = await supabase.rpc('calculate_host_revenue', {
-        p_host_id: hostId,
-        p_start_date: startDate,
-        p_end_date: endDate
-      });
+      // Fetch revenue data and calculate summary directly
+      const revenueData = await this.getHostRevenue(hostId, startDate, endDate);
+      
+      const summary = revenueData.reduce(
+        (acc, record) => ({
+          total_revenue: acc.total_revenue + (Number(record.revenue) || 0),
+          total_commission: acc.total_commission + (Number(record.commission) || 0),
+          total_impressions: acc.total_impressions + (Number(record.impressions) || 0),
+          total_clicks: acc.total_clicks + (Number(record.clicks) || 0)
+        }),
+        {
+          total_revenue: 0,
+          total_commission: 0,
+          total_impressions: 0,
+          total_clicks: 0
+        }
+      );
 
-      if (error) throw error;
-      return data?.[0] || {
+      return summary;
+    } catch (error) {
+      console.error('Error fetching revenue summary:', error);
+      // Return default values on error instead of throwing
+      return {
         total_revenue: 0,
         total_commission: 0,
         total_impressions: 0,
         total_clicks: 0
       };
-    } catch (error) {
-      console.error('Error fetching revenue summary:', error);
-      throw error;
     }
   }
 
