@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Monitor, MapPin, Wifi, WifiOff, Settings, Search, Download, Upload, RefreshCw, FileText, X, Folder, User, UserPlus, UserMinus, Plus, Trash2 } from 'lucide-react';
+import { Monitor, MapPin, Wifi, WifiOff, Settings, Search, Download, Upload, RefreshCw, FileText, X, Folder, User, UserPlus, UserMinus, Plus, Trash2, Edit2 } from 'lucide-react';
 import { useNotification } from '../../contexts/NotificationContext';
 import { AdminService } from '../../services/adminService';
 import { supabase } from '../../lib/supabaseClient';
@@ -64,8 +64,12 @@ export default function KioskManagement() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showCommissionEditModal, setShowCommissionEditModal] = useState(false);
   const [selectedKiosk, setSelectedKiosk] = useState<Kiosk | null>(null);
+  const [selectedAssignment, setSelectedAssignment] = useState<{id: string; hostName: string; currentRate: number} | null>(null);
+  const [commissionEditRate, setCommissionEditRate] = useState(70.00);
   const [savingSettings, setSavingSettings] = useState(false);
+  const [updatingCommission, setUpdatingCommission] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Kiosk>>({});
   const [assignForm, setAssignForm] = useState({
     kioskId: '',
@@ -234,6 +238,42 @@ export default function KioskManagement() {
     } catch (error) {
       console.error('Error unassigning kiosk from host:', error);
       addNotification('error', 'Host Unassignment Failed', 'Failed to unassign kiosk from host user');
+    }
+  };
+
+  const handleEditCommission = (assignment: {id: string; host_id: string; commission_rate: number; host: {full_name: string}}) => {
+    setSelectedAssignment({
+      id: assignment.id,
+      hostName: assignment.host.full_name,
+      currentRate: assignment.commission_rate
+    });
+    setCommissionEditRate(assignment.commission_rate);
+    setShowCommissionEditModal(true);
+  };
+
+  const handleUpdateCommission = async () => {
+    if (!selectedAssignment) return;
+
+    if (commissionEditRate < 0 || commissionEditRate > 100) {
+      addNotification('error', 'Validation Error', 'Commission rate must be between 0 and 100');
+      return;
+    }
+
+    try {
+      setUpdatingCommission(true);
+      await AdminService.updateHostKioskAssignment(selectedAssignment.id, {
+        commission_rate: commissionEditRate
+      });
+      
+      addNotification('success', 'Commission Rate Updated', `Commission rate updated to ${commissionEditRate.toFixed(2)}%`);
+      setShowCommissionEditModal(false);
+      setSelectedAssignment(null);
+      await loadKiosks();
+    } catch (error) {
+      console.error('Error updating commission rate:', error);
+      addNotification('error', 'Update Failed', 'Failed to update commission rate');
+    } finally {
+      setUpdatingCommission(false);
     }
   };
 
@@ -662,6 +702,16 @@ export default function KioskManagement() {
                                   <span className="text-xs text-gray-900 dark:text-white truncate">
                                     {assignment.host.full_name}
                                   </span>
+                                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                                    ({assignment.commission_rate.toFixed(2)}%)
+                                  </span>
+                                  <button
+                                    onClick={() => handleEditCommission(assignment)}
+                                    className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 flex-shrink-0"
+                                    title="Edit commission rate"
+                                  >
+                                    <Edit2 className="h-3 w-3" />
+                                  </button>
                                   <button
                                     onClick={() => handleUnassignHost(assignment.id)}
                                     className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 flex-shrink-0"
@@ -772,14 +822,26 @@ export default function KioskManagement() {
                                   <span className="text-xs text-gray-900 dark:text-white truncate">
                                     {assignment.host.full_name}
                                   </span>
+                                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                                    ({assignment.commission_rate.toFixed(2)}%)
+                                  </span>
                                 </div>
-                                <button
-                                  onClick={() => handleUnassignHost(assignment.id)}
-                                  className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 flex-shrink-0 ml-2"
-                                  title="Unassign host"
-                                >
-                                  <UserMinus className="h-3 w-3" />
-                                </button>
+                                <div className="flex items-center space-x-1 flex-shrink-0 ml-2">
+                                  <button
+                                    onClick={() => handleEditCommission(assignment)}
+                                    className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
+                                    title="Edit commission rate"
+                                  >
+                                    <Edit2 className="h-3 w-3" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleUnassignHost(assignment.id)}
+                                    className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                                    title="Unassign host"
+                                  >
+                                    <UserMinus className="h-3 w-3" />
+                                  </button>
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -1355,6 +1417,80 @@ export default function KioskManagement() {
                 <Plus className="h-4 w-4" />
                 <span>{creating ? 'Creating...' : 'Create Kiosk'}</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Commission Rate Edit Modal */}
+      {showCommissionEditModal && selectedAssignment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-4 lg:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Edit Commission Rate</h3>
+              <button 
+                onClick={() => { 
+                  setShowCommissionEditModal(false); 
+                  setSelectedAssignment(null);
+                  setCommissionEditRate(70.00);
+                }} 
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Host</label>
+                <div className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
+                  {selectedAssignment.hostName}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Current Commission Rate</label>
+                <div className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
+                  {selectedAssignment.currentRate.toFixed(2)}%
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">New Commission Rate (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={commissionEditRate}
+                  onChange={(e) => setCommissionEditRate(Number(e.target.value))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+              <div className="bg-blue-50 dark:bg-gray-800 border border-blue-200 rounded-lg p-4">
+                <h4 className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-2">Commission Information</h4>
+                <p className="text-xs text-blue-800 dark:text-blue-300">
+                  The host will receive {commissionEditRate.toFixed(2)}% of the revenue generated from this kiosk. 
+                  The platform will keep the remaining {(100 - commissionEditRate).toFixed(2)}%.
+                </p>
+              </div>
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => { 
+                    setShowCommissionEditModal(false); 
+                    setSelectedAssignment(null);
+                    setCommissionEditRate(70.00);
+                  }}
+                  className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-500 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUpdateCommission}
+                  disabled={updatingCommission || commissionEditRate < 0 || commissionEditRate > 100}
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
+                >
+                  {updatingCommission && <RefreshCw className="h-4 w-4 animate-spin" />}
+                  <span>{updatingCommission ? 'Updating...' : 'Update Commission Rate'}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
