@@ -327,9 +327,21 @@ export class CampaignService {
 
       // Store host revenue if campaign uses host-owned kiosks
       try {
+        console.log('Attempting to store host revenue for campaign:', {
+          campaignId: campaign.id,
+          kioskIds: campaignData.kiosk_ids,
+          totalCost: campaignData.total_cost,
+          startDate: campaignData.start_date
+        });
         await this.storeHostRevenue(campaign.id, campaignData.kiosk_ids, campaignData.total_cost, campaignData.start_date);
+        console.log('Successfully stored host revenue for campaign:', campaign.id);
       } catch (error) {
-        console.warn('Failed to store host revenue:', error);
+        console.error('Failed to store host revenue:', error);
+        // Log detailed error information
+        if (error instanceof Error) {
+          console.error('Error message:', error.message);
+          console.error('Error stack:', error.stack);
+        }
         // Don't fail the campaign creation if host revenue storage fails
       }
 
@@ -643,12 +655,27 @@ export class CampaignService {
     totalCost: number,
     startDate: string
   ): Promise<void> {
+    console.log('storeHostRevenue called with:', {
+      campaignId,
+      kioskIds,
+      totalCost,
+      startDate,
+      kioskIdsLength: kioskIds?.length
+    });
+
     if (!kioskIds || kioskIds.length === 0) {
+      console.log('No kiosk IDs provided, skipping host revenue storage');
+      return;
+    }
+
+    if (!totalCost || totalCost <= 0) {
+      console.log('Invalid total cost, skipping host revenue storage');
       return;
     }
 
     try {
       // Get host kiosk assignments for these kiosks
+      console.log('Fetching host kiosk assignments for kiosks:', kioskIds);
       const { data: hostKiosks, error: hostKioskError } = await supabase
         .from('host_kiosks')
         .select('kiosk_id, host_id, commission_rate')
@@ -657,11 +684,14 @@ export class CampaignService {
 
       if (hostKioskError) {
         console.error('Error fetching host kiosks:', hostKioskError);
-        return;
+        throw new Error(`Failed to fetch host kiosks: ${hostKioskError.message}`);
       }
+
+      console.log('Host kiosks found:', hostKiosks?.length || 0, hostKiosks);
 
       if (!hostKiosks || hostKiosks.length === 0) {
         // No host-owned kiosks, nothing to store
+        console.log('No host-owned kiosks found for campaign, skipping revenue storage');
         return;
       }
 
@@ -716,28 +746,66 @@ export class CampaignService {
             revenue: kioskRevenue,
             commission: kioskCommission,
             impressions: 0,
-            clicks: 0
+            clicks: 0,
+            ad_assignment_id: null // Campaign revenue doesn't have ad_assignment_id
           });
         }
 
         console.log(`Host ${hostId}: Revenue $${hostInfo.totalRevenue.toFixed(2)}, Commission $${commissionAmount.toFixed(2)} (${hostInfo.commissionRate}%)`);
       }
 
-      // Insert all revenue records
+      // Insert all revenue records using the database function to bypass RLS
       if (revenueRecords.length > 0) {
-        const { error: insertError } = await supabase
-          .from('host_revenue')
-          .insert(revenueRecords);
+        console.log(`Inserting ${revenueRecords.length} host revenue record(s):`, revenueRecords);
+        
+        const insertedIds: string[] = [];
+        
+        // Insert each record using the database function
+        for (const record of revenueRecords) {
+          const { data: functionResult, error: functionError } = await supabase.rpc(
+            'insert_host_revenue',
+            {
+              p_host_id: record.host_id,
+              p_kiosk_id: record.kiosk_id,
+              p_date: record.date,
+              p_revenue: record.revenue,
+              p_commission: record.commission,
+              p_impressions: record.impressions || 0,
+              p_clicks: record.clicks || 0,
+              p_ad_assignment_id: record.ad_assignment_id || null
+            }
+          );
 
-        if (insertError) {
-          console.error('Error inserting host revenue:', insertError);
-          throw insertError;
+          if (functionError) {
+            console.error('Error inserting host revenue record:', functionError);
+            console.error('Insert error details:', {
+              message: functionError.message,
+              details: functionError.details,
+              hint: functionError.hint,
+              code: functionError.code,
+              record: record
+            });
+            throw new Error(`Failed to insert host revenue: ${functionError.message}`);
+          }
+
+          if (functionResult) {
+            insertedIds.push(functionResult);
+          }
         }
 
         console.log(`Successfully stored ${revenueRecords.length} host revenue record(s) for campaign ${campaignId}`);
+        console.log('Inserted revenue record IDs:', insertedIds);
+      } else {
+        console.warn('No revenue records to insert for campaign:', campaignId);
       }
     } catch (error) {
       console.error('Error storing host revenue:', error);
+      if (error instanceof Error) {
+        console.error('Error details:', {
+          message: error.message,
+          stack: error.stack
+        });
+      }
       throw error;
     }
   }
