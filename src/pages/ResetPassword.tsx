@@ -21,42 +21,81 @@ export default function ResetPassword() {
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
+    let subscription: { unsubscribe: () => void } | null = null;
+    let timeoutId: NodeJS.Timeout | null = null;
+
     // Check if we have a valid session (Supabase sets session when user clicks reset link)
     const checkSession = async () => {
       try {
-        // First, check if there's a hash fragment with access token
+        // Check if there's a hash fragment with access token (Supabase puts recovery tokens in hash)
         const hash = window.location.hash;
-        if (hash.includes('access_token') || hash.includes('type=recovery')) {
-          // Supabase puts the token in the hash, we need to extract it
-          // The session should be automatically established by Supabase client
-          // Wait a moment for Supabase to process the hash
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-
-        // Check for session
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const hasRecoveryToken = hash.includes('access_token') && hash.includes('type=recovery');
         
-        if (error) {
-          console.error('Error checking session:', error);
-          setIsValidToken(false);
-          return;
-        }
-
-        // If we have a session, the token is valid
-        if (session?.user) {
-          setIsValidToken(true);
-        } else {
-          // Check URL search params for recovery token
-          const type = searchParams.get('type');
-          if (type === 'recovery') {
-            // Wait a bit more for Supabase to process
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            const { data: { session: retrySession } } = await supabase.auth.getSession();
-            if (retrySession?.user) {
+        if (hasRecoveryToken) {
+          // Supabase client should automatically process the hash fragment
+          // Listen for auth state changes to detect when session is established
+          const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session?.user)) {
               setIsValidToken(true);
+              if (subscription) {
+                subscription.unsubscribe();
+                subscription = null;
+              }
+            }
+          });
+          subscription = authSubscription;
+
+          // Also check immediately and after delays
+          let attempts = 0;
+          const maxAttempts = 5;
+          
+          const checkSessionWithRetry = async () => {
+            const { data: { session }, error } = await supabase.auth.getSession();
+            
+            if (error) {
+              console.error('Error checking session:', error);
+              if (attempts >= maxAttempts) {
+                setIsValidToken(false);
+                if (subscription) {
+                  subscription.unsubscribe();
+                  subscription = null;
+                }
+              }
+              return;
+            }
+
+            if (session?.user) {
+              setIsValidToken(true);
+              if (subscription) {
+                subscription.unsubscribe();
+                subscription = null;
+              }
+            } else if (attempts < maxAttempts) {
+              attempts++;
+              timeoutId = setTimeout(checkSessionWithRetry, 500);
             } else {
               setIsValidToken(false);
+              if (subscription) {
+                subscription.unsubscribe();
+                subscription = null;
+              }
             }
+          };
+
+          // Start checking
+          checkSessionWithRetry();
+        } else {
+          // No hash fragment, check for existing session
+          const { data: { session }, error } = await supabase.auth.getSession();
+          
+          if (error) {
+            console.error('Error checking session:', error);
+            setIsValidToken(false);
+            return;
+          }
+
+          if (session?.user) {
+            setIsValidToken(true);
           } else {
             setIsValidToken(false);
           }
@@ -68,7 +107,17 @@ export default function ResetPassword() {
     };
 
     checkSession();
-  }, [searchParams]);
+
+    // Cleanup
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe();
+      }
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, []);
 
   const validateForm = () => {
     const newErrors: { password?: string; confirmPassword?: string } = {};
