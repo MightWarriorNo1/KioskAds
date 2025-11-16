@@ -3291,20 +3291,30 @@ Ad Management System`,
       user_id: string;
       campaign_id?: string;
       status: string;
+      payment_type?: 'campaign' | 'custom_ad';
+      custom_ad_order_id?: string;
       profiles?: {
         id: string;
         full_name: string;
         email: string;
+        role?: string;
       };
       campaigns?: {
         id: string;
         name: string;
       };
+      // Derived host info for campaign payments
+      host?: {
+        id: string;
+        name: string;
+        email: string;
+      } | null;
     }>;
     allProfiles: Array<{
       id: string;
       full_name: string;
       email: string;
+      role?: string;
     }>;
     allCampaigns: Array<{
       id: string;
@@ -3321,7 +3331,13 @@ Ad Management System`,
       // Get all payment history data
       const { data: allPayments, error: paymentsError } = await supabase
         .from('payment_history')
-        .select('*')
+        .select(`
+          *,
+          campaigns!payment_history_campaign_id_fkey (
+            id,
+            name
+          )
+        `)
         .eq('status', 'succeeded');
 
       if (paymentsError) throw paymentsError;
@@ -3330,12 +3346,12 @@ Ad Management System`,
       const userIds = [...new Set(allPayments?.map(p => p.user_id) || [])];
       const { data: allProfiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, full_name, email')
+        .select('id, full_name, email, role')
         .in('id', userIds);
 
       if (profilesError) throw profilesError;
 
-      // Get all campaigns
+      // Get all campaigns (kept for compatibility with existing return type)
       const campaignIds = [...new Set(allPayments?.map(p => p.campaign_id).filter(Boolean) || [])];
       const { data: allCampaigns, error: campaignsError } = await supabase
         .from('campaigns')
@@ -3344,11 +3360,143 @@ Ad Management System`,
 
       if (campaignsError) throw campaignsError;
 
-      // Combine the data
+      // Build host and kiosk mappings for campaigns:
+      // 1) Find kiosks for each campaign from kiosk_campaigns OR campaigns.selected_kiosk_ids
+      // 2) Get kiosk details (name, location)
+      // 3) Find active host assignments for those kiosks from host_kiosks
+      // 4) Map campaign_id -> kiosks array and primary host
+      const campaignHostMap = new Map<string, { id: string; name: string; email: string }>();
+      const campaignKiosksMap = new Map<string, Array<{ id: string; name: string; location: string }>>();
+
+      if (campaignIds.length > 0) {
+        // Get campaigns with selected_kiosk_ids
+        const { data: campaignsWithKiosks, error: campaignsWithKiosksError } = await supabase
+          .from('campaigns')
+          .select('id, selected_kiosk_ids')
+          .in('id', campaignIds);
+
+        // Get kiosk_campaigns relationships
+        const { data: kioskCampaigns, error: kioskCampaignsError } = await supabase
+          .from('kiosk_campaigns')
+          .select('campaign_id, kiosk_id')
+          .in('campaign_id', campaignIds);
+
+        // Collect all unique kiosk IDs from both sources
+        const allKioskIds = new Set<string>();
+        
+        // From selected_kiosk_ids
+        campaignsWithKiosks?.forEach((campaign: any) => {
+          if (campaign.selected_kiosk_ids && Array.isArray(campaign.selected_kiosk_ids)) {
+            campaign.selected_kiosk_ids.forEach((kid: string) => allKioskIds.add(kid));
+          }
+        });
+
+        // From kiosk_campaigns table
+        kioskCampaigns?.forEach((kc: any) => {
+          if (kc.kiosk_id) allKioskIds.add(kc.kiosk_id);
+        });
+
+        const uniqueKioskIds = Array.from(allKioskIds);
+
+        if (uniqueKioskIds.length > 0) {
+          // Get kiosk details
+          const { data: kiosksData, error: kiosksError } = await supabase
+            .from('kiosks')
+            .select('id, name, location')
+            .in('id', uniqueKioskIds);
+
+          // Get host assignments
+          const { data: hostAssignments, error: hostAssignmentsError } = await supabase
+            .from('host_kiosks')
+            .select(`
+              kiosk_id,
+              status,
+              host:profiles!host_kiosks_host_id_fkey(id, full_name, email)
+            `)
+            .in('kiosk_id', uniqueKioskIds)
+            .eq('status', 'active');
+
+          // Build kiosk details map
+          const kioskDetailsMap = new Map<string, { id: string; name: string; location: string }>();
+          kiosksData?.forEach((kiosk: any) => {
+            kioskDetailsMap.set(kiosk.id, {
+              id: kiosk.id,
+              name: kiosk.name || 'Unknown Kiosk',
+              location: kiosk.location || 'Unknown Location'
+            });
+          });
+
+          // Build kiosk -> host map
+          const kioskHostMap = new Map<string, { id: string; name: string; email: string }>();
+          hostAssignments?.forEach((assignment: any) => {
+            if (assignment.host && assignment.kiosk_id) {
+              kioskHostMap.set(assignment.kiosk_id, {
+                id: assignment.host.id,
+                name: assignment.host.full_name,
+                email: assignment.host.email
+              });
+            }
+          });
+
+          // Build campaign -> kiosks array map
+          campaignIds.forEach((campaignId) => {
+            const campaignKiosks: Array<{ id: string; name: string; location: string }> = [];
+            const campaignHosts = new Set<string>();
+
+            // Get kiosks from selected_kiosk_ids
+            const campaign = campaignsWithKiosks?.find((c: any) => c.id === campaignId);
+            if (campaign?.selected_kiosk_ids && Array.isArray(campaign.selected_kiosk_ids)) {
+              campaign.selected_kiosk_ids.forEach((kioskId: string) => {
+                const kioskDetails = kioskDetailsMap.get(kioskId);
+                if (kioskDetails) {
+                  campaignKiosks.push(kioskDetails);
+                  const host = kioskHostMap.get(kioskId);
+                  if (host) {
+                    campaignHosts.add(host.id);
+                    if (!campaignHostMap.has(campaignId)) {
+                      campaignHostMap.set(campaignId, host);
+                    }
+                  }
+                }
+              });
+            }
+
+            // Get kiosks from kiosk_campaigns table
+            kioskCampaigns?.forEach((kc: any) => {
+              if (kc.campaign_id === campaignId && kc.kiosk_id) {
+                const kioskDetails = kioskDetailsMap.get(kc.kiosk_id);
+                if (kioskDetails && !campaignKiosks.find(k => k.id === kc.kiosk_id)) {
+                  campaignKiosks.push(kioskDetails);
+                  const host = kioskHostMap.get(kc.kiosk_id);
+                  if (host) {
+                    campaignHosts.add(host.id);
+                    if (!campaignHostMap.has(campaignId)) {
+                      campaignHostMap.set(campaignId, host);
+                    }
+                  }
+                }
+              }
+            });
+
+            if (campaignKiosks.length > 0) {
+              campaignKiosksMap.set(campaignId, campaignKiosks);
+            }
+          });
+        }
+      }
+
+      // Combine the data (prefer joined campaign info when present)
       const paymentsWithDetails = allPayments?.map(payment => ({
         ...payment,
         profiles: allProfiles?.find(p => p.id === payment.user_id),
-        campaigns: allCampaigns?.find(c => c.id === payment.campaign_id)
+        campaigns: payment.campaigns
+          ? {
+              id: payment.campaigns.id,
+              name: payment.campaigns.name
+            }
+          : allCampaigns?.find(c => c.id === payment.campaign_id),
+        host: payment.campaign_id ? campaignHostMap.get(payment.campaign_id) || null : null,
+        kiosks: payment.campaign_id ? campaignKiosksMap.get(payment.campaign_id) || [] : []
       })) || [];
 
       // Get Stripe Connect stats

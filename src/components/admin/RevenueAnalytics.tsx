@@ -124,15 +124,28 @@ export default function RevenueAnalytics() {
       user_id: string;
       campaign_id?: string;
       status: string;
+      payment_type?: 'campaign' | 'custom_ad';
+      custom_ad_order_id?: string;
       profiles?: {
         id: string;
         full_name: string;
         email: string;
+        role?: string;
       };
       campaigns?: {
         id: string;
         name: string;
       };
+      host?: {
+        id: string;
+        name: string;
+        email: string;
+      } | null;
+      kiosks?: Array<{
+        id: string;
+        name: string;
+        location: string;
+      }>;
     }>;
     allProfiles: Array<{
       id: string;
@@ -248,15 +261,23 @@ export default function RevenueAnalytics() {
     user_id: string;
     campaign_id?: string;
     status: string;
+    payment_type?: 'campaign' | 'custom_ad';
+    custom_ad_order_id?: string;
     profiles?: {
       id: string;
       full_name: string;
       email: string;
+      role?: string;
     };
     campaigns?: {
       id: string;
       name: string;
     };
+    host?: {
+      id: string;
+      name: string;
+      email: string;
+    } | null;
   }>, allData: {
     allPayments: Array<{
       id: string;
@@ -265,15 +286,23 @@ export default function RevenueAnalytics() {
       user_id: string;
       campaign_id?: string;
       status: string;
+      payment_type?: 'campaign' | 'custom_ad';
+      custom_ad_order_id?: string;
       profiles?: {
         id: string;
         full_name: string;
         email: string;
+        role?: string;
       };
       campaigns?: {
         id: string;
         name: string;
       };
+      host?: {
+        id: string;
+        name: string;
+        email: string;
+      } | null;
     }>;
     allProfiles: Array<{
       id: string;
@@ -470,8 +499,14 @@ export default function RevenueAnalytics() {
       }
 
       // Host filter
-      if (filters.hostId && transaction.host?.id !== filters.hostId) {
-        return false;
+      if (filters.hostId) {
+        const matchesHost =
+          transaction.host?.id === filters.hostId ||
+          // Fallback: if host is acting as a client, match on client id
+          transaction.client.id === filters.hostId;
+        if (!matchesHost) {
+          return false;
+        }
       }
 
       // Status filter
@@ -579,27 +614,46 @@ export default function RevenueAnalytics() {
       
       // Also update transactions for the filtered period
       if (showTransactions) {
-        setTransactions(filteredPayments.map(payment => ({
-          id: payment.id,
-          type: payment.campaign_id ? 'campaign' : 'custom_ad',
-          amount: payment.amount,
-          date: payment.payment_date,
-          status: payment.status,
-          client: {
+        setTransactions(filteredPayments.map(payment => {
+          // Base client info (the buyer)
+          const client = {
             id: payment.user_id,
             name: payment.profiles?.full_name || 'Unknown',
             email: payment.profiles?.email || 'unknown@example.com'
-          },
-          campaign: payment.campaigns ? {
-            id: payment.campaigns.id,
-            name: payment.campaigns.name
-          } : undefined,
-          customAd: !payment.campaign_id ? {
+          };
+
+          // Derive host: prefer explicit host from allPayments if present;
+          // otherwise, fall back to treating the client as host when their role is 'host'
+          const host = payment.host ?? (
+            payment.profiles?.role === 'host'
+              ? {
+                  id: payment.profiles.id,
+                  name: payment.profiles.full_name,
+                  email: payment.profiles.email
+                }
+              : undefined
+          );
+
+          return {
             id: payment.id,
-            service_key: 'Custom Ad',
-            details: 'Custom advertisement order'
-          } : undefined
-        })));
+            type: payment.campaign_id ? 'campaign' : 'custom_ad',
+            amount: payment.amount,
+            date: payment.payment_date,
+            status: payment.status,
+            client,
+            host,
+            kiosks: payment.kiosks || [],
+            campaign: payment.campaigns ? {
+              id: payment.campaigns.id,
+              name: payment.campaigns.name
+            } : undefined,
+            customAd: !payment.campaign_id ? {
+              id: payment.id,
+              service_key: 'Custom Ad',
+              details: 'Custom advertisement order'
+            } : undefined
+          };
+        }));
       }
     }
   }, [selectedPeriod, allData, filterDataByPeriod, calculateMetrics, showTransactions]);
@@ -1118,6 +1172,21 @@ export default function RevenueAnalytics() {
                               <div className="text-xs text-gray-500 dark:text-gray-400">{transaction.client.email}</div>
                             </div>
                             
+                            {/* Host */}
+                            <div>
+                              <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Host</div>
+                              <div className="text-sm text-gray-900 dark:text-white">
+                                {transaction.host
+                                  ? transaction.host.name
+                                  : 'N/A'}
+                              </div>
+                              {transaction.host && (
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  {transaction.host.email}
+                                </div>
+                              )}
+                            </div>
+                            
                             <div>
                               <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
                                 {transaction.type === 'campaign' ? 'Campaign' : 'Service'}
@@ -1187,6 +1256,9 @@ export default function RevenueAnalytics() {
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             Kiosks
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Host
                           </th>
                         </tr>
                       </thead>
@@ -1261,6 +1333,11 @@ export default function RevenueAnalytics() {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                               {transaction.kiosks?.length || 0}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                              {transaction.host
+                                ? `${transaction.host.name} (${transaction.host.email})`
+                                : 'N/A'}
                             </td>
                           </tr>
                         ))}
