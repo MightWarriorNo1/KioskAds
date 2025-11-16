@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { MapPin, Clock, Upload, Check, Star ,Aperture, Camera, Videotape} from 'lucide-react';
 import SiteHeader from '../components/layouts/SiteHeader';
 import MarketingToolsManager from '../components/marketing/MarketingToolsManager';
@@ -7,6 +8,20 @@ import ProudlyPartneredWith from '../components/shared/ProudlyPartneredWith';
 // import TestNotification from '../components/marketing/TestNotification';
 
 export default function LandingPage() {
+  const navigate = useNavigate();
+
+  // Check for password recovery tokens on mount
+  useEffect(() => {
+    const hash = window.location.hash;
+    const hasRecoveryToken = hash.includes('type=recovery') || 
+                             (hash.includes('access_token') && hash.includes('type=recovery'));
+    
+    if (hasRecoveryToken) {
+      // Redirect to reset-password page with the hash fragment
+      const hashPart = hash.startsWith('#') ? hash : `#${hash}`;
+      navigate(`/reset-password${hashPart}`, { replace: true });
+    }
+  }, [navigate]);
   return (
     <div className="min-h-screen bg-[rgb(var(--bg))] dark:bg-gradient-to-br dark:from-slate-900 dark:via-blue-900 dark:to-slate-800">
       {/* Marketing Overlays (Banner, Popup, Sales Notification) */}

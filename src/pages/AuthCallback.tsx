@@ -1,13 +1,29 @@
 import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 
 export default function AuthCallback() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     let isMounted = true;
     const handle = async () => {
+      // Check if this is a password recovery flow
+      const hash = window.location.hash;
+      const hasRecoveryToken = hash.includes('type=recovery') || hash.includes('access_token');
+      
+      // Also check URL params
+      const type = searchParams.get('type');
+      const isPasswordRecovery = type === 'recovery' || hasRecoveryToken;
+      
+      if (isPasswordRecovery) {
+        // Redirect to password reset page with the hash fragment
+        const hashPart = hash ? (hash.startsWith('#') ? hash : `#${hash}`) : '';
+        navigate(`/reset-password${hashPart}`, { replace: true });
+        return;
+      }
+
       const { data } = await supabase.auth.getSession();
       const user = data.session?.user;
       if (!isMounted) return;
@@ -61,7 +77,7 @@ export default function AuthCallback() {
     return () => {
       isMounted = false;
     };
-  }, [navigate]);
+  }, [navigate, searchParams]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">

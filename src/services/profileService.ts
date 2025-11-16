@@ -101,8 +101,11 @@ export class ProfileService {
   // Send password reset email
   static async sendPasswordReset(email: string): Promise<void> {
     try {
+      // Use absolute URL for redirect - Supabase requires this to be in the allowed redirect URLs
+      const redirectUrl = `${window.location.origin}/reset-password`;
+      
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`
+        redirectTo: redirectUrl
       });
       
       if (error) {
