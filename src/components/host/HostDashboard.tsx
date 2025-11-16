@@ -26,6 +26,9 @@ export default function HostDashboard() {
     totalDuration: 0,
     averageDuration: 0
   });
+  const [stripeOverview, setStripeOverview] = useState<Awaited<ReturnType<typeof HostService.getStripeConnectOverview>> | null>(null);
+  const [useStripeData, setUseStripeData] = useState<boolean>(true);
+  const [stripeSeries, setStripeSeries] = useState<Array<{ date: string; net: number }>>([]);
 
   useEffect(() => {
     const loadDashboardData = async () => {
@@ -33,7 +36,7 @@ export default function HostDashboard() {
       
       try {
         setLoading(true);
-        const [statsData, adsData, kiosksData, popData] = await Promise.all([
+        const [statsData, adsData, kiosksData, popData, overview] = await Promise.all([
           HostService.getHostStats(user.id),
           HostService.getHostAds(user.id),
           HostService.getHostKiosks(user.id),
@@ -41,12 +44,38 @@ export default function HostDashboard() {
             accountId: user.id,
             startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
             endDate: new Date().toISOString().split('T')[0]
-          })
+          }),
+          HostService.getStripeConnectOverview(user.id, 50)
         ]);
         setStats(statsData);
         setAds(adsData);
         setKiosks(kiosksData);
         setPopSummary(popData);
+        setStripeOverview(overview);
+        setUseStripeData(!!overview);
+        if (overview?.recent_balance_transactions) {
+          const byDay = new Map<string, number>();
+          for (const t of overview.recent_balance_transactions) {
+            if (t.currency !== 'usd') continue;
+            const d = new Date(t.created * 1000);
+            const day = new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString().split('T')[0];
+            byDay.set(day, (byDay.get(day) || 0) + (Number(t.net) || 0));
+          }
+          // Fill last 30 days window
+          const end = new Date();
+          const start = new Date(end);
+          start.setDate(end.getDate() - 29);
+          const series: Array<{ date: string; net: number }> = [];
+          const cur = new Date(start);
+          while (cur <= end) {
+            const key = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate()).toISOString().split('T')[0];
+            series.push({ date: key, net: byDay.get(key) || 0 });
+            cur.setDate(cur.getDate() + 1);
+          }
+          setStripeSeries(series);
+        } else {
+          setStripeSeries([]);
+        }
       } catch (error) {
         console.error('Error loading dashboard data:', error);
       } finally {
@@ -68,7 +97,15 @@ export default function HostDashboard() {
     },
     {
       title: 'Monthly Revenue',
-      value: `$${stats.monthly_revenue.toLocaleString()}`,
+      value: useStripeData && stripeOverview
+        ? (() => {
+            const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+            const tx = (stripeOverview.recent_balance_transactions || [])
+              .filter(t => t.currency === 'usd' && (t.created * 1000) >= cutoff);
+            const totalNet = tx.reduce((s, t) => s + (Number(t.net) || 0), 0);
+            return `$${totalNet.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+          })()
+        : `$${stats.monthly_revenue.toLocaleString()}`,
       change: 'This month',
       changeType: 'positive' as const,
       icon: DollarSign,
@@ -294,14 +331,79 @@ export default function HostDashboard() {
       <div className="grid lg:grid-cols-2 gap-6">
         <Card className="animate-fade-in-up" title="Revenue Trends">
           <div 
-            className="h-64 bg-gradient-to-br from-success-50 to-primary-50 dark:from-gray-800 dark:to-gray-800 rounded-lg flex items-center justify-center cursor-pointer hover:shadow-md transition-shadow"
+            className="h-64 bg-gradient-to-br from-success-50 to-primary-50 dark:from-gray-800 dark:to-gray-800 rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow"
             onClick={handleChartInteraction}
           >
-            <div className="text-center">
-              <DollarSign className="h-12 w-12 text-success-600 mx-auto mb-4" />
-              <p>Revenue tracking chart</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Daily, weekly, and monthly earnings breakdown</p>
-            </div>
+            {useStripeData && stripeSeries.length > 0 ? (
+              <svg viewBox="0 0 1000 260" className="w-full h-full">
+                {(() => {
+                  const chartW = 940;
+                  const chartH = 200;
+                  const offsetX = 40;
+                  const offsetY = 30;
+                  const max = Math.max(...stripeSeries.map(d => d.net), 1);
+                  const min = Math.min(...stripeSeries.map(d => d.net), 0);
+                  const span = Math.max(max - min, 1);
+                  const stepX = chartW / Math.max(stripeSeries.length - 1, 1);
+                  const points = stripeSeries.map((d, i) => {
+                    const x = offsetX + i * stepX;
+                    const y = offsetY + (chartH - ((d.net - min) / span) * chartH);
+                    return `${x},${y}`;
+                  }).join(' ');
+                  // Ticks
+                  const yTicks = 5;
+                  const yTickEls = Array.from({ length: yTicks + 1 }, (_, i) => {
+                    const v = min + (span * i) / yTicks;
+                    const y = offsetY + (chartH - (i / yTicks) * chartH);
+                    return (
+                      <g key={`dyt-${i}`}>
+                        <line x1={offsetX} y1={y} x2={offsetX + chartW} y2={y} stroke="#2d3645" strokeDasharray="2,4" />
+                        <text x={4} y={y + 4} fontSize="10" fill="#9ca3af">${v.toFixed(2)}</text>
+                      </g>
+                    );
+                  });
+                  const xTicks = Math.min(6, Math.max(2, Math.floor(stripeSeries.length / 5)));
+                  const xStep = Math.max(1, Math.floor(stripeSeries.length / (xTicks - 1)));
+                  const xTickEls = stripeSeries.filter((_, i) => i % xStep === 0 || i === stripeSeries.length - 1)
+                    .map((d, idx, arr) => {
+                      const i = stripeSeries.indexOf(d);
+                      const x = offsetX + i * stepX;
+                      return (
+                        <g key={`dxt-${idx}`}>
+                          <line x1={x} y1={offsetY + chartH} x2={x} y2={offsetY + chartH + 6} stroke="#64748b" />
+                          <text x={x} y={offsetY + chartH + 18} fontSize="10" fill="#9ca3af" textAnchor={idx === 0 ? 'start' : idx === arr.length - 1 ? 'end' : 'middle'}>
+                            {new Date(d.date).toLocaleDateString()}
+                          </text>
+                        </g>
+                      );
+                    });
+                  return (
+                    <>
+                      <line x1={offsetX} y1={offsetY} x2={offsetX} y2={offsetY + chartH} stroke="#94a3b8" />
+                      <line x1={offsetX} y1={offsetY + chartH} x2={offsetX + chartW} y2={offsetY + chartH} stroke="#94a3b8" />
+                      {yTickEls}
+                      {xTickEls}
+                      <polyline
+                        fill="none"
+                        stroke="url(#gradDash)"
+                        strokeWidth="3"
+                        points={points}
+                      />
+                      <defs>
+                        <linearGradient id="gradDash" x1="0" y1="0" x2="1" y2="0">
+                          <stop offset="0%" stopColor="#22c55e" />
+                          <stop offset="100%" stopColor="#3b82f6" />
+                        </linearGradient>
+                      </defs>
+                    </>
+                  );
+                })()}
+              </svg>
+            ) : (
+              <div className="h-full flex items-center justify-center text-gray-600 dark:text-gray-400">
+                No Stripe trend data available
+              </div>
+            )}
           </div>
         </Card>
         

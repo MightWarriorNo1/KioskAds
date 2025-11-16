@@ -25,6 +25,8 @@ export default function PayoutHistory() {
   const [loading, setLoading] = useState(true);
   const [selectedPayout, setSelectedPayout] = useState<HostPayout | null>(null);
   const [payoutStatements, setPayoutStatements] = useState<HostPayoutStatement[]>([]);
+  const [stripeOverview, setStripeOverview] = useState<Awaited<ReturnType<typeof HostService.getStripeConnectOverview>> | null>(null);
+  const [useStripeData, setUseStripeData] = useState<boolean>(true);
 
   useEffect(() => {
     const loadPayoutData = async () => {
@@ -44,6 +46,11 @@ export default function PayoutHistory() {
         setHostProfile(profileData);
         setPayoutStats(statsData);
         setStripeConnectEnabled(stripeEnabled);
+
+        // Always pull Stripe overview for live payout numbers
+        const overview = await HostService.getStripeConnectOverview(user.id, 20);
+        setStripeOverview(overview);
+        setUseStripeData(!!overview);
       } catch (error) {
         console.error('Error loading payout data:', error);
         addNotification('error', 'Error', 'Failed to load payout data');
@@ -234,14 +241,24 @@ Thank you for using EZ Kiosk Ads!
         loadPayoutData();
       }} />
 
-      {/* Payout Summary */}
+      {/* Payout Summary (Stripe preferred) */}
       <div className="grid md:grid-cols-4 gap-6">
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Earnings</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                ${payoutStats.totalAmount.toLocaleString()}
+                {useStripeData && stripeOverview
+                  ? (() => {
+                      const payouts = stripeOverview.recent_payouts || [];
+                      const transfers = stripeOverview.recent_transfers_from_platform || [];
+                      const hasPayouts = payouts.length > 0;
+                      const total = hasPayouts
+                        ? payouts.reduce((s, p) => s + (Number(p.amount) || 0), 0)
+                        : transfers.reduce((s, t) => s + (Number(t.amount) || 0), 0);
+                      return `$${total.toFixed(2)}`;
+                    })()
+                  : `$${payoutStats.totalAmount.toLocaleString()}`}
               </p>
             </div>
             <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
@@ -255,7 +272,13 @@ Thank you for using EZ Kiosk Ads!
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Payouts</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {payoutStats.totalPayouts}
+                {useStripeData && stripeOverview
+                  ? (() => {
+                      const payouts = stripeOverview.recent_payouts || [];
+                      const transfers = stripeOverview.recent_transfers_from_platform || [];
+                      return payouts.length > 0 ? payouts.length : transfers.length;
+                    })()
+                  : payoutStats.totalPayouts}
               </p>
             </div>
             <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
@@ -269,7 +292,19 @@ Thank you for using EZ Kiosk Ads!
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Last Payout</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {payoutStats.lastPayoutDate ? new Date(payoutStats.lastPayoutDate).toLocaleDateString() : 'Never'}
+                {useStripeData && stripeOverview
+                  ? (() => {
+                      const payouts = (stripeOverview.recent_payouts || []).slice().sort((a, b) => (b.arrival_date || 0) - (a.arrival_date || 0));
+                      const transfers = (stripeOverview.recent_transfers_from_platform || []).slice().sort((a, b) => (b.created || 0) - (a.created || 0));
+                      if (payouts.length > 0) {
+                        return payouts[0].arrival_date ? new Date(payouts[0].arrival_date * 1000).toLocaleDateString() : 'Never';
+                      }
+                      if (transfers.length > 0) {
+                        return transfers[0].created ? new Date(transfers[0].created * 1000).toLocaleDateString() : 'Never';
+                      }
+                      return 'Never';
+                    })()
+                  : (payoutStats.lastPayoutDate ? new Date(payoutStats.lastPayoutDate).toLocaleDateString() : 'Never')}
               </p>
             </div>
             <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
@@ -340,7 +375,7 @@ Thank you for using EZ Kiosk Ads!
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-              {payouts.map((payout) => (
+              {(payouts || []).map((payout) => (
                 <tr key={payout.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
                   <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
                     {new Date(payout.created_at).toLocaleDateString()}
@@ -384,6 +419,78 @@ Thank you for using EZ Kiosk Ads!
           </table>
         </div>
       </Card>
+
+      {/* Stripe Connect (Live Payouts/Transfers) */}
+      {stripeOverview && (
+        <Card className="p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Stripe Connect (Live Payouts)</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 dark:bg-gray-800">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Arrival Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Amount</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Method</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                {(() => {
+                  const payouts = (stripeOverview.recent_payouts || [])
+                    .slice()
+                    .sort((a, b) => (b.arrival_date || 0) - (a.arrival_date || 0));
+                  if (payouts.length > 0) {
+                    return payouts.map(p => (
+                      <tr key={p.id}>
+                        <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                          {p.arrival_date ? new Date(p.arrival_date * 1000).toLocaleDateString() : '-'}
+                        </td>
+                        <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">
+                          ${Number(p.amount || 0).toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                          {p.status}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                          {p.method || 'bank'}
+                        </td>
+                      </tr>
+                    ));
+                  }
+                  const transfers = (stripeOverview.recent_transfers_from_platform || [])
+                    .slice()
+                    .sort((a, b) => (b.created || 0) - (a.created || 0));
+                  if (transfers.length > 0) {
+                    return transfers.map(t => (
+                      <tr key={t.id}>
+                        <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                          {t.created ? new Date(t.created * 1000).toLocaleDateString() : '-'}
+                        </td>
+                        <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">
+                          ${Number(t.amount || 0).toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                          transfer
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                          platform → connect
+                        </td>
+                      </tr>
+                    ));
+                  }
+                  return (
+                  <tr>
+                    <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400" colSpan={4}>
+                      No recent payouts or transfers found in Stripe.
+                    </td>
+                  </tr>
+                  );
+                })()}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
 
       {/* Payout Details Modal */}
       {selectedPayout && (

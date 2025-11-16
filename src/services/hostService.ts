@@ -122,6 +122,62 @@ export interface HostStats {
 }
 
 export class HostService {
+  // Get Stripe Connect overview for a host (fallback display if DB revenue missing)
+  static async getStripeConnectOverview(hostId: string, limit = 20): Promise<{
+    accountId: string;
+    payout_settings: {
+      payout_frequency: string;
+      minimum_payout: number;
+    };
+    balances: {
+      available: { currency: string; amount: number }[];
+      pending: { currency: string; amount: number }[];
+    };
+    recent_balance_transactions: Array<{
+      id: string;
+      amount: number;
+      fee: number;
+      net: number;
+      currency: string;
+      type: string;
+      created: number;
+      reporting_category?: string;
+      description?: string;
+    }>;
+    recent_payouts: Array<{
+      id: string;
+      amount: number;
+      currency: string;
+      arrival_date: number;
+      status: string;
+      method?: string;
+      statement_descriptor?: string | null;
+    }>;
+    recent_transfers_from_platform: Array<{
+      id: string;
+      amount: number;
+      currency: string;
+      created: number;
+      description?: string | null;
+      metadata?: Record<string, string>;
+    }>;
+  } | null> {
+    try {
+      const { data, error } = await supabase.functions.invoke('stripe-connect-get-host-stripe-data', {
+        body: { hostId, limit }
+      });
+
+      if (error) {
+        console.error('Failed to fetch Stripe Connect overview:', error);
+        return null;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error fetching Stripe Connect overview:', error);
+      return null;
+    }
+  }
   // Get host's assigned kiosks
   static async getHostKiosks(hostId: string): Promise<HostKiosk[]> {
     try {

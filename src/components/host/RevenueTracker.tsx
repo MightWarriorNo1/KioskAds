@@ -19,6 +19,9 @@ export default function RevenueTracker() {
     total_clicks: 0
   });
   const [loading, setLoading] = useState(true);
+  const [stripeOverview, setStripeOverview] = useState<Awaited<ReturnType<typeof HostService.getStripeConnectOverview>> | null>(null);
+  const [useStripeData, setUseStripeData] = useState<boolean>(true);
+  const [stripeSeries, setStripeSeries] = useState<Array<{ date: string; net: number }>>([]);
 
   useEffect(() => {
     const loadRevenueData = async () => {
@@ -48,7 +51,36 @@ export default function RevenueTracker() {
             startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
         }
 
-        // Fetch revenue data once and calculate summary from it
+        // Always pull Stripe overview for live numbers
+        const overview = await HostService.getStripeConnectOverview(user.id, 50);
+        setStripeOverview(overview);
+        // Build daily net series from Stripe transactions (USD only), fill missing days with 0
+        if (overview?.recent_balance_transactions) {
+          const byDay = new Map<string, number>();
+          for (const t of overview.recent_balance_transactions) {
+            if (t.currency !== 'usd') continue;
+            const d = new Date(t.created * 1000);
+            const day = new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString().split('T')[0];
+            byDay.set(day, (byDay.get(day) || 0) + (Number(t.net) || 0));
+          }
+          // Determine range from timeRange selector
+          const end = new Date();
+          const start = new Date(end);
+          const daysBack = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : timeRange === '90d' ? 90 : 30;
+          start.setDate(end.getDate() - (daysBack - 1));
+          const series: Array<{ date: string; net: number }> = [];
+          const cur = new Date(start);
+          while (cur <= end) {
+            const key = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate()).toISOString().split('T')[0];
+            series.push({ date: key, net: byDay.get(key) || 0 });
+            cur.setDate(cur.getDate() + 1);
+          }
+          setStripeSeries(series);
+        } else {
+          setStripeSeries([]);
+        }
+
+        // Fetch revenue data once for kiosk table enrichment
         const revenueDataResult = await HostService.getHostRevenue(user.id, startDate, endDate);
         
         // Calculate summary from revenue data
@@ -69,6 +101,9 @@ export default function RevenueTracker() {
 
         setRevenueData(revenueDataResult);
         setRevenueSummary(summaryResult);
+
+        // Prefer Stripe live numbers for headline metrics if available
+        setUseStripeData(!!overview);
       } catch (error) {
         console.error('Error loading revenue data:', error);
         addNotification('error', 'Error', 'Failed to load revenue data');
@@ -203,14 +238,20 @@ export default function RevenueTracker() {
         </div>
       </div>
 
-      {/* Revenue Metrics */}
+      {/* Revenue Metrics (Stripe live preferred) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Revenue</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                ${revenueSummary.total_revenue.toFixed(2)}
+                {useStripeData && stripeOverview
+                  ? (() => {
+                      const tx = (stripeOverview.recent_balance_transactions || []).filter(t => t.currency === 'usd');
+                      const totalNet = tx.reduce((s, t) => s + (Number(t.net) || 0), 0);
+                      return `$${totalNet.toFixed(2)}`;
+                    })()
+                  : `$${revenueSummary.total_revenue.toFixed(2)}`}
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400">{getTimeRangeLabel()}</p>
             </div>
@@ -225,7 +266,13 @@ export default function RevenueTracker() {
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Your Commission</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                ${revenueSummary.total_commission.toFixed(2)}
+                {useStripeData && stripeOverview
+                  ? (() => {
+                      const tx = (stripeOverview.recent_balance_transactions || []).filter(t => t.currency === 'usd');
+                      const totalNet = tx.reduce((s, t) => s + (Number(t.net) || 0), 0);
+                      return `$${totalNet.toFixed(2)}`;
+                    })()
+                  : `$${revenueSummary.total_commission.toFixed(2)}`}
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400">{getTimeRangeLabel()}</p>
             </div>
@@ -240,7 +287,14 @@ export default function RevenueTracker() {
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Avg. Daily Revenue</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                ${(revenueSummary.total_revenue / (timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : timeRange === '90d' ? 90 : 365)).toFixed(2)}
+                {useStripeData && stripeOverview
+                  ? (() => {
+                      const days = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : timeRange === '90d' ? 90 : 365;
+                      const tx = (stripeOverview.recent_balance_transactions || []).filter(t => t.currency === 'usd');
+                      const totalNet = tx.reduce((s, t) => s + (Number(t.net) || 0), 0);
+                      return `$${(totalNet / days).toFixed(2)}`;
+                    })()
+                  : `$${(revenueSummary.total_revenue / (timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : timeRange === '90d' ? 90 : 365)).toFixed(2)}`}
               </p>
             </div>
             <Clock className="h-8 w-8 text-pink-600 dark:text-pink-400" />
@@ -249,21 +303,85 @@ export default function RevenueTracker() {
       </div>
 
 
-      {/* Revenue Chart Placeholder */}
+      {/* Revenue Trends (Stripe-based summary text for now) */}
       <Card className="p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Revenue Trends</h3>
-        <div className="h-64 bg-gradient-to-br from-green-50 to-blue-50 dark:from-gray-800 dark:to-gray-800 rounded-lg flex items-center justify-center">
-          <div className="text-center">
-            <BarChart3 className="h-12 w-12 text-green-500 mx-auto mb-4" />
-            <p className="text-gray-600 dark:text-gray-400">Revenue trends chart</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-              Daily, weekly, and monthly earnings breakdown
-            </p>
-          </div>
+        <div className="h-64 bg-gradient-to-br from-green-50 to-blue-50 dark:from-gray-800 dark:to-gray-800 rounded-lg p-4">
+          {useStripeData && stripeSeries.length > 0 ? (
+            <svg viewBox="0 0 1000 260" className="w-full h-full">
+              {(() => {
+                const chartW = 940;   // left/right padding for y-labels
+                const chartH = 200;   // top/bottom padding for x-labels
+                const offsetX = 40;
+                const offsetY = 30;
+                const max = Math.max(...stripeSeries.map(d => d.net), 1);
+                const min = Math.min(...stripeSeries.map(d => d.net), 0);
+                const span = Math.max(max - min, 1);
+                const stepX = chartW / Math.max(stripeSeries.length - 1, 1);
+                const points = stripeSeries.map((d, i) => {
+                  const x = offsetX + i * stepX;
+                  const y = offsetY + (chartH - ((d.net - min) / span) * chartH);
+                  return `${x},${y}`;
+                }).join(' ');
+                // Build ticks
+                const yTicks = 5;
+                const yTickEls = Array.from({ length: yTicks + 1 }, (_, i) => {
+                  const v = min + (span * i) / yTicks;
+                  const y = offsetY + (chartH - (i / yTicks) * chartH);
+                  return (
+                    <g key={`yt-${i}`}>
+                      <line x1={offsetX} y1={y} x2={offsetX + chartW} y2={y} stroke="#2d3645" strokeDasharray="2,4" />
+                      <text x={4} y={y + 4} fontSize="10" fill="#9ca3af">${v.toFixed(2)}</text>
+                    </g>
+                  );
+                });
+                const xTicks = Math.min(6, Math.max(2, Math.floor(stripeSeries.length / 5)));
+                const xStep = Math.max(1, Math.floor(stripeSeries.length / (xTicks - 1)));
+                const xTickEls = stripeSeries.filter((_, i) => i % xStep === 0 || i === stripeSeries.length - 1)
+                  .map((d, idx, arr) => {
+                    const i = stripeSeries.indexOf(d);
+                    const x = offsetX + i * stepX;
+                    return (
+                      <g key={`xt-${idx}`}>
+                        <line x1={x} y1={offsetY + chartH} x2={x} y2={offsetY + chartH + 6} stroke="#64748b" />
+                        <text x={x} y={offsetY + chartH + 18} fontSize="10" fill="#9ca3af" textAnchor={idx === 0 ? 'start' : idx === arr.length - 1 ? 'end' : 'middle'}>
+                          {new Date(d.date).toLocaleDateString()}
+                        </text>
+                      </g>
+                    );
+                  });
+                return (
+                  <>
+                    {/* Axes */}
+                    <line x1={offsetX} y1={offsetY} x2={offsetX} y2={offsetY + chartH} stroke="#94a3b8" />
+                    <line x1={offsetX} y1={offsetY + chartH} x2={offsetX + chartW} y2={offsetY + chartH} stroke="#94a3b8" />
+                    {yTickEls}
+                    {xTickEls}
+                    <polyline
+                      fill="none"
+                      stroke="url(#grad)"
+                      strokeWidth="3"
+                      points={points}
+                    />
+                    <defs>
+                      <linearGradient id="grad" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor="#22c55e" />
+                        <stop offset="100%" stopColor="#3b82f6" />
+                      </linearGradient>
+                    </defs>
+                  </>
+                );
+              })()}
+            </svg>
+          ) : (
+            <div className="h-full flex items-center justify-center text-gray-600 dark:text-gray-400">
+              No Stripe trend data available
+            </div>
+          )}
         </div>
       </Card>
 
-      {/* Recent Revenue Data */}
+      {/* Recent Revenue Data (Stripe transactions if preferred) */}
       <Card className="p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Recent Revenue Data</h3>
         <div className="overflow-x-auto">
@@ -279,7 +397,30 @@ export default function RevenueTracker() {
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-              {revenueData.length === 0 ? (
+              {useStripeData && stripeOverview ? (
+                (stripeOverview.recent_balance_transactions || []).slice(0, 10).map((t) => (
+                  <tr key={t.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                      {new Date(t.created * 1000).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                      Stripe (Connected)
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                      0
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                      0
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                      ${Number(t.amount || 0).toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-green-600 dark:text-green-400">
+                      ${Number(t.net || 0).toFixed(2)}
+                    </td>
+                  </tr>
+                ))
+              ) : revenueData.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-4 text-sm text-center text-gray-500 dark:text-gray-400">
                     No revenue data available for the selected time range
@@ -313,6 +454,67 @@ export default function RevenueTracker() {
           </table>
         </div>
       </Card>
+
+      {/* Stripe Connect Fallback - visible only when DB revenue is empty */}
+      {(!revenueData || revenueData.length === 0) && stripeOverview && (
+        <Card className="p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Stripe Connect (Live)</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
+              <div className="text-sm text-gray-600 dark:text-gray-300">Available Balance (USD)</div>
+              <div className="text-xl font-semibold text-gray-900 dark:text-white">
+                ${Number(stripeOverview.balances.available.find(b => b.currency === 'usd')?.amount || 0).toFixed(2)}
+              </div>
+            </div>
+            <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
+              <div className="text-sm text-gray-600 dark:text-gray-300">Pending Balance (USD)</div>
+              <div className="text-xl font-semibold text-gray-900 dark:text-white">
+                ${Number(stripeOverview.balances.pending.find(b => b.currency === 'usd')?.amount || 0).toFixed(2)}
+              </div>
+            </div>
+            <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
+              <div className="text-sm text-gray-600 dark:text-gray-300">Recent Payouts</div>
+              <div className="text-xl font-semibold text-gray-900 dark:text-white">
+                {stripeOverview.recent_payouts?.length || 0}
+              </div>
+            </div>
+          </div>
+          <div className="mt-6">
+            <div className="text-sm text-gray-600 dark:text-gray-300 mb-2">Recent Transfers From Platform</div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead>
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                  {(stripeOverview.recent_transfers_from_platform || []).slice(0, 5).map(t => (
+                    <tr key={t.id}>
+                      <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
+                        {new Date(t.created * 1000).toLocaleString()}
+                      </td>
+                      <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
+                        ${Number(t.amount || 0).toFixed(2)}
+                      </td>
+                      <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300">
+                        {t.description || '-'}
+                      </td>
+                    </tr>
+                  ))}
+                  {(!stripeOverview.recent_transfers_from_platform || stripeOverview.recent_transfers_from_platform.length === 0) && (
+                    <tr>
+                      <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-400" colSpan={3}>No recent transfers</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* PoP Information for Revenue Analysis */}
       <ProofOfPlayWidget
