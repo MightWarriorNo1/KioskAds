@@ -15,6 +15,7 @@ import ContactPage from './pages/ContactPage';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 import AuthCallback from './pages/AuthCallback';
+import ResetPassword from './pages/ResetPassword';
 import ClientPortal from './pages/ClientPortal';
 import HostPortal from './pages/HostPortal';
 import AdminPortal from './pages/AdminPortal';
@@ -65,6 +66,7 @@ function App() {
                   <Route path="/kiosks" element={<KiosksPage />} />
                   <Route path="/auth/callback" element={<AuthCallback />} />
                   <Route path="/confirm-email" element={<AuthCallback />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
                   <Route path="/lander" element={<LanderRedirect />} />
                   <Route 
                     path="/client/*" 
