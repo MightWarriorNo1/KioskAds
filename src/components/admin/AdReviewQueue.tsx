@@ -828,19 +828,52 @@ export default function AdReviewQueue() {
               {/* Action Buttons */}
               <div className="space-y-3">
                 {(() => {
-                  const selectedId = selectedCampaign?.id || (activeTab === 'client' ? selectedAd?.id : selectedHostAd?.id);
+                  // Determine selected ID and type based on what's actually selected
+                  let selectedId: string | undefined;
+                  let itemType: 'campaign' | 'clientAd' | 'hostAd' | 'swappedAsset' | undefined;
+                  let swappedAssetType: 'media_asset' | 'host_ad' | undefined;
+                  
+                  if (selectedCampaign) {
+                    selectedId = selectedCampaign.id;
+                    itemType = 'campaign';
+                  } else if (selectedAd) {
+                    selectedId = selectedAd.id;
+                    // Check if it's a swapped asset (has type property)
+                    if (selectedAd.type && (activeTab === 'swapped' || activeTab === 'all')) {
+                      itemType = 'swappedAsset';
+                      swappedAssetType = selectedAd.type;
+                    } else {
+                      itemType = 'clientAd';
+                    }
+                  } else if (selectedHostAd) {
+                    selectedId = selectedHostAd.id;
+                    // Check if it's a swapped asset (has type property)
+                    if (selectedHostAd.type && (activeTab === 'swapped' || activeTab === 'all')) {
+                      itemType = 'swappedAsset';
+                      swappedAssetType = selectedHostAd.type;
+                    } else {
+                      itemType = 'hostAd';
+                    }
+                  }
+                  
                   const isDisabled = !selectedId || reviewing === selectedId;
+                  
                   return (
                     <button
                       onClick={() => {
-                        if (selectedCampaign) {
+                        if (!selectedId || !itemType) return;
+                        
+                        if (itemType === 'campaign' && selectedCampaign) {
                           handleApproveCampaign(selectedCampaign.id);
-                        } else if (activeTab === 'client' && selectedAd) {
+                        } else if (itemType === 'clientAd' && selectedAd) {
                           handleApprove(selectedAd.id);
-                        } else if (activeTab === 'host' && selectedHostAd) {
+                        } else if (itemType === 'hostAd' && selectedHostAd) {
                           handleApproveHostAd(selectedHostAd.id);
-                        } else if (activeTab === 'swapped' && selectedHostAd) {
-                          handleApproveSwappedAsset(selectedHostAd.id, selectedHostAd.type);
+                        } else if (itemType === 'swappedAsset' && swappedAssetType) {
+                          const assetId = selectedAd?.id || selectedHostAd?.id;
+                          if (assetId) {
+                            handleApproveSwappedAsset(assetId, swappedAssetType);
+                          }
                         }
                       }}
                       disabled={isDisabled}
@@ -856,7 +889,8 @@ export default function AdReviewQueue() {
                   );
                 })()}
                 {(() => {
-                  const selectedId = selectedCampaign?.id || (activeTab === 'client' ? selectedAd?.id : selectedHostAd?.id);
+                  // Use the same logic as approve button for consistency
+                  const selectedId = selectedCampaign?.id || selectedAd?.id || selectedHostAd?.id;
                   const isDisabled = !selectedId || reviewing === selectedId;
                   return (
                     <button
@@ -907,27 +941,34 @@ export default function AdReviewQueue() {
               </button>
               <button
                 onClick={() => {
+                  // Determine item type based on what's actually selected
                   if (selectedCampaign) {
-                    handleRejectCampaign(selectedCampaign!.id, rejectionReason);
-                  } else if (activeTab === 'client') {
-                    handleReject(selectedAd!.id, rejectionReason);
-                  } else if (activeTab === 'host') {
-                    handleRejectHostAd(selectedHostAd!.id, rejectionReason);
-                  } else if (activeTab === 'swapped') {
-                    handleRejectSwappedAsset(selectedHostAd!.id, selectedHostAd!.type, rejectionReason);
+                    handleRejectCampaign(selectedCampaign.id, rejectionReason);
+                  } else if (selectedAd) {
+                    // Check if it's a swapped asset (has type property)
+                    if (selectedAd.type && (activeTab === 'swapped' || activeTab === 'all')) {
+                      handleRejectSwappedAsset(selectedAd.id, selectedAd.type, rejectionReason);
+                    } else {
+                      handleReject(selectedAd.id, rejectionReason);
+                    }
+                  } else if (selectedHostAd) {
+                    // Check if it's a swapped asset (has type property)
+                    if (selectedHostAd.type && (activeTab === 'swapped' || activeTab === 'all')) {
+                      handleRejectSwappedAsset(selectedHostAd.id, selectedHostAd.type, rejectionReason);
+                    } else {
+                      handleRejectHostAd(selectedHostAd.id, rejectionReason);
+                    }
                   }
                 }}
-                disabled={!rejectionReason.trim() || reviewing === (selectedCampaign ? selectedCampaign!.id :
-                                                                    activeTab === 'client' ? selectedAd!.id : selectedHostAd!.id)}
+                disabled={!rejectionReason.trim() || reviewing === (selectedCampaign?.id || selectedAd?.id || selectedHostAd?.id)}
                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
               >
-                {reviewing === (selectedCampaign ? selectedCampaign!.id :
-                               activeTab === 'client' ? selectedAd!.id : selectedHostAd!.id) ? (
+                {reviewing === (selectedCampaign?.id || selectedAd?.id || selectedHostAd?.id) ? (
                   <RefreshCw className="h-4 w-4 animate-spin" />
                 ) : (
                   <X className="h-4 w-4" />
                 )}
-                <span>Reject {selectedCampaign ? 'Campaign' : (activeTab === 'client' ? 'Ad' : 'Host Ad')}</span>
+                <span>Reject {selectedCampaign ? 'Campaign' : (selectedAd ? 'Ad' : 'Host Ad')}</span>
               </button>
             </div>
           </div>
