@@ -5,6 +5,7 @@ import SiteHeader from '../components/layouts/SiteHeader';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
 import { MailchimpService } from '../services/mailchimpService';
+import { ContactService } from '../services/contactService';
 
 export default function ContactPage() {
   const { user } = useAuth();
@@ -15,7 +16,7 @@ export default function ContactPage() {
   const [email, setEmail] = useState('');
   const [company, setCompany] = useState('');
   const [budget, setBudget] = useState('');
-  const [interest, setInterest] = useState('General Inquiry');
+  const [interest, setInterest] = useState('Advertising');
   const [message, setMessage] = useState('');
   const [subscribe, setSubscribe] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -91,19 +92,41 @@ export default function ContactPage() {
                   addNotification('error', 'Missing info', 'Please provide your name and email.');
                   return;
                 }
+                if (!message.trim()) {
+                  addNotification('error', 'Missing info', 'Please provide a message.');
+                  return;
+                }
                 setSubmitting(true);
                 try {
+                  // Send contact form to admins
+                  await ContactService.sendContactFormToAdmins({
+                    name: name.trim(),
+                    email: email.trim(),
+                    company: company.trim() || undefined,
+                    budget: budget.trim() || undefined,
+                    interest: interest.trim(),
+                    message: message.trim()
+                  });
+
+                  // Subscribe to Mailchimp if enabled and user opted in
                   if ((import.meta as any)?.env?.VITE_ENABLE_MAILCHIMP && subscribe) {
+                    try {
                     await MailchimpService.subscribe({
                       email: email.trim(),
                       first_name: name.trim().split(' ')[0] || undefined,
                       last_name: name.trim().split(' ').slice(1).join(' ') || undefined,
                       tags: ['contact']
                     });
+                    } catch (mailchimpError) {
+                      // Don't fail the whole submission if Mailchimp fails
+                      console.warn('Mailchimp subscription failed:', mailchimpError);
+                    }
                   }
+                  
                   addNotification('success', 'Thanks!','We received your inquiry. We will reach out shortly.');
-                  setName(''); setEmail(''); setCompany(''); setBudget(''); setInterest('General Inquiry'); setMessage('');
+                  setName(''); setEmail(''); setCompany(''); setBudget(''); setInterest('Advertising'); setMessage('');
                 } catch (err) {
+                  console.error('Contact form submission error:', err);
                   addNotification('error', 'Submission failed', 'Please try again later.');
                 } finally {
                   setSubmitting(false);
