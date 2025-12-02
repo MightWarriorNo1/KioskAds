@@ -20,7 +20,7 @@ export default function HelpCenterPage() {
     {
       id: 3,
       question: "How are advertising costs calculated?",
-      answer: "Costs are based on kiosk location traffic, campaign duration, and number of kiosks. Low-traffic kiosks cost $40/week, medium-traffic kiosks cost $50/week, and high-traffic kiosks cost $90/week. Higher traffic locations provide better visibility and engagement."
+      answer: "Costs are based on kiosk location traffic, campaign duration, and number of kiosks. Low-traffic kiosks cost $40/month, medium-traffic kiosks cost $50/month, and high-traffic kiosks cost $90/month. Higher traffic locations provide better visibility and engagement."
     },
     {
       id: 4,

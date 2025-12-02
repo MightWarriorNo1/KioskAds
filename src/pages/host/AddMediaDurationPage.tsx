@@ -90,7 +90,7 @@ export default function HostAddMediaDurationPage() {
   const steps = [
     { number: 1, name: 'Setup Service', current: false, completed: true },
     { number: 2, name: 'Select Kiosk', current: false, completed: true },
-    { number: 3, name: 'Choose Weeks', current: false, completed: true },
+    { number: 3, name: 'Select Subscription', current: false, completed: true },
     { number: 4, name: 'Add Media & Duration', current: true, completed: false },
     { number: 5, name: 'Review & Submit', current: false, completed: false }
   ];
@@ -202,7 +202,7 @@ export default function HostAddMediaDurationPage() {
           className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors shadow-soft"
         >
           <ArrowLeft className="h-4 w-4" />
-          <span>Back to Select Weeks</span>
+          <span>Back to Select Subscription</span>
         </button>
       </div>
 
@@ -366,7 +366,7 @@ export default function HostAddMediaDurationPage() {
           <div className="text-sm text-gray-600 dark:text-gray-300 mb-4">Ad Duration</div>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-2">Slots per week</label>
+              <label className="block text-sm font-medium mb-2">Slots per month</label>
               <div className="flex items-center space-x-3">
                 <button onClick={() => setSlotsPerWeek(Math.max(1, slotsPerWeek-1))} className="px-3 py-2 rounded bg-gray-100 dark:bg-gray-700">-</button>
                 <div className="w-16 text-center font-semibold">{slotsPerWeek}</div>

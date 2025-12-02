@@ -93,7 +93,7 @@ export default function AddMediaDurationPage() {
   const steps = [
     { number: 1, name: 'Setup Service', current: false, completed: true },
     { number: 2, name: 'Select Kiosk', current: false, completed: true },
-    { number: 3, name: 'Choose Weeks', current: false, completed: true },
+    { number: 3, name: 'Select Subscription', current: false, completed: true },
     { number: 4, name: 'Add Media & Duration', current: true, completed: false },
     { number: 5, name: 'Review & Submit', current: false, completed: false }
   ];
@@ -391,7 +391,7 @@ export default function AddMediaDurationPage() {
           className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors shadow-soft"
         >
           <ArrowLeft className="h-4 w-4" />
-          <span>Back to Choose Weeks</span>
+          <span>Back to Select Subscription</span>
         </button>
       </div>
 
@@ -427,41 +427,39 @@ export default function AddMediaDurationPage() {
 
         {/* Ad Slot Configuration */}
         <div className="bg-white dark:bg-gray-800 rounded-xl p-4 md:p-6 border border-gray-200 dark:border-gray-700">
-          <h3 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Ad Slot Configuration
-          </h3>
           
           <div className="space-y-4">
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
-                Select Number of Ad Slots
-              </p>
-              <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-                Each slot at {kiosk?.name || 'Selected Kiosk'} runs for 15 seconds. Base rate is ${baseRate.toFixed(2)} per slot.
-              </p>
-              <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-                Select Ad Slots For All Selected Weeks
-              </p>
-            </div>
+            
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
              
 
               <div>
-                <h4 className="font-medium text-gray-900 dark:text-white mb-3 text-sm md:text-base">Selected Weeks</h4>
+                <h4 className="font-medium text-gray-900 dark:text-white mb-3 text-sm md:text-base">Subscription Period</h4>
                 <div className="space-y-2">
-                  {selectedWeeks.map((week, index) => (
-                    <div key={index} className="text-xs md:text-sm text-gray-600 dark:text-gray-300">
-                      Week of {week.startDate} - {week.endDate}: {week.slots} slot{week.slots > 1 ? 's' : ''}
-                    </div>
-                  ))}
+                  {selectedWeeks.length > 0 ? (() => {
+                    const start = new Date(selectedWeeks[0]?.startDate);
+                    const end = new Date(selectedWeeks[selectedWeeks.length - 1]?.endDate);
+                    return (
+                      <div className="text-xs md:text-sm text-gray-600 dark:text-gray-300">
+                        {start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - {end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}: {selectedWeeks[0]?.slots || 1} slot{selectedWeeks[0]?.slots > 1 ? 's' : ''}
+                      </div>
+                    );
+                  })() : (
+                    <div className="text-xs md:text-sm text-gray-600 dark:text-gray-300">No subscription period selected</div>
+                  )}
                 </div>
                 <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                   <div className="text-xs md:text-sm text-gray-600 dark:text-gray-300">
                     Total Duration: {totalSlots * 15} seconds
                   </div>
                   <div className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded mt-2">
-                    {selectedWeeks.length} week{selectedWeeks.length > 1 ? 's' : ''} selected
+                    {selectedWeeks.length > 0 ? (() => {
+                      const start = new Date(selectedWeeks[0]?.startDate);
+                      const end = new Date(selectedWeeks[selectedWeeks.length - 1]?.endDate);
+                      const months = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30));
+                      return `${months} month${months > 1 ? 's' : ''} selected`;
+                    })() : 'No period selected'}
                   </div>
                 </div>
               </div>
@@ -490,17 +488,30 @@ export default function AddMediaDurationPage() {
               <div className="font-medium text-yellow-800 dark:text-yellow-200">{totalSlots}</div>
             </div>
             <div>
-              <span className="text-yellow-700 dark:text-yellow-300">Weeks Selected:</span>
-              <div className="font-medium text-yellow-800 dark:text-yellow-200">{selectedWeeks.length}</div>
+              <span className="text-yellow-700 dark:text-yellow-300">Duration:</span>
+              <div className="font-medium text-yellow-800 dark:text-yellow-200">
+                {selectedWeeks.length > 0 ? (() => {
+                  const start = new Date(selectedWeeks[0]?.startDate);
+                  const end = new Date(selectedWeeks[selectedWeeks.length - 1]?.endDate);
+                  const months = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30));
+                  return `${months} month${months > 1 ? 's' : ''}`;
+                })() : 'N/A'}
+              </div>
             </div>
             <div className="col-span-2 md:col-span-1">
-              <span className="text-yellow-700 dark:text-yellow-300">Slots per Week:</span>
+              <span className="text-yellow-700 dark:text-yellow-300">Slots per Month:</span>
               <div className="font-medium text-yellow-800 dark:text-yellow-200">
-                {selectedWeeks.map((week, index) => (
-                  <div key={index}>
-                    {week.startDate}: {week.slots} slot
+                {selectedWeeks.length > 0 ? (
+                  <div>
+                    {(() => {
+                      const start = new Date(selectedWeeks[0]?.startDate);
+                      const end = new Date(selectedWeeks[selectedWeeks.length - 1]?.endDate);
+                      return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}: ${selectedWeeks[0]?.slots || 1} slot${selectedWeeks[0]?.slots > 1 ? 's' : ''}`;
+                    })()}
                   </div>
-                ))}
+                ) : (
+                  <div>No subscription period</div>
+                )}
               </div>
             </div>
             <div>

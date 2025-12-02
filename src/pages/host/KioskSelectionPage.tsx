@@ -278,7 +278,7 @@ export default function HostKioskSelectionPage() {
                           <div className="flex items-center justify-between">
                             <span className="text-xs text-gray-600 dark:text-gray-400">Base Price:</span>
                             <span className="font-medium text-gray-900 dark:text-white text-sm">
-                              ${kiosk.price.toFixed(2)}/week
+                              ${kiosk.price.toFixed(2)}/month
                             </span>
                           </div>
                         </div>
@@ -300,7 +300,7 @@ export default function HostKioskSelectionPage() {
                           <span className="text-gray-700 dark:text-gray-300">{kiosk.name}</span>
                           <div className="flex items-center space-x-2">
                             <span className="text-gray-600 dark:text-gray-400">
-                              ${kiosk.price.toFixed(2)}/week
+                              ${kiosk.price.toFixed(2)}/month
                             </span>
                             <button
                               onClick={(e) => {
@@ -323,7 +323,7 @@ export default function HostKioskSelectionPage() {
                       <div className="flex items-center justify-between text-lg font-bold">
                         <span className="text-gray-900 dark:text-white">Total:</span>
                         <span className="text-blue-600 dark:text-blue-400">
-                          ${selectedKiosks.reduce((sum, kiosk) => sum + kiosk.price, 0).toFixed(2)}/week
+                          ${selectedKiosks.reduce((sum, kiosk) => sum + kiosk.price, 0).toFixed(2)}/month
                         </span>
                       </div>
                     </div>
@@ -381,7 +381,7 @@ export default function HostKioskSelectionPage() {
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-gray-600 dark:text-gray-400">Base Price:</span>
                         <span className="font-medium text-gray-900 dark:text-white text-sm">
-                          ${kiosk.price.toFixed(2)}/week
+                          ${kiosk.price.toFixed(2)}/month
                         </span>
                       </div>
                     </div>
@@ -403,7 +403,7 @@ export default function HostKioskSelectionPage() {
                       <span className="text-gray-700 dark:text-gray-300">{kiosk.name}</span>
                       <div className="flex items-center space-x-2">
                         <span className="text-gray-600 dark:text-gray-400">
-                          ${kiosk.price.toFixed(2)}/week
+                          ${kiosk.price.toFixed(2)}/month
                         </span>
                         <button
                           onClick={(e) => {
@@ -426,7 +426,7 @@ export default function HostKioskSelectionPage() {
                   <div className="flex items-center justify-between text-lg font-bold">
                     <span className="text-gray-900 dark:text-white">Total:</span>
                     <span className="text-blue-600 dark:text-blue-400">
-                      ${selectedKiosks.reduce((sum, kiosk) => sum + kiosk.price, 0).toFixed(2)}/week
+                      ${selectedKiosks.reduce((sum, kiosk) => sum + kiosk.price, 0).toFixed(2)}/month
                     </span>
                   </div>
                 </div>
@@ -485,7 +485,7 @@ export default function HostKioskSelectionPage() {
                   id: k.id,
                   name: k.name,
                   city: k.city,
-                  price: `$${k.price.toFixed(2)}/week`
+                  price: `$${k.price.toFixed(2)}/month`
                 })),
                 useCustomAd: useCustomAd
               } })} className="px-4 py-2 rounded-lg bg-black dark:bg-gray-900 text-white text-sm md:text-base">I Understand & Accept</button>

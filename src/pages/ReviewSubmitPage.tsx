@@ -114,16 +114,20 @@ export default function ReviewSubmitPage() {
     if (!user || (!uploadedMediaAsset && !selectedCustomAd)) return;
     setIsSubmitting(true);
     try {
-      const campaignName = `${kiosks.length > 1 ? `${kiosks[0]?.name} +${kiosks.length - 1}` : kiosks[0]?.name} - ${selectedWeeks.length} week${selectedWeeks.length > 1 ? 's' : ''} campaign`;
       const startDate = selectedWeeks[0]?.startDate;
       const endDate = selectedWeeks[selectedWeeks.length - 1]?.endDate;
       if (!startDate || !endDate) {
         throw new Error('Invalid campaign dates');
       }
+      // Calculate months from date range
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const months = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30));
+      const campaignName = `${kiosks.length > 1 ? `${kiosks[0]?.name} +${kiosks.length - 1}` : kiosks[0]?.name} - ${months} month${months > 1 ? 's' : ''} campaign`;
       const totalCost = calculateTotalCost();
       const newCampaign = await CampaignService.createCampaign({
         name: campaignName,
-        description: `Campaign for ${kiosks.map(k => k.name).join(', ')} running for ${selectedWeeks.length} week${selectedWeeks.length > 1 ? 's' : ''}`,
+        description: `Campaign for ${kiosks.map(k => k.name).join(', ')} running for ${months} month${months > 1 ? 's' : ''}`,
         start_date: startDate,
         end_date: endDate,
         budget: totalCost,
@@ -402,8 +406,15 @@ export default function ReviewSubmitPage() {
                 <span className="font-medium text-gray-900 dark:text-white text-xs md:text-sm">{formatCurrency(baseRate)}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Total weeks:</span>
-                <span className="font-medium text-gray-900 dark:text-white text-xs md:text-sm">{selectedWeeks.length}</span>
+                <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Duration:</span>
+                <span className="font-medium text-gray-900 dark:text-white text-xs md:text-sm">
+                  {selectedWeeks.length > 0 ? (() => {
+                    const start = new Date(selectedWeeks[0]?.startDate);
+                    const end = new Date(selectedWeeks[selectedWeeks.length - 1]?.endDate);
+                    const months = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30));
+                    return `${months} month${months > 1 ? 's' : ''}`;
+                  })() : 'N/A'}
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Total slots:</span>
@@ -440,7 +451,7 @@ export default function ReviewSubmitPage() {
                 Important Notice
               </h4>
               <p className="text-xs md:text-sm text-blue-800 dark:text-blue-200">
-                Your campaign will be submitted for approval. Once approved, it will be scheduled to run during the selected weeks. 
+                Your campaign will be submitted for approval. Once approved, it will be scheduled to run for the selected month. 
                 You will be notified via email when your campaign is approved and goes live.
               </p>
             </div>
@@ -489,8 +500,18 @@ export default function ReviewSubmitPage() {
           deliveryTime: 'Instant'
         }}
         campaignDetails={{
-          name: `${kiosks.length > 1 ? `${kiosks[0]?.name} +${kiosks.length - 1}` : kiosks[0]?.name} - ${selectedWeeks.length} week${selectedWeeks.length > 1 ? 's' : ''} campaign`,
-          description: `Campaign for ${kiosks.map(k => k.name).join(', ')} running for ${selectedWeeks.length} week${selectedWeeks.length > 1 ? 's' : ''}`,
+          name: (() => {
+            const start = new Date(selectedWeeks[0]?.startDate || '');
+            const end = new Date(selectedWeeks[selectedWeeks.length - 1]?.endDate || '');
+            const months = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30));
+            return `${kiosks.length > 1 ? `${kiosks[0]?.name} +${kiosks.length - 1}` : kiosks[0]?.name} - ${months} month${months > 1 ? 's' : ''} campaign`;
+          })(),
+          description: (() => {
+            const start = new Date(selectedWeeks[0]?.startDate || '');
+            const end = new Date(selectedWeeks[selectedWeeks.length - 1]?.endDate || '');
+            const months = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30));
+            return `Campaign for ${kiosks.map(k => k.name).join(', ')} running for ${months} month${months > 1 ? 's' : ''}`;
+          })(),
           startDate: selectedWeeks[0]?.startDate || '',
           endDate: selectedWeeks[selectedWeeks.length - 1]?.endDate || '',
           kiosks: kiosks.map(k => ({ id: k.id, name: k.name })),

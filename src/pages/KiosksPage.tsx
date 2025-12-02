@@ -104,8 +104,8 @@ function KiosksPage() {
       id: kiosk.id,
       name: kiosk.name,
       city: kiosk.city,
-      price: `$${kiosk.price}/week`,
-      originalPrice: kiosk.base_rate > kiosk.price ? `$${kiosk.base_rate}/week` : undefined,
+      price: `$${kiosk.price}/month`,
+      originalPrice: kiosk.base_rate > kiosk.price ? `$${kiosk.base_rate}/month` : undefined,
       hasWarning: kiosk.status === 'maintenance' || (kiosk.content_restrictions && kiosk.content_restrictions.length > 0),
       position: [kiosk.coordinates.lat, kiosk.coordinates.lng] as LatLngTuple
     };

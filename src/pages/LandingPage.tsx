@@ -194,7 +194,7 @@ export default function LandingPage() {
                 <Star className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
               </div>
               <h3 className="text-lg sm:text-2xl font-bold mb-2 sm:mb-4">High‑traffic kiosk</h3>
-              <div className="text-2xl sm:text-3xl font-extrabold mb-4 sm:mb-6 text-primary-600">$90 per week</div>
+              <div className="text-2xl sm:text-3xl font-extrabold mb-4 sm:mb-6 text-primary-600">$90 per month</div>
               <div className="space-y-2 sm:space-y-3">
                 <div className="flex items-center justify-center space-x-2">
                   <Check className="h-4 w-4 sm:h-5 sm:w-5 text-success-500" />
@@ -215,7 +215,7 @@ export default function LandingPage() {
                 <MapPin className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
               </div>
               <h3 className="text-lg sm:text-2xl font-bold mb-2 sm:mb-4">Medium‑traffic kiosk</h3>
-              <div className="text-2xl sm:text-3xl font-extrabold mb-4 sm:mb-6 text-primary-600">$50 per week</div>
+              <div className="text-2xl sm:text-3xl font-extrabold mb-4 sm:mb-6 text-primary-600">$50 per month</div>
               <div className="space-y-2 sm:space-y-3">
                 <div className="flex items-center justify-center space-x-2">
                   <Check className="h-4 w-4 sm:h-5 sm:w-5 text-success-500" />
@@ -236,7 +236,7 @@ export default function LandingPage() {
                 <Clock className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
               </div>
               <h3 className="text-lg sm:text-2xl font-bold mb-2 sm:mb-4">Low‑traffic kiosk</h3>
-              <div className="text-2xl sm:text-3xl font-extrabold mb-4 sm:mb-6 text-primary-600">$40 per week</div>
+              <div className="text-2xl sm:text-3xl font-extrabold mb-4 sm:mb-6 text-primary-600">$40 per month</div>
               <div className="space-y-2 sm:space-y-3">
                 <div className="flex items-center justify-center space-x-2">
                   <Check className="h-4 w-4 sm:h-5 sm:w-5 text-success-500" />

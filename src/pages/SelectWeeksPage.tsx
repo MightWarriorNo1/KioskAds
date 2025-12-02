@@ -138,8 +138,8 @@ export default function SelectWeeksPage() {
   const subscriptionValid = subStartMonday !== null && subSlots > 0;
   const canContinue = subscriptionValid;
 
-  const baseWeeklyCost = subSlots * weeklyRate;
-  const monthlyCost = baseWeeklyCost * 4;
+  // Calculate monthly cost (kiosk price is already monthly)
+  const monthlyCost = subSlots * weeklyRate;
   const discount = subCommit3mo ? 0.15 : 0;
   const monthlyCostAfterDiscount = monthlyCost * (1 - discount);
 
@@ -277,8 +277,8 @@ export default function SelectWeeksPage() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-xl font-bold text-blue-600 dark:text-blue-400">{k.price || '$0/week'}</div>
-                    <div className="text-sm text-blue-500 dark:text-blue-400">per week</div>
+                    <div className="text-xl font-bold text-blue-600 dark:text-blue-400">{k.price || '$0/month'}</div>
+                    <div className="text-sm text-blue-500 dark:text-blue-400">per month</div>
                   </div>
                 </div>
               </div>
@@ -446,30 +446,7 @@ export default function SelectWeeksPage() {
               </h3>
               <div className="grid md:grid-cols-2 gap-8">
                 <div className="space-y-6">
-                  <div>
-                    <label className="flex items-center space-x-2 text-sm font-semibold mb-3 text-gray-900 dark:text-white">
-                      <DollarSign className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-                      <span>Ad Slots Per Month</span>
-                    </label>
-                    <div className="flex items-center space-x-4">
-                      <button 
-                        onClick={() => setSubSlots(Math.max(1, subSlots-1))} 
-                        className="w-12 h-12 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 flex items-center justify-center text-xl font-bold shadow-soft"
-                      >
-                        -
-                      </button>
-                      <div className="w-20 h-12 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl flex items-center justify-center">
-                        <span className="text-2xl font-bold text-gray-900 dark:text-white">{subSlots}</span>
-                      </div>
-                      <button 
-                        onClick={() => setSubSlots(subSlots+1)} 
-                        className="w-12 h-12 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 flex items-center justify-center text-xl font-bold shadow-soft"
-                      >
-                        +
-                      </button>
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">Each slot represents one month of advertising</p>
-                  </div>
+                
 
                   <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-4">
                     <label className="inline-flex items-center space-x-3 text-sm cursor-pointer">
@@ -492,35 +469,7 @@ export default function SelectWeeksPage() {
                   </div>
                 </div>
 
-                <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-6">
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center space-x-2">
-                    <DollarSign className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-                    <span>Pricing Breakdown</span>
-                  </h4>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600 dark:text-gray-400">Base weekly cost:</span>
-                      <span className="font-medium">{subSlots} × {kiosk?.price || '$0'} = ${baseWeeklyCost.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600 dark:text-gray-400">Monthly cost (4 weeks):</span>
-                      <span className="font-medium">${monthlyCost.toFixed(2)}</span>
-                    </div>
-                    {subCommit3mo && (
-                      <div className="flex justify-between text-green-600 dark:text-green-400">
-                        <span>Discount applied (15%):</span>
-                        <span className="font-medium">-${(monthlyCost*0.15).toFixed(2)}</span>
-                      </div>
-                    )}
-                    <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
-                      <div className="flex justify-between text-lg font-bold text-gray-900 dark:text-white">
-                        <span>Monthly billing:</span>
-                        <span>${monthlyCostAfterDiscount.toFixed(2)}</span>
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 text-right">per month</div>
-                    </div>
-                  </div>
-                </div>
+                
               </div>
             </div>
 
@@ -605,9 +554,9 @@ export default function SelectWeeksPage() {
                       <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
                     </div>
                     <div>
-                      <div className="font-semibold text-green-800 dark:text-green-200">Start Week Selected</div>
+                      <div className="font-semibold text-green-800 dark:text-green-200">Start Month Selected</div>
                       <div className="text-sm text-green-600 dark:text-green-400">
-                        Your subscription will begin the week of {formatRange(toDate(subStartMonday), addDays(toDate(subStartMonday), 6))}
+                        Your subscription will begin on {toDate(subStartMonday).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} and run for 1 month
                       </div>
                     </div>
                   </div>
@@ -633,7 +582,7 @@ export default function SelectWeeksPage() {
                   kiosk: kiosk,
                   selectedWeeks: [{
                     startDate: subStartMonday!,
-                    endDate: new Date(new Date(subStartMonday!).getTime() + 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                    endDate: new Date(new Date(subStartMonday!).getTime() + 29 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days (0-29 = 30 days total)
                     slots: subSlots
                   }],
                   totalSlots: subSlots,
