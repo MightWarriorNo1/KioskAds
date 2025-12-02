@@ -38,7 +38,7 @@ function KioskCard({ name, city, price, originalPrice, hasWarning, onAdvertiseCl
           {originalPrice && (
             <div className="text-xs text-gray-400 dark:text-gray-500 line-through">{originalPrice}</div>
           )}
-          <div className="text-md font-semibold text-green-600 dark:text-green-400">{price}</div>
+          <div className="text-lg font-semibold text-green-600 dark:text-green-400">{price}</div>
         </div>
         
         <button 

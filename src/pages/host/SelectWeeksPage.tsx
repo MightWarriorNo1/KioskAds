@@ -37,12 +37,12 @@ export default function HostSelectWeeksPage() {
   const steps = [
     { number: 1, name: 'Setup Service', current: false, completed: true },
     { number: 2, name: 'Select Kiosk', current: false, completed: true },
-    { number: 3, name: 'Choose Weeks', current: true, completed: false },
+    { number: 3, name: 'Select Subscription', current: true, completed: false },
     { number: 4, name: 'Add Media & Duration', current: false, completed: false },
     { number: 5, name: 'Review & Submit', current: false, completed: false }
   ];
 
-  const [bookingType, setBookingType] = React.useState<BookingType>('weekly');
+  const [bookingType] = React.useState<BookingType>('subscription');
   const [calendarMonth, setCalendarMonth] = React.useState<Date>(getCurrentCaliforniaTime());
   const [selectedMondays, setSelectedMondays] = React.useState<string[]>([]);
   const [subSlots, setSubSlots] = React.useState<number>(1);
@@ -124,9 +124,8 @@ export default function HostSelectWeeksPage() {
     }
   };
 
-  const weeklyValid = selectedMondays.length > 0;
   const subscriptionValid = subStartMonday !== null && subSlots > 0;
-  const canContinue = bookingType === 'weekly' ? weeklyValid : subscriptionValid;
+  const canContinue = subscriptionValid;
 
   const baseWeeklyCost = subSlots * weeklyRate;
   const monthlyCost = baseWeeklyCost * 4;
@@ -215,7 +214,7 @@ export default function HostSelectWeeksPage() {
       {/* Section */}
       <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-white dark:bg-gray-800 mb-8">
         <div className="mb-6">
-          <div className="text-sm text-gray-600 dark:text-gray-300">Choose Weeks</div>
+          <div className="text-sm text-gray-600 dark:text-gray-300">Select Subscription</div>
           {kiosks.length > 1 ? (
             <div className="text-lg font-semibold text-gray-900 dark:text-white">{kiosks.length} kiosks selected</div>
           ) : (
@@ -251,63 +250,11 @@ export default function HostSelectWeeksPage() {
         )}
 
         <div className="rounded border border-gray-200 dark:border-gray-700 p-4 text-sm text-gray-600 dark:text-gray-300 mb-6">
-          Weekly Selection — Select up to 4 weeks (Monday to Sunday) for your campaign. Selection starts from tomorrow onwards.
+          Monthly Subscription — Select a start date for your monthly subscription. Your subscription will run for 30 days from the selected start date.
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 mb-6 md:mb-8">
-          <button 
-            onClick={() => setBookingType('weekly')}
-            className={`group relative border-2 rounded-xl p-4 md:p-6 text-left shadow-soft hover:shadow-elevated transition-all duration-200 ${
-              bookingType === 'weekly' 
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 ring-4 ring-blue-100 dark:ring-blue-900/30' 
-                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600'
-            }`}>
-            <div className="flex items-center space-x-3 mb-3">
-              <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center ${
-                bookingType === 'weekly' ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-              }`}>
-                <Calendar className="h-4 w-4 md:h-5 md:w-5" />
-              </div>
-              <div>
-                <div className={`font-bold text-base md:text-lg ${
-                  bookingType === 'weekly' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-white'
-                }`}>Week-by-Week</div>
-                <div className="text-xs md:text-sm text-gray-600 dark:text-gray-300">Select specific weeks for your campaign</div>
-              </div>
-            </div>
-            <div className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
-              Perfect for seasonal campaigns or specific event promotions. Choose exactly which weeks work best for your business.
-            </div>
-          </button>
-          
-          <button 
-            onClick={() => setBookingType('subscription')}
-            className={`group relative border-2 rounded-xl p-4 md:p-6 text-left shadow-soft hover:shadow-elevated transition-all duration-200 ${
-              bookingType === 'subscription' 
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 ring-4 ring-blue-100 dark:ring-blue-900/30' 
-                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600'
-            }`}>
-            <div className="flex items-center space-x-3 mb-3">
-              <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center ${
-                bookingType === 'subscription' ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-              }`}>
-                <Clock className="h-4 w-4 md:h-5 md:w-5" />
-              </div>
-              <div>
-                <div className={`font-bold text-base md:text-lg ${
-                  bookingType === 'subscription' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-white'
-                }`}>Subscription</div>
-                <div className="text-xs md:text-sm text-gray-600 dark:text-gray-300">Monthly subscription with guaranteed slots</div>
-              </div>
-            </div>
-            <div className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
-              Get consistent exposure with reserved slots. Save 15% with 3-month commitment and never worry about availability.
-            </div>
-          </button>
-        </div>
-
-        {/* Week-by-week calendar */}
-        {bookingType === 'weekly' && (
+        {/* Week-by-week calendar - REMOVED */}
+        {false && (
           <div>
             <div className="mb-3 text-sm font-semibold flex items-center space-x-2">
               <Calendar className="h-4 w-4 text-blue-600 dark:text-blue-400" />
@@ -452,7 +399,7 @@ export default function HostSelectWeeksPage() {
         )}
 
         {/* Subscription controls */}
-        {bookingType === 'subscription' && (
+        {true && (
           <div>
             <div className="mb-6">
               <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center space-x-2">
@@ -641,34 +588,19 @@ export default function HostSelectWeeksPage() {
           <button 
             onClick={() => {
               if (canContinue) {
-                let campaignData;
-                if (bookingType === 'weekly') {
-                  campaignData = {
-                    kiosks: kiosks.length ? kiosks : kiosk ? [kiosk] : [],
-                    kiosk: kiosk,
-                    selectedWeeks: selectedMondays.map(date => ({
-                      startDate: date,
-                      endDate: new Date(new Date(date).getTime() + 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                      slots: 1
-                    })),
-                    totalSlots: selectedMondays.length,
-                    baseRate: weeklyRate,
-                    useCustomAd: useCustomAd
-                  };
-                } else {
-                  campaignData = {
-                    kiosks: kiosks.length ? kiosks : kiosk ? [kiosk] : [],
-                    kiosk: kiosk,
-                    selectedWeeks: [{
-                      startDate: subStartMonday!,
-                      endDate: new Date(new Date(subStartMonday!).getTime() + 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                      slots: subSlots
-                    }],
-                    totalSlots: subSlots,
-                    baseRate: weeklyRate,
-                    useCustomAd: useCustomAd
-                  };
-                }
+                // Monthly subscription only
+                const campaignData = {
+                  kiosks: kiosks.length ? kiosks : kiosk ? [kiosk] : [],
+                  kiosk: kiosk,
+                  selectedWeeks: [{
+                    startDate: subStartMonday!,
+                    endDate: new Date(new Date(subStartMonday!).getTime() + 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                    slots: subSlots
+                  }],
+                  totalSlots: subSlots,
+                  baseRate: weeklyRate,
+                  useCustomAd: useCustomAd
+                };
                 navigate('/host/add-media-duration', { state: campaignData });
               }
             }}
@@ -684,7 +616,7 @@ export default function HostSelectWeeksPage() {
                 <span className="hidden md:inline">Continue to Ad Duration & Media</span>
               </div>
             ) : (
-              <span className="text-xs md:text-base">Select up to 4 weeks to continue</span>
+              <span className="text-xs md:text-base">Select a start date and slots to continue</span>
             )}
           </button>
         </div>

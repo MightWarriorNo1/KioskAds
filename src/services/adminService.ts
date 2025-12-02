@@ -2190,7 +2190,7 @@ export class AdminService {
     }
   }
 
-  // Get system settings
+  // Get system settings (all settings - admin only due to RLS)
   static async getSystemSettings(): Promise<SystemSetting[]> {
     try {
       console.log('AdminService.getSystemSettings - Starting query...');
@@ -2221,8 +2221,30 @@ export class AdminService {
     }
   }
 
+  // Get public system settings (accessible to everyone, including unauthenticated users)
+  static async getPublicSystemSettings(): Promise<SystemSetting[]> {
+    try {
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('*')
+        .eq('is_public', true)
+        .order('category', { ascending: true })
+        .order('key', { ascending: true });
+      
+      if (error) {
+        console.error('AdminService.getPublicSystemSettings - Supabase error:', error);
+        throw error;
+      }
+      
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching public system settings:', error);
+      throw error;
+    }
+  }
+
   // Update system setting (upsert - insert if not exists, update if exists)
-  static async updateSystemSetting(key: string, value: any): Promise<void> {
+  static async updateSystemSetting(key: string, value: any, isPublic: boolean = false): Promise<void> {
     try {
       // For string values, store as JSON-encoded strings to maintain consistency with migration format
       // Exception: Don't double-encode time values (they should be stored as plain strings)
@@ -2239,12 +2261,16 @@ export class AdminService {
         processedValue = value;
       }
       
+      // Mark social links as public so they can be accessed by Footer on public pages
+      const shouldBePublic = isPublic || key.startsWith('social_link_');
+      
       console.log('AdminService.updateSystemSetting - Updating setting:', {
         key,
         value,
         processedValue,
         valueType: typeof value,
-        processedValueType: typeof processedValue
+        processedValueType: typeof processedValue,
+        isPublic: shouldBePublic
       });
       
       const { data, error } = await supabase
@@ -2252,6 +2278,7 @@ export class AdminService {
         .upsert({ 
           key,
           value: processedValue,
+          is_public: shouldBePublic,
           updated_at: getCurrentCaliforniaTime().toISOString()
         }, {
           onConflict: 'key'
