@@ -20,6 +20,7 @@ interface CampaignData {
   selectedWeeks: SelectedWeek[];
   totalSlots: number;
   baseRate: number;
+  subscriptionDuration?: number; // 1, 3, or 6 months
   mediaFile?: File;
   slotsPerWeek?: number;
   uploadedMediaAsset?: any;
@@ -65,13 +66,14 @@ export default function HostReviewSubmitPage() {
   console.log("Selec", selectedWeeks);
   const totalSlots = campaignData.totalSlots || 1;
   const baseRate = campaignData.baseRate || 40.00;
+  const subscriptionDuration = campaignData.subscriptionDuration || 1; // Default to 1 month if not provided
   const uploadedMediaAsset = campaignData.uploadedMediaAsset;
   const selectedCustomAd = campaignData.selectedCustomAd;
 
   const steps = [
     { number: 1, name: 'Setup Service', current: false, completed: true },
     { number: 2, name: 'Select Kiosk', current: false, completed: true },
-    { number: 3, name: 'Choose Weeks', current: false, completed: true },
+    { number: 3, name: 'Select Subscription', current: false, completed: true },
     { number: 4, name: 'Add Media & Duration', current: false, completed: true },
     { number: 5, name: 'Review & Submit', current: true, completed: false }
   ];
@@ -84,12 +86,23 @@ export default function HostReviewSubmitPage() {
 
   const calculateTotalCost = () => {
     const numKiosks = kiosks.length || 1;
-    return PricingService.calculateCampaignCost({
-      baseRatePerSlot: baseRate,
-      totalSlots,
-      numKiosks,
-      discountPercent
-    });
+    // Calculate base cost: slots * rate * duration
+    const baseCost = totalSlots * baseRate * subscriptionDuration;
+    
+    // Apply subscription duration discount: 3 months = 10%, 6 months = 15%
+    const durationDiscount = subscriptionDuration === 3 ? 0.10 : subscriptionDuration === 6 ? 0.15 : 0;
+    const costAfterDurationDiscount = baseCost * (1 - durationDiscount);
+    
+    // Apply additional kiosk discount if multiple kiosks
+    if (numKiosks > 1) {
+      const firstKioskCost = totalSlots * baseRate * subscriptionDuration * (1 - durationDiscount);
+      const additionalKiosks = numKiosks - 1;
+      const discountedRate = baseRate * (1 - (discountPercent || 0) / 100);
+      const additionalCost = totalSlots * discountedRate * subscriptionDuration * (1 - durationDiscount) * additionalKiosks;
+      return Math.round((firstKioskCost + additionalCost) * 100) / 100;
+    }
+    
+    return Math.round(costAfterDurationDiscount * 100) / 100;
   };
 
   const createCampaignAfterPayment = async () => {
@@ -258,8 +271,8 @@ export default function HostReviewSubmitPage() {
             deliveryTime: 'Instant'
           }}
           campaignDetails={{
-            name: `${kiosks.length > 1 ? `${kiosks[0]?.name} +${kiosks.length - 1}` : kiosks[0]?.name} - ${selectedWeeks.length} week${selectedWeeks.length > 1 ? 's' : ''} campaign`,
-            description: `Campaign for ${kiosks.map(k => k.name).join(', ')} running for ${selectedWeeks.length} week${selectedWeeks.length > 1 ? 's' : ''}`,
+            name: `${kiosks.length > 1 ? `${kiosks[0]?.name} +${kiosks.length - 1}` : kiosks[0]?.name} - ${subscriptionDuration} month${subscriptionDuration > 1 ? 's' : ''} campaign`,
+            description: `Campaign for ${kiosks.map(k => k.name).join(', ')} running for ${subscriptionDuration} month${subscriptionDuration > 1 ? 's' : ''}`,
             startDate: selectedWeeks[0]?.startDate || '',
             endDate: selectedWeeks[selectedWeeks.length - 1]?.endDate || '',
             kiosks: kiosks.map(k => ({ id: k.id, name: k.name })),

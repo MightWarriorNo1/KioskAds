@@ -19,6 +19,7 @@ interface CampaignData {
   selectedWeeks: SelectedWeek[];
   totalSlots: number;
   baseRate: number;
+  subscriptionDuration?: number; // 1, 3, or 6 months
   useCustomAd?: boolean;
 }
 
@@ -50,6 +51,7 @@ export default function AddMediaDurationPage() {
   const selectedWeeks = campaignData.selectedWeeks || [];
   const totalSlots = campaignData.totalSlots || 1;
   const baseRate = campaignData.baseRate || 40.00;
+  const subscriptionDuration = campaignData.subscriptionDuration || 1; // Default to 1 month if not provided
   const useCustomAd = campaignData.useCustomAd;
 
   const [slotsPerWeek, setSlotsPerWeek] = useState(1);
@@ -490,12 +492,7 @@ export default function AddMediaDurationPage() {
             <div>
               <span className="text-yellow-700 dark:text-yellow-300">Duration:</span>
               <div className="font-medium text-yellow-800 dark:text-yellow-200">
-                {selectedWeeks.length > 0 ? (() => {
-                  const start = new Date(selectedWeeks[0]?.startDate);
-                  const end = new Date(selectedWeeks[selectedWeeks.length - 1]?.endDate);
-                  const months = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30));
-                  return `${months} month${months > 1 ? 's' : ''}`;
-                })() : 'N/A'}
+                {subscriptionDuration} month{subscriptionDuration > 1 ? 's' : ''}
               </div>
             </div>
             <div className="col-span-2 md:col-span-1">
@@ -517,7 +514,14 @@ export default function AddMediaDurationPage() {
             <div>
               <span className="text-yellow-700 dark:text-yellow-300">Total Cost:</span>
               <div className="font-medium text-yellow-800 dark:text-yellow-200">
-                ${(totalSlots * baseRate).toFixed(2)}
+                {(() => {
+                  // Calculate base cost: slots * rate * duration
+                  const baseCost = totalSlots * baseRate * subscriptionDuration;
+                  // Apply subscription duration discount: 3 months = 10%, 6 months = 15%
+                  const discount = subscriptionDuration === 3 ? 0.10 : subscriptionDuration === 6 ? 0.15 : 0;
+                  const totalCost = baseCost * (1 - discount);
+                  return `$${totalCost.toFixed(2)}`;
+                })()}
               </div>
             </div>
           </div>

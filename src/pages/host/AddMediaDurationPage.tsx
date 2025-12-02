@@ -19,6 +19,7 @@ interface CampaignData {
   selectedWeeks: SelectedWeek[];
   totalSlots: number;
   baseRate: number;
+  subscriptionDuration?: number; // 1, 3, or 6 months
   useCustomAd?: boolean;
 }
 
@@ -46,6 +47,7 @@ export default function HostAddMediaDurationPage() {
   
   const kiosk = campaignData.kiosk;
   const kiosks = campaignData.kiosks || (campaignData.kiosk ? [campaignData.kiosk] : []);
+  const subscriptionDuration = campaignData.subscriptionDuration || 1; // Default to 1 month if not provided
   const useCustomAd = campaignData.useCustomAd;
 
   const [slotsPerWeek, setSlotsPerWeek] = useState(1);

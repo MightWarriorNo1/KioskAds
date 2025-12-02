@@ -8,7 +8,7 @@ export default function HostNewCampaignPage() {
   const steps = [
     { number: 1, name: 'Choose Ad Type', current: true },
     { number: 2, name: 'Select Kiosk', current: false },
-    { number: 3, name: 'Choose Weeks', current: false },
+    { number: 3, name: 'Select Subscription', current: false },
     { number: 4, name: 'Add Media & Duration', current: false },
     { number: 5, name: 'Review & Submit', current: false }
   ];

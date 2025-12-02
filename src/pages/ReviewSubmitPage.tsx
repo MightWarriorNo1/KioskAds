@@ -21,6 +21,7 @@ interface CampaignData {
   selectedWeeks: SelectedWeek[];
   totalSlots: number;
   baseRate: number;
+  subscriptionDuration?: number; // 1, 3, or 6 months
   mediaFile?: File;
   slotsPerWeek?: number;
   uploadedMediaAsset?: any;
@@ -66,13 +67,14 @@ export default function ReviewSubmitPage() {
   const selectedWeeks = campaignData.selectedWeeks || [];
   const totalSlots = campaignData.totalSlots || 1;
   const baseRate = campaignData.baseRate || 40.00;
+  const subscriptionDuration = campaignData.subscriptionDuration || 1; // Default to 1 month if not provided
   const uploadedMediaAsset = campaignData.uploadedMediaAsset;
   const selectedCustomAd = campaignData.selectedCustomAd;
 
   const steps = [
     { number: 1, name: 'Setup Service', current: false, completed: true },
     { number: 2, name: 'Select Kiosk', current: false, completed: true },
-    { number: 3, name: 'Choose Weeks', current: false, completed: true },
+    { number: 3, name: 'Select Subscription', current: false, completed: true },
     { number: 4, name: 'Add Media & Duration', current: false, completed: true },
     { number: 5, name: 'Review & Submit', current: true, completed: false }
   ];
@@ -102,12 +104,23 @@ export default function ReviewSubmitPage() {
 
   const calculateTotalCost = () => {
     const numKiosks = kiosks.length || 1;
-    return PricingService.calculateCampaignCost({
-      baseRatePerSlot: baseRate,
-      totalSlots,
-      numKiosks,
-      discountPercent
-    });
+    // Calculate base cost: slots * rate * duration
+    const baseCost = totalSlots * baseRate * subscriptionDuration;
+    
+    // Apply subscription duration discount: 3 months = 10%, 6 months = 15%
+    const durationDiscount = subscriptionDuration === 3 ? 0.10 : subscriptionDuration === 6 ? 0.15 : 0;
+    const costAfterDurationDiscount = baseCost * (1 - durationDiscount);
+    
+    // Apply additional kiosk discount if multiple kiosks
+    if (numKiosks > 1) {
+      const firstKioskCost = totalSlots * baseRate * subscriptionDuration * (1 - durationDiscount);
+      const additionalKiosks = numKiosks - 1;
+      const discountedRate = baseRate * (1 - (discountPercent || 0) / 100);
+      const additionalCost = totalSlots * discountedRate * subscriptionDuration * (1 - durationDiscount) * additionalKiosks;
+      return Math.round((firstKioskCost + additionalCost) * 100) / 100;
+    }
+    
+    return Math.round(costAfterDurationDiscount * 100) / 100;
   };
 
   const createCampaignAfterPayment = async () => {
@@ -301,31 +314,38 @@ export default function ReviewSubmitPage() {
             <div className="w-8 h-8 md:w-10 md:h-10 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
               <Calendar className="h-4 w-4 md:h-5 md:w-5 text-green-600 dark:text-green-400" />
             </div>
-            <h3 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">Selected Weeks</h3>
+            <h3 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">Subscription Period</h3>
           </div>
           <div className="space-y-3">
-            {selectedWeeks.map((week, index) => (
-              <div key={index} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 md:p-4">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white text-sm md:text-base">
-                      Week {index + 1}
-                    </p>
-                    <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                      {week.startDate} - {week.endDate}
-                    </p>
-                  </div>
-                  <div className="sm:text-right">
-                    <p className="text-xs md:text-sm font-medium text-gray-900 dark:text-white">
-                      {week.slots} slot{week.slots > 1 ? 's' : ''}
-                    </p>
-                    <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                      {formatCurrency(week.slots * baseRate)}
-                    </p>
+            {selectedWeeks.map((week, index) => {
+              const start = new Date(week.startDate);
+              const end = new Date(week.endDate);
+              const formattedStart = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+              const formattedEnd = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+              
+              return (
+                <div key={index} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 md:p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white text-sm md:text-base">
+                        {formattedStart} - {formattedEnd}
+                      </p>
+                      <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
+                        {subscriptionDuration} month{subscriptionDuration > 1 ? 's' : ''} subscription
+                      </p>
+                    </div>
+                    <div className="sm:text-right">
+                      <p className="text-xs md:text-sm font-medium text-gray-900 dark:text-white">
+                        {week.slots} slot{week.slots > 1 ? 's' : ''}
+                      </p>
+                      <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
+                        {formatCurrency(week.slots * baseRate * subscriptionDuration * (1 - (subscriptionDuration === 3 ? 0.10 : subscriptionDuration === 6 ? 0.15 : 0)))}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -408,18 +428,18 @@ export default function ReviewSubmitPage() {
               <div className="flex justify-between items-center">
                 <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Duration:</span>
                 <span className="font-medium text-gray-900 dark:text-white text-xs md:text-sm">
-                  {selectedWeeks.length > 0 ? (() => {
-                    const start = new Date(selectedWeeks[0]?.startDate);
-                    const end = new Date(selectedWeeks[selectedWeeks.length - 1]?.endDate);
-                    const months = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30));
-                    return `${months} month${months > 1 ? 's' : ''}`;
-                  })() : 'N/A'}
+                  {subscriptionDuration} month{subscriptionDuration > 1 ? 's' : ''}
                 </span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Total slots:</span>
-                <span className="font-medium text-gray-900 dark:text-white text-xs md:text-sm">{totalSlots}</span>
-              </div>
+              {subscriptionDuration > 1 && (
+                <div className="flex justify-between items-center text-green-700 dark:text-green-300">
+                  <span className="text-xs md:text-sm">Subscription Discount:</span>
+                  <span className="font-medium text-xs md:text-sm">
+                    {subscriptionDuration === 3 ? '10%' : subscriptionDuration === 6 ? '15%' : '0%'} OFF
+                  </span>
+                </div>
+              )}
+              
               <div className="flex justify-between items-center">
                 <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Number of kiosks:</span>
                 <span className="font-medium text-gray-900 dark:text-white text-xs md:text-sm">{kiosks.length}</span>

@@ -34,7 +34,7 @@ export default function KioskSelectionPage() {
   const steps = [
     { number: 1, name: 'Choose Ad Type', current: false, completed: true },
     { number: 2, name: 'Select Kiosk', current: true, completed: false },
-    { number: 3, name: 'Choose Weeks', current: false, completed: false },
+    { number: 3, name: 'Select Subscription', current: false, completed: false },
     { number: 4, name: 'Add Media & Duration', current: false, completed: false },
     { number: 5, name: 'Review & Submit', current: false, completed: false }
   ];
