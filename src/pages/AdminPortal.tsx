@@ -23,6 +23,7 @@ import PartnersManagement from '../components/admin/PartnersManagement';
 import PhonePreviewDemo from '../components/admin/PhonePreviewDemo';
 import AdminHostAdManagement from '../components/admin/AdminHostAdManagement';
 import AssetArchiveTester from '../components/admin/AssetArchiveTester';
+import SocialLinksManagement from '../components/admin/SocialLinksManagement';
 
 export default function AdminPortal() {
   return (
@@ -49,6 +50,7 @@ export default function AdminPortal() {
         <Route path="/kiosk-folders" element={<KioskGDriveFolderManager />} />
         <Route path="/revenue" element={<RevenueAnalytics />} />
         <Route path="/phone-preview-demo" element={<PhonePreviewDemo />} />
+        <Route path="/social-links" element={<SocialLinksManagement />} />
         <Route path="/settings" element={<SystemSettings />} />
       </Routes>
     </AdminLayout>

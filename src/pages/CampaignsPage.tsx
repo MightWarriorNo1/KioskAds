@@ -109,8 +109,6 @@ export default function CampaignsPage({ wrapInDashboard = true, basePath = '/cli
         city: kiosk.city,
         price: `$${kiosk.price}`,
         originalPrice: kiosk.base_rate !== kiosk.price ? `$${kiosk.base_rate}` : undefined,
-        traffic: kiosk.traffic_level === 'high' ? 'High Traffic' : 
-                kiosk.traffic_level === 'medium' ? 'Medium Traffic' : 'Low Traffic',
         position: [kiosk.coordinates.lat, kiosk.coordinates.lng] as [number, number],
         address: kiosk.address,
         description: kiosk.description

@@ -242,8 +242,6 @@ export default function HostDashboard() {
     name: kiosk.kiosk.name,
     city: kiosk.kiosk.city,
     price: `$${kiosk.kiosk.price}/month`,
-    traffic: kiosk.kiosk.traffic_level === 'high' ? 'High Traffic' : 
-             kiosk.kiosk.traffic_level === 'medium' ? 'Medium Traffic' : 'Low Traffic',
     position: [kiosk.kiosk.coordinates.lat, kiosk.kiosk.coordinates.lng] as [number, number],
     address: kiosk.kiosk.address,
     description: kiosk.kiosk.description

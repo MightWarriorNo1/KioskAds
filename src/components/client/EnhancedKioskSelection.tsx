@@ -65,14 +65,6 @@ export default function EnhancedKioskSelection({
 
   const formatPrice = (price: number) => `$${price.toFixed(2)}`;
 
-  const getTrafficColor = (trafficLevel: string) => {
-    switch (trafficLevel) {
-      case 'high': return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
-      case 'low': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
-    }
-  };
 
   return (
     <div className={`space-y-6 ${className}`}>
@@ -101,11 +93,6 @@ export default function EnhancedKioskSelection({
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
                     {kiosk.address}
                   </p>
-                  <div className="flex items-center space-x-2">
-                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${getTrafficColor(kiosk.traffic_level)}`}>
-                      {kiosk.traffic_level.charAt(0).toUpperCase() + kiosk.traffic_level.slice(1)} Traffic
-                    </span>
-                  </div>
                 </div>
                 
                 <div className="flex items-center space-x-2">

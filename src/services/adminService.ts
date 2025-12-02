@@ -2333,9 +2333,9 @@ export class AdminService {
 
       if (error) throw error;
 
-      const csvHeaders = 'ID,Name,Location,Address,City,State,Traffic Level,Base Rate,Price,Status,Created At\n';
+      const csvHeaders = 'ID,Name,Location,Address,City,State,Base Rate,Price,Status,Created At\n';
       const csvRows = (data || []).map(kiosk => 
-        `${kiosk.id},${kiosk.name},${kiosk.location},${kiosk.address},${kiosk.city},${kiosk.state},${kiosk.traffic_level},${kiosk.base_rate},${kiosk.price},${kiosk.status},${kiosk.created_at}`
+        `${kiosk.id},${kiosk.name},${kiosk.location},${kiosk.address},${kiosk.city},${kiosk.state},${kiosk.base_rate},${kiosk.price},${kiosk.status},${kiosk.created_at}`
       ).join('\n');
 
       return csvHeaders + csvRows;
@@ -3029,7 +3029,6 @@ Ad Management System`,
     address: string;
     city: string;
     state: string;
-    traffic_level: 'low' | 'medium' | 'high';
     base_rate: number;
     price: number;
     status?: 'active' | 'inactive' | 'maintenance';
@@ -3048,7 +3047,6 @@ Ad Management System`,
           address: kioskData.address,
           city: kioskData.city,
           state: kioskData.state,
-          traffic_level: kioskData.traffic_level,
           base_rate: kioskData.base_rate,
           price: kioskData.price,
           status: kioskData.status || 'active',

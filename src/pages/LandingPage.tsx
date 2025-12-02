@@ -5,6 +5,7 @@ import SiteHeader from '../components/layouts/SiteHeader';
 import MarketingToolsManager from '../components/marketing/MarketingToolsManager';
 import MarketingOverlays from '../components/marketing/MarketingOverlays';
 import ProudlyPartneredWith from '../components/shared/ProudlyPartneredWith';
+import Footer from '../components/shared/Footer';
 // import TestNotification from '../components/marketing/TestNotification';
 
 export default function LandingPage() {
@@ -175,7 +176,7 @@ export default function LandingPage() {
       </section>
 
       {/* Pricing Section */}
-      <section 
+      {/* <section 
         id="pricing" 
         className={"px-4 sm:px-6 py-16 sm:py-20 transition-all duration-1000"}
       >
@@ -259,7 +260,7 @@ export default function LandingPage() {
             Get Started
           </Link>
         </div>
-      </section>
+      </section> */}
 
       {/* CTA Section */}
       <section className="relative px-4 sm:px-6 py-16 sm:py-20 bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 text-white dark:text-white overflow-hidden">
@@ -293,15 +294,7 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="px-4 sm:px-6 py-6 sm:py-8">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-500 dark:text-gray-400">
-          <p>© 2025 EZ Kiosk Ads. All rights reserved.</p>
-          <div className="flex items-center gap-4">
-            <Link to="/contact" className="hover:underline">Contact</Link>
-            <Link to="/#pricing" className="hover:underline">Pricing</Link>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

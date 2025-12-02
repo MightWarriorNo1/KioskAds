@@ -1,6 +1,7 @@
 import React from 'react';
 import SiteHeader from '../components/layouts/SiteHeader';
 import PartnersSection from '../components/shared/PartnersSection';
+import Footer from '../components/shared/Footer';
 
 export default function PartnersPage() {
   return (
@@ -50,15 +51,7 @@ export default function PartnersPage() {
       </section>
 
       {/* Footer */}
-      <footer className="px-6 py-8 border-t border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
-          <p>© 2025 EZ Kiosk Ads. All rights reserved.</p>
-          <div className="flex items-center gap-4">
-            <a href="/contact" className="hover:underline">Contact</a>
-            <a href="/#pricing" className="hover:underline">Pricing</a>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

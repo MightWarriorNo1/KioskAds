@@ -24,7 +24,6 @@ interface KioskData {
   city: string;
   price: string;
   originalPrice?: string;
-  traffic: 'Low Traffic' | 'Medium Traffic' | 'High Traffic';
   hasWarning?: boolean;
   position: LatLngTuple;
   address?: string;
@@ -138,18 +137,6 @@ export default function LeafletMap({
               <div className="p-3 min-w-[250px]">
                 <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-2">{kiosk.name}</h3>
                 <p className="text-gray-600 dark:text-gray-400 text-sm mb-2">{kiosk.city}</p>
-                
-                <div className="mb-3">
-                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                    kiosk.traffic === 'High Traffic' 
-                      ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
-                      : kiosk.traffic === 'Medium Traffic'
-                      ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'
-                      : 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
-                  }`}>
-                    {kiosk.traffic}
-                  </span>
-                </div>
                 
                 <div className="mb-3">
                   {kiosk.originalPrice && (

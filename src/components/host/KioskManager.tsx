@@ -50,15 +50,6 @@ export default function KioskManager() {
     }
   };
 
-  const getTrafficColor = (traffic: string) => {
-    switch (traffic) {
-      case 'high': return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
-      case 'low': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
-    }
-  };
-
   const handleKioskSelect = (kiosk: HostKiosk) => {
     setSelectedKiosk(kiosk);
     // Don't show notification for selection, just update state
@@ -74,7 +65,6 @@ export default function KioskManager() {
     name: kiosk.kiosk.name,
     city: kiosk.kiosk.city,
     price: `$${kiosk.kiosk.price}`,
-    traffic: `${kiosk.kiosk.traffic_level.charAt(0).toUpperCase() + kiosk.kiosk.traffic_level.slice(1)} Traffic`,
     position: [kiosk.kiosk.coordinates.lat, kiosk.kiosk.coordinates.lng] as [number, number],
     hasWarning: kiosk.kiosk.status !== 'active'
   }));
@@ -155,18 +145,6 @@ export default function KioskManager() {
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">High Traffic</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {kiosks.filter(k => k.kiosk.traffic_level === 'high').length}
-              </p>
-            </div>
-            <TrendingUp className="h-8 w-8 text-orange-600 dark:text-orange-400" />
-          </div>
-        </Card>
-        
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Avg. Commission</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 {kiosks.length > 0 ? `${(kiosks.reduce((sum, k) => sum + k.commission_rate, 0) / kiosks.length).toFixed(1)}%` : '0%'}
@@ -212,13 +190,6 @@ export default function KioskManager() {
               </div>
               
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Traffic Level</span>
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getTrafficColor(kiosk.kiosk.traffic_level)}`}>
-                    {kiosk.kiosk.traffic_level}
-                  </span>
-                </div>
-                
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600 dark:text-gray-400">Base Rate</span>
                   <span className="text-sm font-medium text-gray-900 dark:text-white">${kiosk.kiosk.base_rate}</span>
@@ -315,12 +286,6 @@ export default function KioskManager() {
                   <span className="text-sm text-gray-600 dark:text-gray-400">Status:</span>
                   <span className={`text-sm font-medium ${getStatusColor(selectedKiosk.kiosk.status)}`}>
                     {selectedKiosk.kiosk.status}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Traffic Level:</span>
-                  <span className={`text-sm font-medium ${getTrafficColor(selectedKiosk.kiosk.traffic_level)}`}>
-                    {selectedKiosk.kiosk.traffic_level}
                   </span>
                 </div>
                 <div className="flex justify-between">

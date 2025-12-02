@@ -6,31 +6,18 @@ import LeafletMap from '../components/MapContainer';
 import { LatLngTuple } from 'leaflet';
 import { KioskService, Kiosk } from '../services/kioskService';
 import { useAuth } from '../contexts/AuthContext';
+import Footer from '../components/shared/Footer';
 
 interface KioskCardProps {
   name: string;
   city: string;
   price: string;
   originalPrice?: string;
-  traffic: 'Low Traffic' | 'Medium Traffic' | 'High Traffic';
   hasWarning?: boolean;
   onAdvertiseClick?: () => void;
 }
 
-function KioskCard({ name, city, price, originalPrice, traffic, hasWarning, onAdvertiseClick }: KioskCardProps) {
-  const getTrafficColor = (traffic: string) => {
-    switch (traffic) {
-      case 'High Traffic':
-        return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
-      case 'Medium Traffic':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
-      case 'Low Traffic':
-        return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
-    }
-  };
-
+function KioskCard({ name, city, price, originalPrice, hasWarning, onAdvertiseClick }: KioskCardProps) {
   return (
     <div className="card hover:shadow-lg transition-all duration-200">
       <div className="p-4">
@@ -47,17 +34,11 @@ function KioskCard({ name, city, price, originalPrice, traffic, hasWarning, onAd
           </div>
         </div>
         
-        <div className="mb-3">
-          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getTrafficColor(traffic)}`}>
-            {traffic}
-          </span>
-        </div>
-        
         <div className="text-right mb-4">
           {originalPrice && (
             <div className="text-xs text-gray-400 dark:text-gray-500 line-through">{originalPrice}</div>
           )}
-          <div className="text-base font-semibold text-green-600 dark:text-green-400">{price}</div>
+          <div className="text-md font-semibold text-green-600 dark:text-green-400">{price}</div>
         </div>
         
         <button 
@@ -119,26 +100,12 @@ function KiosksPage() {
 
   // Transform kiosk data for display
   const kioskData = kiosks.map(kiosk => {
-    const getTrafficLevel = (level: string): 'Low Traffic' | 'Medium Traffic' | 'High Traffic' => {
-      switch (level) {
-        case 'low':
-          return 'Low Traffic';
-        case 'medium':
-          return 'Medium Traffic';
-        case 'high':
-          return 'High Traffic';
-        default:
-          return 'Low Traffic';
-      }
-    };
-
     return {
       id: kiosk.id,
       name: kiosk.name,
       city: kiosk.city,
       price: `$${kiosk.price}/week`,
       originalPrice: kiosk.base_rate > kiosk.price ? `$${kiosk.base_rate}/week` : undefined,
-      traffic: getTrafficLevel(kiosk.traffic_level),
       hasWarning: kiosk.status === 'maintenance' || (kiosk.content_restrictions && kiosk.content_restrictions.length > 0),
       position: [kiosk.coordinates.lat, kiosk.coordinates.lng] as LatLngTuple
     };
@@ -256,11 +223,7 @@ function KiosksPage() {
       </main>
 
       {/* Footer */}
-      <footer className="px-6 py-8 border-t border-gray-200 dark:border-gray-800 mt-16">
-        <div className="max-w-7xl mx-auto text-xs text-gray-500 dark:text-gray-400 text-center">
-          © 2025 KioskAds.com. All rights reserved.
-        </div>
-      </footer>
+      <Footer className="mt-16" />
     </div>
   );
 }

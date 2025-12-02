@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
 import { MailchimpService } from '../services/mailchimpService';
 import { ContactService } from '../services/contactService';
+import Footer from '../components/shared/Footer';
 
 export default function ContactPage() {
   const { user } = useAuth();
@@ -196,7 +197,7 @@ export default function ContactPage() {
         </section>
       </main>
 
-      <footer className="mt-16 border-t border-gray-200 dark:border-gray-800 py-6 text-center text-xs text-gray-500 dark:text-gray-400">© 2025 EZ Kiosk Ads. All rights reserved.</footer>
+      <Footer className="mt-16" />
     </div>
   );
 }

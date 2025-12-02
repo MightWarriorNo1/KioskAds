@@ -11,7 +11,6 @@ interface KioskData {
   city: string;
   price: string;
   originalPrice?: string;
-  traffic: 'Low Traffic' | 'Medium Traffic' | 'High Traffic';
   hasWarning?: boolean;
   position: LatLngTuple;
   address?: string;
@@ -87,12 +86,6 @@ export default function HostKioskSelectionPage() {
     name: kiosk.name,
     city: kiosk.city,
     price: `$${kiosk.price.toFixed(2)}`,
-    traffic:
-      kiosk.traffic_level === 'high'
-        ? 'High Traffic'
-        : kiosk.traffic_level === 'medium'
-        ? 'Medium Traffic'
-        : 'Low Traffic',
     position: [kiosk.coordinates.lat, kiosk.coordinates.lng] as LatLngTuple,
     address: kiosk.address,
     description: kiosk.description,
@@ -265,17 +258,6 @@ export default function HostKioskSelectionPage() {
                             <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
                               {kiosk.address}
                             </p>
-                            <div className="flex items-center space-x-2">
-                              <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                                kiosk.traffic_level === 'high' 
-                                  ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
-                                  : kiosk.traffic_level === 'medium'
-                                  ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'
-                                  : 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
-                              }`}>
-                                {kiosk.traffic_level.charAt(0).toUpperCase() + kiosk.traffic_level.slice(1)} Traffic
-                              </span>
-                            </div>
                           </div>
                           
                           <div className="flex items-center space-x-2">
@@ -379,17 +361,6 @@ export default function HostKioskSelectionPage() {
                         <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
                           {kiosk.address}
                         </p>
-                        <div className="flex items-center space-x-2">
-                          <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                            kiosk.traffic_level === 'high' 
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
-                              : kiosk.traffic_level === 'medium'
-                              ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'
-                              : 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
-                          }`}>
-                            {kiosk.traffic_level.charAt(0).toUpperCase() + kiosk.traffic_level.slice(1)} Traffic
-                          </span>
-                        </div>
                       </div>
                       
                       <div className="flex items-center space-x-2">

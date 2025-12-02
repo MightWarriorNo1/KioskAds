@@ -13,7 +13,6 @@ interface Kiosk {
   address: string;
   city: string;
   state: string;
-  traffic_level: 'low' | 'medium' | 'high';
   base_rate: number;
   price: number;
   status: 'active' | 'inactive' | 'maintenance';
@@ -56,7 +55,6 @@ export default function KioskManagement() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [trafficFilter, setTrafficFilter] = useState<string>('all');
   const [showImportModal, setShowImportModal] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
@@ -82,7 +80,6 @@ export default function KioskManagement() {
     address: '',
     city: '',
     state: '',
-    traffic_level: 'medium' as 'low' | 'medium' | 'high',
     base_rate: 0,
     price: 0,
     status: 'active' as 'active' | 'inactive' | 'maintenance',
@@ -166,7 +163,6 @@ export default function KioskManagement() {
       address: kiosk.address,
       city: kiosk.city,
       state: kiosk.state,
-      traffic_level: kiosk.traffic_level,
       base_rate: kiosk.base_rate,
       price: kiosk.price,
       status: kiosk.status,
@@ -290,7 +286,6 @@ export default function KioskManagement() {
           address: editForm.address,
           city: editForm.city,
           state: editForm.state,
-          traffic_level: editForm.traffic_level,
           base_rate: editForm.base_rate,
           price: editForm.price,
           status: editForm.status,
@@ -374,15 +369,14 @@ export default function KioskManagement() {
           address: values[2],
           city: values[3],
           state: values[4],
-          traffic_level: values[5] as 'low' | 'medium' | 'high',
-          base_rate: Number(values[6]),
-          price: Number(values[7]),
-          status: values[8] as 'active' | 'inactive' | 'maintenance',
+          base_rate: Number(values[5]),
+          price: Number(values[6]),
+          status: values[7] as 'active' | 'inactive' | 'maintenance',
           coordinates: {
-            lat: Number(values[9]),
-            lng: Number(values[10])
+            lat: Number(values[8]),
+            lng: Number(values[9])
           },
-          description: values[11] || null
+          description: values[10] || null
         };
 
         try {
@@ -429,9 +423,8 @@ export default function KioskManagement() {
       kiosk.state.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || kiosk.status === statusFilter;
-    const matchesTraffic = trafficFilter === 'all' || kiosk.traffic_level === trafficFilter;
     
-    return matchesSearch && matchesStatus && matchesTraffic;
+    return matchesSearch && matchesStatus;
   });
 
   const stats = {
@@ -446,15 +439,6 @@ export default function KioskManagement() {
       case 'active': return 'bg-green-100 text-green-800';
       case 'inactive': return 'bg-gray-100 text-gray-800';
       case 'maintenance': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getTrafficColor = (traffic: string) => {
-    switch (traffic) {
-      case 'high': return 'bg-red-100 text-red-800';
-      case 'medium': return 'bg-yellow-100 text-yellow-800';
-      case 'low': return 'bg-green-100 text-green-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -599,18 +583,6 @@ export default function KioskManagement() {
                 <option value="maintenance">Maintenance</option>
               </select>
             </div>
-            <div className="sm:w-48">
-              <select
-                value={trafficFilter}
-                onChange={(e) => setTrafficFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              >
-                <option value="all">All Traffic Levels</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-              </select>
-            </div>
           </div>
         </div>
       </div>
@@ -644,9 +616,6 @@ export default function KioskManagement() {
                     </th>
                     <th className="w-1/5 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Location
-                    </th>
-                    <th className="w-20 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Traffic
                     </th>
                     <th className="w-24 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Pricing
@@ -683,11 +652,6 @@ export default function KioskManagement() {
                         <td className="px-3 py-3">
                           <div className="text-sm text-gray-900 dark:text-white truncate">{kiosk.location}</div>
                           <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{kiosk.city}, {kiosk.state}</div>
-                        </td>
-                        <td className="px-3 py-3">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getTrafficColor(kiosk.traffic_level)}`}>
-                            {kiosk.traffic_level}
-                          </span>
                         </td>
                         <td className="px-3 py-3">
                           <div className="text-sm text-gray-900 dark:text-white">${kiosk.price.toFixed(2)}</div>
@@ -798,12 +762,6 @@ export default function KioskManagement() {
                       </div>
                       
                       <div className="grid grid-cols-2 gap-3 mb-3">
-                        <div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Traffic</div>
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getTrafficColor(kiosk.traffic_level)}`}>
-                            {kiosk.traffic_level}
-                          </span>
-                        </div>
                         <div>
                           <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Pricing</div>
                           <div className="text-sm text-gray-900 dark:text-white">${kiosk.price.toFixed(2)}</div>
@@ -933,10 +891,10 @@ export default function KioskManagement() {
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h4 className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-2">CSV Format</h4>
                 <p className="text-xs text-blue-800 dark:text-blue-300">
-                  Required columns: name, location, address, city, state, traffic_level, base_rate, price, status, lat, lng, description (optional)
+                  Required columns: name, location, address, city, state, base_rate, price, status, lat, lng, description (optional)
                 </p>
                 <p className="text-xs text-blue-800 dark:text-blue-300 mt-1">
-                  Traffic levels: low, medium, high | Status: active, inactive, maintenance
+                  Status: active, inactive, maintenance
                 </p>
               </div>
 
@@ -987,7 +945,6 @@ export default function KioskManagement() {
                   name: selectedKiosk.name,
                   city: `${selectedKiosk.city}, ${selectedKiosk.state}`,
                   price: `$${selectedKiosk.price.toFixed(2)}`,
-                  traffic: selectedKiosk.traffic_level === 'high' ? 'High Traffic' : selectedKiosk.traffic_level === 'medium' ? 'Medium Traffic' : 'Low Traffic',
                   position: [selectedKiosk.coordinates.lat, selectedKiosk.coordinates.lng] as [number, number],
                   address: selectedKiosk.address
                 }]}
@@ -1027,14 +984,6 @@ export default function KioskManagement() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">State</label>
                 <input value={editForm.state || ''} onChange={(e) => setEditForm(f => ({ ...f, state: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Traffic</label>
-                <select value={editForm.traffic_level || 'low'} onChange={(e) => setEditForm(f => ({ ...f, traffic_level: e.target.value as Kiosk['traffic_level'] }))} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded">
-                  <option value="low">low</option>
-                  <option value="medium">medium</option>
-                  <option value="high">high</option>
-                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Base Rate</label>
@@ -1191,7 +1140,6 @@ export default function KioskManagement() {
                     address: '',
                     city: '',
                     state: '',
-                    traffic_level: 'medium',
                     base_rate: 0,
                     price: 0,
                     status: 'active',
@@ -1259,19 +1207,6 @@ export default function KioskManagement() {
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   placeholder="Enter state"
                 />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Traffic Level *</label>
-                <select
-                  value={createForm.traffic_level}
-                  onChange={(e) => setCreateForm(f => ({ ...f, traffic_level: e.target.value as 'low' | 'medium' | 'high' }))}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
               </div>
               
               <div>

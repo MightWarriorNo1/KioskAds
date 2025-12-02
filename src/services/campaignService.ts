@@ -111,7 +111,6 @@ export interface Kiosk {
   address: string;
   city: string;
   state: string;
-  traffic_level: 'low' | 'medium' | 'high';
   base_rate: number;
   price: number;
   status: 'active' | 'inactive' | 'maintenance';
@@ -141,7 +140,6 @@ export class CampaignService {
               address,
               city,
               state,
-              traffic_level,
               base_rate,
               price,
               status,

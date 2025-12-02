@@ -7,7 +7,6 @@ export interface Kiosk {
   address: string;
   city: string;
   state: string;
-  traffic_level: 'low' | 'medium' | 'high';
   base_rate: number;
   price: number;
   status: 'active' | 'inactive' | 'maintenance';
@@ -23,7 +22,6 @@ export interface Kiosk {
 
 export interface KioskFilters {
   status?: 'active' | 'inactive' | 'maintenance';
-  traffic_level?: 'low' | 'medium' | 'high';
   city?: string;
   state?: string;
 }
@@ -40,9 +38,6 @@ export class KioskService {
       // Apply filters
       if (filters.status) {
         query = query.eq('status', filters.status);
-      }
-      if (filters.traffic_level) {
-        query = query.eq('traffic_level', filters.traffic_level);
       }
       if (filters.city) {
         query = query.eq('city', filters.city);
@@ -147,27 +142,6 @@ export class KioskService {
       return cities;
     } catch (error) {
       console.error('Error fetching kiosk cities:', error);
-      throw error;
-    }
-  }
-
-  // Get kiosks with traffic level filter
-  static async getKiosksByTrafficLevel(trafficLevel: 'low' | 'medium' | 'high'): Promise<Kiosk[]> {
-    try {
-      const { data, error } = await supabase
-        .from('kiosks')
-        .select('*')
-        .eq('traffic_level', trafficLevel)
-        .eq('status', 'active')
-        .order('name');
-
-      if (error) {
-        throw new Error(`Failed to fetch kiosks by traffic level: ${error.message}`);
-      }
-
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching kiosks by traffic level:', error);
       throw error;
     }
   }

@@ -23,6 +23,7 @@ import {
   Building2,
   Upload,
   Clock,
+  Share2,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import NotificationToast from '../NotificationToast';
@@ -51,6 +52,7 @@ const navigation = [
   // { name: 'Asset Archive Tester', href: '/admin/asset-archive-tester', icon: Archive },
   { name: 'Revenue Analytics', href: '/admin/revenue', icon: DollarSign },
   // { name: 'Phone Preview Demo', href: '/admin/phone-preview-demo', icon: Smartphone },
+  { name: 'Social Links', href: '/admin/social-links', icon: Share2 },
   { name: 'System Settings', href: '/admin/settings', icon: SettingsIcon },
 ];
 

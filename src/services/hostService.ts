@@ -16,7 +16,6 @@ export interface HostKiosk {
     address: string;
     city: string;
     state: string;
-    traffic_level: 'low' | 'medium' | 'high';
     base_rate: number;
     price: number;
     status: 'active' | 'inactive' | 'maintenance';
