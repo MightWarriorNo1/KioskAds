@@ -46,7 +46,7 @@ export default function HostSelectWeeksPage() {
   const [calendarMonth, setCalendarMonth] = React.useState<Date>(getCurrentCaliforniaTime());
   const [selectedMondays, setSelectedMondays] = React.useState<string[]>([]);
   const [subSlots, setSubSlots] = React.useState<number>(1);
-  const [subCommit3mo, setSubCommit3mo] = React.useState<boolean>(false);
+  const [subscriptionDuration, setSubscriptionDuration] = React.useState<number>(1); // 1, 3, or 6 months
   const [subStartMonday, setSubStartMonday] = React.useState<string | null>(null);
 
   const cells = React.useMemo(() => getMonthGrid(calendarMonth), [calendarMonth]);
@@ -94,7 +94,8 @@ export default function HostSelectWeeksPage() {
     const selected = new Date(subStartMonday + 'T00:00:00');
     const diffTime = d.getTime() - selected.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays >= 0 && diffDays <= 30;
+    const blockDays = subscriptionDuration * 30; // Block for the selected duration
+    return diffDays >= 0 && diffDays <= blockDays;
   };
 
   const toggleWeeklyMonday = (d: Date) => {
@@ -129,8 +130,10 @@ export default function HostSelectWeeksPage() {
 
   // Calculate monthly cost (kiosk price is already monthly)
   const monthlyCost = subSlots * weeklyRate;
-  const discount = subCommit3mo ? 0.15 : 0;
-  const monthlyCostAfterDiscount = monthlyCost * (1 - discount);
+  // Apply discount for longer commitments: 3 months = 10%, 6 months = 15%
+  const discount = subscriptionDuration === 3 ? 0.10 : subscriptionDuration === 6 ? 0.15 : 0;
+  const totalCost = monthlyCost * subscriptionDuration;
+  const totalCostAfterDiscount = totalCost * (1 - discount);
 
   const toDate = (iso: string) => new Date(iso + 'T00:00:00');
   const addDays = (d: Date, days: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + days);
@@ -410,24 +413,33 @@ export default function HostSelectWeeksPage() {
                 <div className="space-y-6">
                   
 
-                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-4">
-                    <label className="inline-flex items-center space-x-3 text-sm cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        checked={subCommit3mo} 
-                        onChange={(e) => setSubCommit3mo(e.target.checked)}
-                        className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                      />
-                      <div>
-                        <span className="font-semibold text-blue-800 dark:text-blue-200">3-Month Commitment</span>
-                        <div className="flex items-center space-x-2 mt-1">
-                          <span className="px-3 py-1 rounded-full bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 text-xs font-semibold">
-                            15% OFF
-                          </span>
-                          <span className="text-blue-600 dark:text-blue-400 text-sm">Save on monthly billing</span>
-                        </div>
-                      </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-3 text-gray-900 dark:text-white">
+                      Subscription Duration
                     </label>
+                    <div className="grid grid-cols-3 gap-3">
+                      {[1, 3, 6].map((months) => (
+                        <button
+                          key={months}
+                          onClick={() => setSubscriptionDuration(months)}
+                          className={`p-4 rounded-xl border-2 transition-all ${
+                            subscriptionDuration === months
+                              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 ring-2 ring-blue-200 dark:ring-blue-800'
+                              : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600'
+                          }`}
+                        >
+                          <div className={`text-lg font-bold ${subscriptionDuration === months ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-white'}`}>
+                            {months} Month{months > 1 ? 's' : ''}
+                          </div>
+                          {months === 3 && (
+                            <div className="text-xs text-green-600 dark:text-green-400 mt-1">10% OFF</div>
+                          )}
+                          {months === 6 && (
+                            <div className="text-xs text-green-600 dark:text-green-400 mt-1">15% OFF</div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
@@ -436,7 +448,7 @@ export default function HostSelectWeeksPage() {
             </div>
 
             <div className="rounded border border-gray-200 dark:border-gray-700 p-4 text-sm text-gray-600 dark:text-gray-300 mb-6">
-              Subscription Selection — Select any date from tomorrow onwards to start your subscription. The next 30 days will be blocked to prevent conflicts.
+              Subscription Selection — Select any date from tomorrow onwards to start your subscription. The next {subscriptionDuration * 30} days will be blocked to prevent conflicts.
             </div>
 
             <div className="mb-3 text-sm font-semibold flex items-center space-x-2">
@@ -487,22 +499,22 @@ export default function HostSelectWeeksPage() {
                 ) : <div key={i} />)}
               </div>
               
-              <div className="flex items-center justify-center space-x-6 text-sm text-gray-600 dark:text-gray-300 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-6 text-xs sm:text-sm text-gray-600 dark:text-gray-300 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <div className="flex items-center space-x-2">
-                  <span className="inline-block w-4 h-4 bg-white dark:bg-gray-800 rounded border"/>
-                  <span>Available Dates</span>
+                  <span className="inline-block w-3 h-3 sm:w-4 sm:h-4 bg-white dark:bg-gray-800 rounded border flex-shrink-0"/>
+                  <span className="whitespace-nowrap">Available</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <span className="inline-block w-4 h-4 bg-blue-500 rounded"/>
-                  <span>Selected Start (click to unselect)</span>
+                  <span className="inline-block w-3 h-3 sm:w-4 sm:h-4 bg-blue-500 rounded flex-shrink-0"/>
+                  <span className="whitespace-nowrap">Selected</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <span className="inline-block w-4 h-4 bg-red-100 dark:bg-red-900/20 rounded border"/>
-                  <span>Blocked (1 month)</span>
+                  <span className="inline-block w-3 h-3 sm:w-4 sm:h-4 bg-red-100 dark:bg-red-900/20 rounded border flex-shrink-0"/>
+                  <span className="whitespace-nowrap">Blocked ({subscriptionDuration} month{subscriptionDuration > 1 ? 's' : ''})</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <span className="inline-block w-4 h-4 bg-gray-100 dark:bg-gray-800 rounded border"/>
-                  <span>Past & Today</span>
+                  <span className="inline-block w-3 h-3 sm:w-4 sm:h-4 bg-gray-100 dark:bg-gray-800 rounded border flex-shrink-0"/>
+                  <span className="whitespace-nowrap">Past & Today</span>
                 </div>
               </div>
             </div>
@@ -517,7 +529,7 @@ export default function HostSelectWeeksPage() {
                     <div>
                       <div className="font-semibold text-green-800 dark:text-green-200">Start Month Selected</div>
                       <div className="text-sm text-green-600 dark:text-green-400">
-                        Your subscription will begin on {toDate(subStartMonday).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} and run for 1 month
+                        Your subscription will begin on {toDate(subStartMonday).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} and run for {subscriptionDuration} month{subscriptionDuration > 1 ? 's' : ''}
                       </div>
                     </div>
                   </div>
@@ -543,11 +555,12 @@ export default function HostSelectWeeksPage() {
                   kiosk: kiosk,
                   selectedWeeks: [{
                     startDate: subStartMonday!,
-                    endDate: new Date(new Date(subStartMonday!).getTime() + 29 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days (0-29 = 30 days total)
+                    endDate: new Date(new Date(subStartMonday!).getTime() + (subscriptionDuration * 30 - 1) * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // subscriptionDuration months (e.g., 1 month = 30 days, 3 months = 90 days)
                     slots: subSlots
                   }],
                   totalSlots: subSlots,
                   baseRate: weeklyRate,
+                  subscriptionDuration: subscriptionDuration,
                   useCustomAd: useCustomAd
                 };
                 navigate('/host/add-media-duration', { state: campaignData });
