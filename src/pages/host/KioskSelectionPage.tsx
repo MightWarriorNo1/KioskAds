@@ -445,7 +445,7 @@ export default function HostKioskSelectionPage() {
           disabled={selectedKioskIds.length === 0}
           onClick={() => setShowContentModal(true)}
           className={`px-4 md:px-6 py-2 md:py-3 rounded-lg font-semibold transition-colors shadow-soft text-sm md:text-base ${selectedKioskIds.length > 0 ? 'bg-primary-600 hover:bg-primary-700 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 cursor-not-allowed'}`}>
-          <span className="hidden md:inline">Continue to Select Weeks</span>
+          <span className="hidden md:inline">Continue to Select Subscriptions</span>
           <span className="md:hidden">Continue</span>
         </button>
       </div>
