@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabaseClient';
 import { GmailService } from './gmailService';
 
 export interface AdminNotificationData {
-  type: 'campaign_created' | 'custom_ad_purchased';
+  type: 'campaign_created' | 'custom_ad_purchased' | 'new_client_signup';
   user_id: string;
   user_name: string;
   user_email: string;
@@ -112,6 +112,168 @@ export class AdminNotificationService {
       console.log(`Custom ad purchase notification sent to ${admins.length} admin(s)`);
     } catch (error) {
       console.error('Error sending custom ad purchase notification:', error);
+    }
+  }
+
+  // Send admin notification for new client signup
+  static async sendNewClientSignupNotification(data: AdminNotificationData): Promise<void> {
+    try {
+      const admins = await this.getAdminUsers();
+      if (admins.length === 0) return;
+
+      const subject = `New Client Signup - ${data.user_name}`;
+      const htmlBody = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>New Client Signup</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+          <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #007bff;">New Client Signup</h2>
+            <p>A new client has signed up for an account.</p>
+            
+            <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+              <h3 style="margin-top: 0;">Client Details</h3>
+              <p><strong>Name:</strong> ${data.user_name}</p>
+              <p><strong>Email:</strong> ${data.user_email}</p>
+              <p><strong>User ID:</strong> ${data.user_id}</p>
+              <p><strong>Signed Up:</strong> ${new Date(data.created_at).toLocaleString('en-US', { 
+                timeZone: 'America/Los_Angeles',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+              })}</p>
+            </div>
+            
+            <p>Please review this new client in the Admin Portal.</p>
+            
+            <p>Best regards,<br>Ad Management System</p>
+          </div>
+        </body>
+        </html>
+      `;
+      const textBody = `New Client Signup
+
+Client Details:
+- Name: ${data.user_name}
+- Email: ${data.user_email}
+- User ID: ${data.user_id}
+- Signed Up: ${new Date(data.created_at).toLocaleString('en-US', { 
+        timeZone: 'America/Los_Angeles',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      })}
+
+Please review this new client in the Admin Portal.
+
+Best regards,
+Ad Management System`;
+
+      // Send to all admins
+      const queuedEmails: any[] = [];
+      for (const admin of admins) {
+        try {
+          await GmailService.initialize();
+          if (GmailService.isConfigured()) {
+            await GmailService.sendEmail(admin.email, subject, htmlBody, textBody);
+          } else {
+            // Use edge function to queue email (bypasses RLS)
+            try {
+              const { data: queuedEmail, error: queueError } = await supabase.functions.invoke('queue-email', {
+                body: {
+                  emailData: {
+                    recipient_email: admin.email,
+                    recipient_name: admin.full_name || 'Admin',
+                    subject,
+                    body_html: htmlBody,
+                    body_text: textBody
+                  }
+                }
+              });
+              if (queueError) throw queueError;
+              if (queuedEmail?.data) queuedEmails.push(queuedEmail.data);
+            } catch (edgeFunctionError) {
+              console.error(`Error queuing email via edge function for ${admin.email}:`, edgeFunctionError);
+              // Fallback: try direct insert (might fail due to RLS, but worth trying)
+              try {
+                const { data: queuedEmail } = await supabase.from('email_queue').insert({
+                  recipient_email: admin.email,
+                  recipient_name: admin.full_name || 'Admin',
+                  subject,
+                  body_html: htmlBody,
+                  body_text: textBody,
+                  status: 'pending',
+                  retry_count: 0,
+                  max_retries: 3
+                }).select().single();
+                if (queuedEmail) queuedEmails.push(queuedEmail);
+              } catch (insertError) {
+                console.error(`Failed to queue email for ${admin.email}:`, insertError);
+              }
+            }
+          }
+        } catch (emailError) {
+          console.error(`Error sending email to ${admin.email}:`, emailError);
+          // Use edge function to queue email for retry (bypasses RLS)
+          try {
+            const { data: queuedEmail, error: queueError } = await supabase.functions.invoke('queue-email', {
+              body: {
+                emailData: {
+                  recipient_email: admin.email,
+                  recipient_name: admin.full_name || 'Admin',
+                  subject,
+                  body_html: htmlBody,
+                  body_text: textBody
+                }
+              }
+            });
+            if (queueError) throw queueError;
+            if (queuedEmail?.data) queuedEmails.push(queuedEmail.data);
+          } catch (edgeFunctionError) {
+            console.error(`Error queuing email via edge function for ${admin.email}:`, edgeFunctionError);
+            // Fallback: try direct insert
+            try {
+              const { data: queuedEmail } = await supabase.from('email_queue').insert({
+                recipient_email: admin.email,
+                recipient_name: admin.full_name || 'Admin',
+                subject,
+                body_html: htmlBody,
+                body_text: textBody,
+                status: 'pending',
+                retry_count: 0,
+                max_retries: 3
+              }).select().single();
+              if (queuedEmail) queuedEmails.push(queuedEmail);
+            } catch (insertError) {
+              console.error(`Failed to queue email for ${admin.email}:`, insertError);
+            }
+          }
+        }
+      }
+
+      // Process queued emails immediately if any were queued and Gmail is configured
+      if (queuedEmails.length > 0 && GmailService.isConfigured()) {
+        try {
+          await GmailService.processEmailQueue();
+        } catch (processError) {
+          console.error('Error processing email queue:', processError);
+        }
+      }
+
+      console.log(`New client signup notification sent to ${admins.length} admin(s)`);
+    } catch (error) {
+      console.error('Error sending new client signup notification:', error);
     }
   }
 

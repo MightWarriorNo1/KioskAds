@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Search, Edit, Trash2, Mail, Shield, Download, Upload, RefreshCw, FileText, X, Save, User } from 'lucide-react';
+import { Users, Search, Edit, Trash2, Mail, Shield, Download, Upload, RefreshCw, FileText, X, Save, User, Key } from 'lucide-react';
 import { useNotification } from '../../contexts/NotificationContext';
 import { AdminService } from '../../services/adminService';
 import { supabase } from '../../lib/supabaseClient';
@@ -248,6 +248,57 @@ export default function UserManagement() {
     }
   };
 
+  const sendPasswordResetToAll = async () => {
+    if (!window.confirm('Are you sure you want to send password reset emails to all users? This will send an email to every user in the system.')) {
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const { ProfileService } = await import('../../services/profileService');
+      
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const user of filteredUsers) {
+        try {
+          await ProfileService.sendPasswordReset(user.email);
+          successCount++;
+        } catch (error) {
+          console.error(`Failed to send password reset to ${user.email}:`, error);
+          failCount++;
+        }
+      }
+
+      addNotification(
+        'success', 
+        'Password Resets Sent', 
+        `Password reset emails sent to ${successCount} user(s). ${failCount > 0 ? `${failCount} failed.` : ''}`
+      );
+    } catch (error) {
+      console.error('Error sending password resets:', error);
+      addNotification('error', 'Error', 'Failed to send password reset emails');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const sendPasswordResetToSelected = async () => {
+    if (!selectedUser) return;
+
+    try {
+      setSaving(true);
+      const { ProfileService } = await import('../../services/profileService');
+      await ProfileService.sendPasswordReset(selectedUser.email);
+      addNotification('success', 'Password Reset Sent', `Password reset email sent to ${selectedUser.email}`);
+    } catch (error) {
+      console.error('Error sending password reset:', error);
+      addNotification('error', 'Error', 'Failed to send password reset email');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const filteredUsers = users.filter(user => {
     // Exclude admin users from display
     if (user.role === 'admin') return false;
@@ -303,6 +354,16 @@ export default function UserManagement() {
             <span className="hidden sm:inline">Import CSV</span>
             <span className="sm:hidden">Import</span>
           </button>
+          {/* <button
+            onClick={sendPasswordResetToAll}
+            disabled={saving || filteredUsers.length === 0}
+            className="flex items-center space-x-2 px-3 lg:px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm lg:text-base"
+            title="Send password reset emails to all filtered users"
+          >
+            <Key className="h-4 w-4" />
+            <span className="hidden sm:inline">Reset All Passwords</span>
+            <span className="sm:hidden">Reset All</span>
+          </button> */}
         </div>
       </div>
 
@@ -452,7 +513,7 @@ export default function UserManagement() {
                       {new Date(user.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center space-x-3">
+                      <div className="flex items-center space-x-2 flex-wrap gap-2">
                         <button 
                           onClick={() => handleEmailUser(user)}
                           className="p-2 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-colors"
@@ -466,6 +527,27 @@ export default function UserManagement() {
                           title="Edit User"
                         >
                           <Edit className="h-4 w-4" />
+                        </button>
+                        <button 
+                          onClick={async () => {
+                            try {
+                              setSaving(true);
+                              const { ProfileService } = await import('../../services/profileService');
+                              await ProfileService.sendPasswordReset(user.email);
+                              addNotification('success', 'Password Reset Sent', `Password reset email sent to ${user.email}`);
+                            } catch (error) {
+                              console.error('Error sending password reset:', error);
+                              addNotification('error', 'Error', 'Failed to send password reset email');
+                            } finally {
+                              setSaving(false);
+                            }
+                          }}
+                          disabled={saving}
+                          className="flex items-center space-x-1 px-2 py-1.5 text-orange-600 hover:text-orange-900 hover:bg-orange-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium"
+                          title="Send Password Reset Link"
+                        >
+                          <Key className="h-4 w-4" />
+                          <span className="hidden sm:inline">Reset Password</span>
                         </button>
                         <button 
                           onClick={() => handleDeleteUser(user)}

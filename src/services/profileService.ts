@@ -101,19 +101,41 @@ export class ProfileService {
   // Send password reset email
   static async sendPasswordReset(email: string): Promise<void> {
     try {
-      // Use absolute URL for redirect - Supabase requires this to be in the allowed redirect URLs
-      const redirectUrl = `${window.location.origin}/reset-password`;
+      // Get user profile to get name (edge function will verify user exists in auth)
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('email', email)
+        .single();
       
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: redirectUrl
+      // Don't fail if profile doesn't exist - edge function will handle auth check
+      const userName = profile?.full_name || email.split('@')[0];
+
+      // Call the custom edge function that uses the email queue system
+      const { data, error } = await supabase.functions.invoke('send-password-reset', {
+        body: {
+          email,
+          userName
+        }
       });
-      
+
       if (error) {
+        console.error('Error calling send-password-reset function:', error);
+        throw new Error(error.message || 'Failed to invoke password reset service');
+      }
+
+      if (!data || !data.success) {
+        const errorMessage = data?.error || 'Failed to send password reset email';
+        console.error('Password reset failed:', errorMessage);
+        throw new Error(errorMessage);
+      }
+    } catch (error: any) {
+      console.error('Error sending password reset:', error);
+      // Re-throw with a user-friendly message if it's not already an Error object
+      if (error instanceof Error) {
         throw error;
       }
-    } catch (error) {
-      console.error('Error sending password reset:', error);
-      throw error;
+      throw new Error(error?.message || 'Failed to send password reset email. Please try again.');
     }
   }
 

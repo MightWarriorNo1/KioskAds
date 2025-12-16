@@ -116,7 +116,8 @@ export default function ContactPage() {
                       email: email.trim(),
                       first_name: name.trim().split(' ')[0] || undefined,
                       last_name: name.trim().split(' ').slice(1).join(' ') || undefined,
-                      tags: ['contact']
+                      tags: ['contact'],
+                      role: user?.role as 'client' | 'host' | 'designer' | 'admin' | undefined
                     });
                     } catch (mailchimpError) {
                       // Don't fail the whole submission if Mailchimp fails

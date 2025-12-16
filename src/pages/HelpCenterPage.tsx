@@ -1,10 +1,25 @@
 import React, { useState } from 'react';
 import { ChevronDown, Mail, Phone, Clock } from 'lucide-react';
 import DashboardLayout from '../components/layouts/DashboardLayout';
+import { ContactService } from '../services/contactService';
+import { useNotification } from '../contexts/NotificationContext';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function HelpCenterPage() {
   const [activeTab, setActiveTab] = useState('FAQ');
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
+  const { addNotification } = useNotification();
+  const { user } = useAuth();
+  const [contactFormData, setContactFormData] = useState({
+    businessName: '',
+    contactName: '',
+    businessType: '',
+    email: '',
+    phone: '',
+    businessAddress: '',
+    additionalInfo: ''
+  });
+  const [submittingContact, setSubmittingContact] = useState(false);
 
   const faqs = [
     {
@@ -118,73 +133,129 @@ export default function HelpCenterPage() {
       {/* Contact Form */}
       <div>
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Contact Form</h3>
-        <p className="text-gray-600 dark:text-gray-300 mb-6">Send us a message and we'll get back to you within 24 business hours.</p>
+        <p className="text-gray-600 dark:text-gray-300 mb-6">We're currently placing kiosks across the area and would love to partner with you. Fill out the form below to get in touch or book a quick 10‑minute call.</p>
         
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-8">
-          <form className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  id="name"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                  placeholder="Your name"
-                  required
-                />
-              </div>
-
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                  placeholder="your.email@example.com"
-                  required
-                />
-              </div>
-            </div>
-
+          <form className="space-y-4 sm:space-y-6" onSubmit={async (e) => {
+            e.preventDefault();
+            if (!contactFormData.contactName.trim() || !contactFormData.email.trim()) {
+              addNotification('error', 'Missing Information', 'Please provide your name and email.');
+              return;
+            }
+            if (!contactFormData.additionalInfo.trim()) {
+              addNotification('error', 'Missing Information', 'Please provide additional information.');
+              return;
+            }
+            setSubmittingContact(true);
+            try {
+              const message = `Business Name: ${contactFormData.businessName || 'N/A'}\nBusiness Type: ${contactFormData.businessType || 'N/A'}\nPhone: ${contactFormData.phone || 'N/A'}\nBusiness Address: ${contactFormData.businessAddress || 'N/A'}\n\nAdditional Information:\n${contactFormData.additionalInfo.trim()}`;
+              
+              await ContactService.sendContactFormToAdmins({
+                name: contactFormData.contactName.trim(),
+                email: contactFormData.email.trim(),
+                company: contactFormData.businessName.trim() || undefined,
+                budget: undefined,
+                interest: contactFormData.businessType.trim() || 'General Inquiry',
+                message: message
+              });
+              addNotification('success', 'Message Sent', 'Your message has been sent. We will get back to you within 24 business hours.');
+              setContactFormData({ businessName: '', contactName: '', businessType: '', email: '', phone: '', businessAddress: '', additionalInfo: '' });
+            } catch (error) {
+              console.error('Contact form submission error:', error);
+              addNotification('error', 'Submission Failed', 'Failed to send message. Please try again later.');
+            } finally {
+              setSubmittingContact(false);
+            }
+          }}>
             <div>
-              <label htmlFor="subject" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Subject
-              </label>
-              <input
-                type="text"
-                id="subject"
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                placeholder="How can we help you?"
-                required
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Business Name</label>
+              <input 
+                className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[48px]" 
+                placeholder="Your Business Name"
+                value={contactFormData.businessName}
+                onChange={(e) => setContactFormData({ ...contactFormData, businessName: e.target.value })}
               />
             </div>
-
+            
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Contact Name</label>
+                <input 
+                  className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[48px]" 
+                  placeholder="Your Name"
+                  value={contactFormData.contactName}
+                  onChange={(e) => setContactFormData({ ...contactFormData, contactName: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Business Type</label>
+                <select 
+                  className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[48px]"
+                  value={contactFormData.businessType}
+                  onChange={(e) => setContactFormData({ ...contactFormData, businessType: e.target.value })}
+                >
+                  <option value="">Select a business type</option>
+                  <option>Retail</option>
+                  <option>Restaurant</option>
+                  <option>Fitness</option>
+                  <option>Entertainment</option>
+                  <option>Other</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
+                <input 
+                  type="email" 
+                  className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[48px]" 
+                  placeholder="you@example.com"
+                  value={contactFormData.email}
+                  onChange={(e) => setContactFormData({ ...contactFormData, email: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Phone</label>
+                <input 
+                  className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[48px]" 
+                  placeholder="(555) 555-5555"
+                  value={contactFormData.phone}
+                  onChange={(e) => setContactFormData({ ...contactFormData, phone: e.target.value })}
+                />
+              </div>
+            </div>
             <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Description
-              </label>
-              <textarea
-                id="description"
-                rows={4}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                placeholder="Please provide details about your request..."
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Business Address</label>
+              <input 
+                className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[48px]" 
+                placeholder="Street, City, State, ZIP"
+                value={contactFormData.businessAddress}
+                onChange={(e) => setContactFormData({ ...contactFormData, businessAddress: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Additional Information</label>
+              <textarea 
+                className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none min-h-[120px]" 
+                rows={4} 
+                placeholder="Tell us more about your location, hours, space, or any questions you have."
+                value={contactFormData.additionalInfo}
+                onChange={(e) => setContactFormData({ ...contactFormData, additionalInfo: e.target.value })}
                 required
               ></textarea>
-              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                Please be as specific as possible to help us address your request efficiently.
-              </p>
             </div>
-
-            <button
-              type="submit"
-              className="bg-primary-600 hover:bg-primary-700 text-white px-8 py-3 rounded-lg font-semibold transition-colors"
-            >
-              Submit Request
-            </button>
+            <div className="flex justify-center sm:justify-end">
+              <button 
+                type="submit" 
+                disabled={submittingContact}
+                className="btn-primary px-6 py-3 text-base w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submittingContact ? 'Submitting...' : 'Submit Inquiry'}
+              </button>
+            </div>
           </form>
         </div>
       </div>

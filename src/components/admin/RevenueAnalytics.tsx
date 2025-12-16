@@ -21,6 +21,8 @@ interface RevenueMetrics {
   revenueGrowth: number;
   totalTransactions: number;
   averageTransactionValue: number;
+  totalHostCommission: number;
+  totalPlatformRevenue: number;
   topClients: Array<{
     id: string;
     name: string;
@@ -56,6 +58,8 @@ interface Transaction {
   id: string;
   type: 'campaign' | 'custom_ad';
   amount: number;
+  hostCommission?: number;
+  platformRevenue?: number;
   date: string;
   status: string;
   client: {
@@ -327,6 +331,8 @@ export default function RevenueAnalytics() {
         revenueGrowth: 0,
         totalTransactions: 0,
         averageTransactionValue: 0,
+        totalHostCommission: 0,
+        totalPlatformRevenue: 0,
         topClients: [],
         revenueByMonth: [],
         paymentMethodBreakdown: [],
@@ -337,6 +343,21 @@ export default function RevenueAnalytics() {
     const totalRevenue = filteredPayments.reduce((sum, payment) => sum + payment.amount, 0);
     const totalTransactions = filteredPayments.length;
     const averageTransactionValue = totalTransactions > 0 ? totalRevenue / totalTransactions : 0;
+    
+    // Calculate host commission and platform revenue
+    // Default commission rate is 70% for host-owned kiosks
+    const hostCommissionRate = 0.70;
+    let totalHostCommission = 0;
+    
+    filteredPayments.forEach(payment => {
+      // Check if payment has a host (host-owned kiosk)
+      const hasHost = payment.host || payment.profiles?.role === 'host';
+      if (hasHost) {
+        totalHostCommission += payment.amount * hostCommissionRate;
+      }
+    });
+    
+    const totalPlatformRevenue = totalRevenue - totalHostCommission;
 
     // Calculate monthly revenue (current month)
     const currentMonth = new Date();
@@ -419,6 +440,8 @@ export default function RevenueAnalytics() {
       revenueGrowth,
       totalTransactions,
       averageTransactionValue,
+      totalHostCommission,
+      totalPlatformRevenue,
       topClients,
       revenueByMonth,
       paymentMethodBreakdown,
@@ -614,7 +637,14 @@ export default function RevenueAnalytics() {
       
       // Also update transactions for the filtered period
       if (showTransactions) {
-        setTransactions(filteredPayments.map(payment => {
+        // Sort by newest first (payment_date descending)
+        const sortedPayments = [...filteredPayments].sort((a, b) => {
+          const dateA = new Date(a.payment_date).getTime();
+          const dateB = new Date(b.payment_date).getTime();
+          return dateB - dateA; // Newest first
+        });
+
+        setTransactions(sortedPayments.map(payment => {
           // Base client info (the buyer)
           const client = {
             id: payment.user_id,
@@ -634,10 +664,18 @@ export default function RevenueAnalytics() {
               : undefined
           );
 
+          // Calculate host commission (typically 70% of revenue for host-owned kiosks)
+          // This is an estimate - actual commission should come from host_revenue table
+          const hostCommissionRate = 0.70; // 70% default commission rate
+          const hostCommission = host ? payment.amount * hostCommissionRate : 0;
+          const platformRevenue = payment.amount - hostCommission;
+
           return {
             id: payment.id,
             type: payment.campaign_id ? 'campaign' : 'custom_ad',
             amount: payment.amount,
+            hostCommission: hostCommission,
+            platformRevenue: platformRevenue,
             date: payment.payment_date,
             status: payment.status,
             client,
@@ -797,31 +835,10 @@ export default function RevenueAnalytics() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    Avg Transaction
+                    Host Commission
                   </p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {formatCurrency(metrics.averageTransactionValue)}
-                  </p>
-                </div>
-                <div className="p-3 bg-purple-100 dark:bg-purple-900/20 rounded-full">
-                  <CreditCard className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-                </div>
-              </div>
-              <div className="mt-4">
-                <span className="text-sm text-gray-500">
-                  Per transaction
-                </span>
-              </div>
-            </Card>
-
-            <Card className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    Active Hosts
-                  </p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {metrics.stripeConnectStats.activeHosts}
+                  <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                    {formatCurrency(metrics.totalHostCommission)}
                   </p>
                 </div>
                 <div className="p-3 bg-orange-100 dark:bg-orange-900/20 rounded-full">
@@ -830,7 +847,28 @@ export default function RevenueAnalytics() {
               </div>
               <div className="mt-4">
                 <span className="text-sm text-gray-500">
-                  {metrics.stripeConnectStats.pendingPayouts} pending payouts
+                  Paid to hosts
+                </span>
+              </div>
+            </Card>
+
+            <Card className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    Platform Revenue
+                  </p>
+                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                    {formatCurrency(metrics.totalPlatformRevenue)}
+                  </p>
+                </div>
+                <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-full">
+                  <DollarSign className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                </div>
+              </div>
+              <div className="mt-4">
+                <span className="text-sm text-gray-500">
+                  After host commission
                 </span>
               </div>
             </Card>
@@ -1156,8 +1194,18 @@ export default function RevenueAnalytics() {
                                   {transaction.status.replace('_', ' ')}
                                 </span>
                               </div>
-                              <div className="text-lg font-semibold text-gray-900 dark:text-white">
-                                {formatCurrency(transaction.amount)}
+                              <div className="space-y-1">
+                                <div className="text-lg font-semibold text-gray-900 dark:text-white">
+                                  Total: {formatCurrency(transaction.amount)}
+                                </div>
+                                {transaction.hostCommission && (
+                                  <div className="text-sm text-orange-600 dark:text-orange-400">
+                                    Host Commission: {formatCurrency(transaction.hostCommission)}
+                                  </div>
+                                )}
+                                <div className="text-sm text-blue-600 dark:text-blue-400">
+                                  Platform: {formatCurrency(transaction.platformRevenue || transaction.amount)}
+                                </div>
                               </div>
                             </div>
                             <div className="text-sm text-gray-500 dark:text-gray-400">
@@ -1249,7 +1297,13 @@ export default function RevenueAnalytics() {
                             Ad Type
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Amount
+                            Total Amount
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Host Commission
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Platform Revenue
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             Status
@@ -1317,6 +1371,12 @@ export default function RevenueAnalytics() {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-white">
                               {formatCurrency(transaction.amount)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-orange-600 dark:text-orange-400">
+                              {transaction.hostCommission ? formatCurrency(transaction.hostCommission) : 'N/A'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 dark:text-blue-400">
+                              {transaction.platformRevenue ? formatCurrency(transaction.platformRevenue) : formatCurrency(transaction.amount)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${

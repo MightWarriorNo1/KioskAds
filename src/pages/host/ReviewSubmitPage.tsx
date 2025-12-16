@@ -20,7 +20,7 @@ interface CampaignData {
   selectedWeeks: SelectedWeek[];
   totalSlots: number;
   baseRate: number;
-  subscriptionDuration?: number; // 1, 3, or 6 months
+  subscriptionDuration?: number; // Custom number of months
   mediaFile?: File;
   slotsPerWeek?: number;
   uploadedMediaAsset?: any;
@@ -89,13 +89,12 @@ export default function HostReviewSubmitPage() {
     // Calculate base cost: slots * rate * duration
     const baseCost = totalSlots * baseRate * subscriptionDuration;
     
-    // Apply subscription duration discount: 3 months = 10%, 6 months = 15%
-    const durationDiscount = subscriptionDuration === 3 ? 0.10 : subscriptionDuration === 6 ? 0.15 : 0;
-    const costAfterDurationDiscount = baseCost * (1 - durationDiscount);
+    // No subscription duration discount applied
+    const costAfterDurationDiscount = baseCost;
     
     // Apply additional kiosk discount if multiple kiosks
     if (numKiosks > 1) {
-      const firstKioskCost = totalSlots * baseRate * subscriptionDuration * (1 - durationDiscount);
+      const firstKioskCost = totalSlots * baseRate * subscriptionDuration;
       const additionalKiosks = numKiosks - 1;
       const discountedRate = baseRate * (1 - (discountPercent || 0) / 100);
       const additionalCost = totalSlots * discountedRate * subscriptionDuration * (1 - durationDiscount) * additionalKiosks;

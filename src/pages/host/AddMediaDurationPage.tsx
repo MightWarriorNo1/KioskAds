@@ -19,7 +19,7 @@ interface CampaignData {
   selectedWeeks: SelectedWeek[];
   totalSlots: number;
   baseRate: number;
-  subscriptionDuration?: number; // 1, 3, or 6 months
+  subscriptionDuration?: number; // Custom number of months
   useCustomAd?: boolean;
 }
 

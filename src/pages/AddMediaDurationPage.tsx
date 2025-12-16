@@ -19,7 +19,7 @@ interface CampaignData {
   selectedWeeks: SelectedWeek[];
   totalSlots: number;
   baseRate: number;
-  subscriptionDuration?: number; // 1, 3, or 6 months
+  subscriptionDuration?: number; // Custom number of months
   useCustomAd?: boolean;
 }
 
@@ -516,10 +516,7 @@ export default function AddMediaDurationPage() {
               <div className="font-medium text-yellow-800 dark:text-yellow-200">
                 {(() => {
                   // Calculate base cost: slots * rate * duration
-                  const baseCost = totalSlots * baseRate * subscriptionDuration;
-                  // Apply subscription duration discount: 3 months = 10%, 6 months = 15%
-                  const discount = subscriptionDuration === 3 ? 0.10 : subscriptionDuration === 6 ? 0.15 : 0;
-                  const totalCost = baseCost * (1 - discount);
+                  const totalCost = totalSlots * baseRate * subscriptionDuration;
                   return `$${totalCost.toFixed(2)}`;
                 })()}
               </div>

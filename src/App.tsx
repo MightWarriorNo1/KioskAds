@@ -14,6 +14,8 @@ import SignUp from './pages/SignUp';
 import ContactPage from './pages/ContactPage';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
+import FAQsPage from './pages/FAQsPage';
+import HowItWorksPage from './pages/HowItWorksPage';
 import AuthCallback from './pages/AuthCallback';
 import ResetPassword from './pages/ResetPassword';
 import ClientPortal from './pages/ClientPortal';
@@ -60,6 +62,8 @@ function App() {
                   <Route path="/contact" element={<ContactPage />} />
                   <Route path="/privacy" element={<PrivacyPolicy />} />
                   <Route path="/terms" element={<TermsOfService />} />
+                  <Route path="/faqs" element={<FAQsPage />} />
+                  <Route path="/how-it-works" element={<HowItWorksPage />} />
                   <Route path="/custom-ads" element={<CustomAdsPage />} />
                   <Route path="/partners" element={<PartnersPage />} />
                   <Route path="/hosting" element={<HostLanding />} />

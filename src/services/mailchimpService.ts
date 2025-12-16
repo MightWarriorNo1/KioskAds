@@ -5,6 +5,7 @@ export interface MailchimpSubscribeParams {
   first_name?: string;
   last_name?: string;
   tags?: string[];
+  role?: 'client' | 'host' | 'designer' | 'admin';
 }
 
 export class MailchimpService {

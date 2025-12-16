@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ArrowLeft, CheckCircle, MapPin, Calendar, DollarSign, Upload, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, MapPin, Calendar, DollarSign, Upload, AlertTriangle, Ticket, X, Repeat } from 'lucide-react';
 import DashboardLayout from '../components/layouts/DashboardLayout';
 import { CampaignService } from '../services/campaignService';
 import { useAuth } from '../contexts/AuthContext';
@@ -8,6 +8,8 @@ import { useNotification } from '../contexts/NotificationContext';
 import { PricingService } from '../services/pricingService';
 import PurchaseModal from '../components/client/PurchaseModal';
 import { BillingService } from '../services/billingService';
+import { CouponService, CouponValidationResult } from '../services/couponService';
+import { supabase } from '../lib/supabaseClient';
 
 interface SelectedWeek {
   startDate: string;
@@ -21,7 +23,7 @@ interface CampaignData {
   selectedWeeks: SelectedWeek[];
   totalSlots: number;
   baseRate: number;
-  subscriptionDuration?: number; // 1, 3, or 6 months
+  subscriptionDuration?: number; // Custom number of months
   mediaFile?: File;
   slotsPerWeek?: number;
   uploadedMediaAsset?: any;
@@ -39,6 +41,11 @@ export default function ReviewSubmitPage() {
   const [discountPercent, setDiscountPercent] = useState<number>(0);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [hasPaid, setHasPaid] = useState(false);
+  const [couponCode, setCouponCode] = useState('');
+  const [couponValidation, setCouponValidation] = useState<CouponValidationResult | null>(null);
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
+  const [appliedCouponId, setAppliedCouponId] = useState<string | null>(null);
+  const [enableMonthlySubscription, setEnableMonthlySubscription] = useState(false);
   
   // Redirect if no campaign data or user not authenticated
   React.useEffect(() => {
@@ -102,18 +109,17 @@ export default function ReviewSubmitPage() {
     }).format(amount);
   };
 
-  const calculateTotalCost = () => {
+  const calculateBaseCost = () => {
     const numKiosks = kiosks.length || 1;
     // Calculate base cost: slots * rate * duration
     const baseCost = totalSlots * baseRate * subscriptionDuration;
     
-    // Apply subscription duration discount: 3 months = 10%, 6 months = 15%
-    const durationDiscount = subscriptionDuration === 3 ? 0.10 : subscriptionDuration === 6 ? 0.15 : 0;
-    const costAfterDurationDiscount = baseCost * (1 - durationDiscount);
+    // No subscription duration discount applied
+    const costAfterDurationDiscount = baseCost;
     
     // Apply additional kiosk discount if multiple kiosks
     if (numKiosks > 1) {
-      const firstKioskCost = totalSlots * baseRate * subscriptionDuration * (1 - durationDiscount);
+      const firstKioskCost = totalSlots * baseRate * subscriptionDuration;
       const additionalKiosks = numKiosks - 1;
       const discountedRate = baseRate * (1 - (discountPercent || 0) / 100);
       const additionalCost = totalSlots * discountedRate * subscriptionDuration * (1 - durationDiscount) * additionalKiosks;
@@ -121,6 +127,56 @@ export default function ReviewSubmitPage() {
     }
     
     return Math.round(costAfterDurationDiscount * 100) / 100;
+  };
+
+  const calculateTotalCost = () => {
+    const baseCost = calculateBaseCost();
+    // Apply coupon discount if valid
+    if (couponValidation?.valid && couponValidation.coupon) {
+      return couponValidation.coupon.finalAmount;
+    }
+    return baseCost;
+  };
+
+  const handleValidateCoupon = async () => {
+    if (!couponCode.trim() || !user) return;
+    
+    setValidatingCoupon(true);
+    setCouponValidation(null);
+    
+    try {
+      const baseCost = calculateBaseCost();
+      const validation = await CouponService.validateCoupon(couponCode.trim(), {
+        userId: user.id,
+        userRole: user.role,
+        amount: baseCost,
+        kioskIds: kiosks.map(k => k.id),
+        campaignType: 'campaign'
+      });
+      
+      setCouponValidation(validation);
+      
+      if (validation.valid && validation.coupon) {
+        setAppliedCouponId(validation.coupon.id);
+        addNotification('success', 'Coupon Applied', `Discount of ${formatCurrency(validation.coupon.discountAmount)} applied!`);
+      } else {
+        setAppliedCouponId(null);
+        addNotification('error', 'Invalid Coupon', validation.error || 'This coupon code is not valid');
+      }
+    } catch (error) {
+      console.error('Error validating coupon:', error);
+      addNotification('error', 'Error', 'Failed to validate coupon code');
+      setCouponValidation(null);
+      setAppliedCouponId(null);
+    } finally {
+      setValidatingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setCouponCode('');
+    setCouponValidation(null);
+    setAppliedCouponId(null);
   };
 
   const createCampaignAfterPayment = async () => {
@@ -155,6 +211,22 @@ export default function ReviewSubmitPage() {
       if (!newCampaign) {
         throw new Error('Failed to create campaign - please try again');
       }
+      
+      // Apply coupon if one was used
+      if (appliedCouponId && couponValidation?.valid && couponValidation.coupon) {
+        try {
+          await CouponService.applyCoupon(
+            appliedCouponId,
+            user.id,
+            newCampaign.id,
+            couponValidation.coupon.discountAmount
+          );
+        } catch (e) {
+          console.warn('Failed to record coupon usage:', e);
+          // Non-blocking - campaign is created, coupon usage can be recorded later
+        }
+      }
+      
       // Record payment history as succeeded
       try {
         await BillingService.createPaymentRecord({
@@ -162,13 +234,42 @@ export default function ReviewSubmitPage() {
           campaign_id: newCampaign.id,
           amount: totalCost,
           status: 'succeeded',
-          description: `Campaign ${campaignName}`
+          description: `Campaign ${campaignName}${appliedCouponId ? ` (Coupon: ${couponCode})` : ''}`
         });
       } catch (e) {
         // Non-blocking
         console.warn('Failed to record payment history', e);
       }
-      addNotification('success', 'Campaign Created!', `Your campaign "${campaignName}" has been created successfully and is now pending approval.`);
+      
+      // Create monthly subscription if enabled
+      if (enableMonthlySubscription) {
+        try {
+          const subscription = await BillingService.createSubscription(user.id, {
+            auto_renewal: true,
+            start_date: startDate,
+            end_date: endDate
+          });
+          
+          if (subscription) {
+            // Link subscription to campaign
+            const { error: linkError } = await supabase
+              .from('subscription_campaigns')
+              .insert([{
+                subscription_id: subscription.id,
+                campaign_id: newCampaign.id
+              }]);
+            
+            if (linkError) {
+              console.warn('Failed to link subscription to campaign:', linkError);
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to create monthly subscription:', e);
+          // Non-blocking - campaign is created, subscription can be set up later
+        }
+      }
+      
+      addNotification('success', 'Campaign Created!', `Your campaign "${campaignName}" has been created successfully${enableMonthlySubscription ? ' with monthly auto-renewal enabled' : ''} and is now pending approval.`);
       navigate('/client/campaigns');
     } catch (error) {
       console.error('Error creating campaign:', error);
@@ -339,7 +440,7 @@ export default function ReviewSubmitPage() {
                         {week.slots} slot{week.slots > 1 ? 's' : ''}
                       </p>
                       <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                        {formatCurrency(week.slots * baseRate * subscriptionDuration * (1 - (subscriptionDuration === 3 ? 0.10 : subscriptionDuration === 6 ? 0.15 : 0)))}
+                        {formatCurrency(week.slots * baseRate * subscriptionDuration)}
                       </p>
                     </div>
                   </div>
@@ -435,7 +536,7 @@ export default function ReviewSubmitPage() {
                 <div className="flex justify-between items-center text-green-700 dark:text-green-300">
                   <span className="text-xs md:text-sm">Subscription Discount:</span>
                   <span className="font-medium text-xs md:text-sm">
-                    {subscriptionDuration === 3 ? '10%' : subscriptionDuration === 6 ? '15%' : '0%'} OFF
+                    No discount
                   </span>
                 </div>
               )}
@@ -450,13 +551,87 @@ export default function ReviewSubmitPage() {
                   <span className="font-medium text-xs md:text-sm">{discountPercent}%</span>
                 </div>
               )}
-              <div className="border-t border-gray-200 dark:border-gray-600 pt-3">
+              {/* Coupon Code Section */}
+              <div className="border-t border-gray-200 dark:border-gray-600 pt-3 mt-3">
+                <div className="flex flex-col space-y-2">
+                  <label className="text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300">Have a coupon code?</label>
+                  <div className="flex space-x-2">
+                    <input
+                      type="text"
+                      value={couponCode}
+                      onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                      onKeyPress={(e) => e.key === 'Enter' && handleValidateCoupon()}
+                      placeholder="Enter coupon code"
+                      className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      disabled={validatingCoupon || !!appliedCouponId}
+                    />
+                    {appliedCouponId ? (
+                      <button
+                        onClick={handleRemoveCoupon}
+                        className="px-4 py-2 text-sm bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/30 transition-colors flex items-center space-x-1"
+                      >
+                        <X className="h-4 w-4" />
+                        <span>Remove</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleValidateCoupon}
+                        disabled={validatingCoupon || !couponCode.trim()}
+                        className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
+                      >
+                        <Ticket className="h-4 w-4" />
+                        <span>{validatingCoupon ? 'Validating...' : 'Apply'}</span>
+                      </button>
+                    )}
+                  </div>
+                  {couponValidation?.valid && couponValidation.coupon && (
+                    <div className="flex justify-between items-center text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/20 p-2 rounded">
+                      <span className="text-xs md:text-sm flex items-center space-x-1">
+                        <CheckCircle className="h-3 w-3" />
+                        <span>Coupon Applied: {couponValidation.coupon.code}</span>
+                      </span>
+                      <span className="font-medium text-xs md:text-sm">-{formatCurrency(couponValidation.coupon.discountAmount)}</span>
+                    </div>
+                  )}
+                  {couponValidation && !couponValidation.valid && (
+                    <div className="text-xs text-red-600 dark:text-red-400">{couponValidation.error}</div>
+                  )}
+                </div>
+              </div>
+              <div className="border-t border-gray-200 dark:border-gray-600 pt-3 mt-3">
+                {/* Monthly Subscription Option */}
+                <div className="mb-3">
+                  <label className="flex items-center space-x-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={enableMonthlySubscription}
+                      onChange={(e) => setEnableMonthlySubscription(e.target.checked)}
+                      className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2">
+                        <Repeat className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                        <span className="text-sm md:text-base font-medium text-gray-900 dark:text-white">
+                          Enable Monthly Auto-Renewal
+                        </span>
+                      </div>
+                      <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        Your campaign will automatically renew monthly at the same rate. You can cancel anytime.
+                      </p>
+                    </div>
+                  </label>
+                </div>
                 <div className="flex justify-between items-center">
                   <span className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">Total Cost:</span>
                   <span className="text-base md:text-lg font-bold text-blue-600 dark:text-blue-400">
                     {formatCurrency(calculateTotalCost())}
                   </span>
                 </div>
+                {enableMonthlySubscription && (
+                  <div className="mt-2 text-xs md:text-sm text-gray-600 dark:text-gray-400">
+                    <span className="text-blue-600 dark:text-blue-400 font-medium">Monthly:</span> {formatCurrency(calculateTotalCost() / subscriptionDuration)}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -512,6 +687,7 @@ export default function ReviewSubmitPage() {
           title: 'Campaign Payment',
           description: 'Pay to submit your campaign for review',
           price: Number(calculateTotalCost().toFixed(2)),
+          couponCode: appliedCouponId ? couponCode : undefined,
           rating: 5,
           reviews: 0,
           thumbnail: 'https://dummyimage.com/256x256/ededed/aaa&text=Campaign',

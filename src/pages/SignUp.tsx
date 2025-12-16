@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Mail, Lock, UserCircle2, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Mail, Lock, UserCircle2, Eye, EyeOff, AlertCircle, Shield } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useNotification } from '../contexts/NotificationContext';
 import AuthLayout from '../components/layouts/AuthLayout';
@@ -118,6 +118,11 @@ export default function SignUp() {
         return;
       }
 
+      // Determine the actual role - use invitationRole if available, otherwise use default role
+      const actualRole = (invitationRole && isInvitationValid) 
+        ? (invitationRole as 'client' | 'host' | 'designer' | 'admin')
+        : role;
+
       // Sign up the user with Supabase
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
@@ -125,7 +130,7 @@ export default function SignUp() {
         options: {
           data: { 
             name: name.trim(), 
-            role: role,
+            role: actualRole,
             address: address.trim()
           },
           emailRedirectTo: `${window.location.origin}/auth/callback`,
@@ -137,6 +142,7 @@ export default function SignUp() {
       }
 
       if (data.user) {
+
         // If this is an invitation signup, mark the invitation as accepted
         if (invitationToken && isInvitationValid) {
           try {
@@ -155,13 +161,47 @@ export default function SignUp() {
         }
 
         addNotification('success', 'Account Created!', 'Please check your email to confirm your account before signing in.');
-        // Fire-and-forget Mailchimp opt-in (non-blocking)
-        if ((import.meta as any)?.env?.VITE_ENABLE_MAILCHIMP && newsletterOptIn) {
+        
+        // Send admin notification for new client signup
+        if (actualRole === 'client' && data.user) {
+          try {
+            const { AdminNotificationService } = await import('../services/adminNotificationService');
+            await AdminNotificationService.sendNewClientSignupNotification({
+              type: 'new_client_signup',
+              user_id: data.user.id,
+              user_name: name.trim(),
+              user_email: email.trim(),
+              user_role: 'client',
+              created_at: new Date().toISOString()
+            });
+          } catch (notifError) {
+            console.error('Error sending admin notification:', notifError);
+            // Don't fail signup if notification fails
+          }
+        }
+        
+        // Automatically add clients and hosts to Mailchimp with appropriate tags (regardless of newsletterOptIn)
+        if ((import.meta as any)?.env?.VITE_ENABLE_MAILCHIMP && (actualRole === 'client' || actualRole === 'host')) {
           MailchimpService.subscribe({
             email: email.trim(),
             first_name: name.trim().split(' ')[0] || undefined,
             last_name: name.trim().split(' ').slice(1).join(' ') || undefined,
-            tags: ['signup']
+            tags: [actualRole], // Tag with 'client' or 'host'
+            role: actualRole as 'client' | 'host' | 'designer' | 'admin'
+          }).catch(() => {
+            // Silently fail - don't block signup if Mailchimp fails
+            console.warn('Failed to add user to Mailchimp:', email.trim());
+          });
+        }
+        
+        // Also handle newsletter opt-in for other roles or additional subscriptions
+        if ((import.meta as any)?.env?.VITE_ENABLE_MAILCHIMP && newsletterOptIn && actualRole !== 'client' && actualRole !== 'host') {
+          MailchimpService.subscribe({
+            email: email.trim(),
+            first_name: name.trim().split(' ')[0] || undefined,
+            last_name: name.trim().split(' ').slice(1).join(' ') || undefined,
+            tags: ['signup'],
+            role: actualRole as 'client' | 'host' | 'designer' | 'admin'
           }).catch(() => {});
         }
         navigate('/signin');

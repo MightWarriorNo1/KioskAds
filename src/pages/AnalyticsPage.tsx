@@ -2,11 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import DashboardLayout from '../components/layouts/DashboardLayout';
 import { useAuth } from '../contexts/AuthContext';
 import { AnalyticsService } from '../services/analyticsService';
-import { S3Service } from '../services/s3Service';
-import { AWSS3Service } from '../services/awsS3Service';
 import { MediaService } from '../services/mediaService';
+import { CampaignService, Campaign } from '../services/campaignService';
 import { useNotification } from '../contexts/NotificationContext';
-import { supabase } from '../lib/supabaseClient';
 
 interface CSVAnalyticsData {
   id: string;
@@ -37,19 +35,6 @@ interface CSVAnalyticsSummary {
 }
 
 
-interface S3AnalyticsData {
-  file_name: string;
-  data_date: string;
-  kiosk_id: string;
-  campaign_id: string;
-  media_id: string;
-  play_date: string;
-  play_duration: number;
-  play_count: number;
-  device_id?: string;
-  location?: string;
-  [key: string]: string | number | undefined;
-}
 
 export default function AnalyticsPage() {
   const { user } = useAuth();
@@ -59,12 +44,6 @@ export default function AnalyticsPage() {
   const [csvAnalyticsSummary, setCsvAnalyticsSummary] = useState<CSVAnalyticsSummary | null>(null);
   const [csvLoading, setCsvLoading] = useState(true);
   const [csvError, setCsvError] = useState<string | null>(null);
-  
-  // S3 Data States
-  const [s3AnalyticsData, setS3AnalyticsData] = useState<S3AnalyticsData[]>([]);
-  const [s3Loading, setS3Loading] = useState(false);
-  const [s3Error, setS3Error] = useState<string | null>(null);
-  const [s3ConfigLoaded, setS3ConfigLoaded] = useState(false);
   
   // User Media Assets States
   const [userMediaAssets, setUserMediaAssets] = useState<Array<{
@@ -188,118 +167,6 @@ export default function AnalyticsPage() {
     return filtered;
   };
 
-  const getFilteredS3Data = () => {
-    if (!s3AnalyticsData.length) return [];
-    
-    // Get number of CSV files to include based on date range
-    const csvFilesToInclude = dateRange === '1 Day' ? 1 : dateRange === '7 Days' ? 7 : dateRange === '30 Days' ? 30 : 90;
-    
-    // Group data by file_name to get unique files
-    const filesMap = new Map<string, S3AnalyticsData[]>();
-    s3AnalyticsData.forEach(row => {
-      if (!filesMap.has(row.file_name)) {
-        filesMap.set(row.file_name, []);
-      }
-      filesMap.get(row.file_name)!.push(row);
-    });
-    
-    // Get all unique file names and sort them (assuming they have some ordering)
-    const allFiles = Array.from(filesMap.keys()).sort();
-    
-    // Take the last N files based on the date range
-    const filesToInclude = allFiles.slice(-csvFilesToInclude);
-    
-    // Filter data to only include records from the selected files
-    const filtered = s3AnalyticsData.filter(row => {
-      return filesToInclude.includes(row.file_name);
-    });
-    
-    return filtered;
-  };
-
-  // Aggregate S3 data by asset ID (media_id)
-  const getAssetAnalytics = () => {
-    const filteredData = getFilteredS3Data();
-    
-    
-    // Group by media_id (asset ID) only
-    const assetMap = new Map<string, {
-      asset_id: string;
-      asset_name: string;
-      total_plays: number;
-      total_duration: number;
-      total_impressions: number;
-      data_points: number;
-      locations: Set<string>;
-      campaigns: Set<string>;
-      date_range: {
-        start: string;
-        end: string;
-      };
-    }>();
-
-    filteredData.forEach((row) => {
-      const assetId = row.media_id;
-      const assetName = String(row.asset_name || (assetId.includes('.') ? assetId : `${assetId}.mp4`));
-      
-      // Only process assets that match user's uploaded media assets
-      if (!isAssetFromUserMedia(assetId, assetName)) {
-        return; // Skip this row if it doesn't match user's media assets
-      }
-      
-      
-      if (!assetMap.has(assetId)) {
-        assetMap.set(assetId, {
-          asset_id: assetId,
-          asset_name: assetName,
-          total_plays: 0,
-          total_duration: 0,
-          total_impressions: 0,
-          data_points: 0,
-          locations: new Set(),
-          campaigns: new Set(),
-          date_range: {
-            start: row.data_date,
-            end: row.data_date
-          }
-        });
-      }
-
-      const asset = assetMap.get(assetId)!;
-      asset.total_plays += row.play_count || 0;
-      asset.total_duration += row.play_duration || 0;
-      asset.total_impressions += 1; // Each row represents an impression
-      asset.data_points += 1;
-      
-      if (row.location) {
-        asset.locations.add(row.location);
-      }
-      if (row.campaign_id) {
-        asset.campaigns.add(row.campaign_id);
-      }
-      
-      // Update date range
-      const rowDate = new Date(row.data_date);
-      const startDate = new Date(asset.date_range.start);
-      const endDate = new Date(asset.date_range.end);
-      
-      if (rowDate < startDate) {
-        asset.date_range.start = row.data_date;
-      }
-      if (rowDate > endDate) {
-        asset.date_range.end = row.data_date;
-      }
-    });
-
-    return Array.from(assetMap.values())
-      .map(asset => ({
-        ...asset,
-        locations: Array.from(asset.locations),
-        campaigns: Array.from(asset.campaigns),
-        display_date_range: `${formatDateInLATime(asset.date_range.start)} - ${formatDateInLATime(asset.date_range.end)}`
-      }))
-      .sort((a, b) => b.total_plays - a.total_plays); // Sort by total plays descending
-  };
 
 
 
@@ -559,30 +426,8 @@ export default function AnalyticsPage() {
     if (user) {
       fetchCSVAnalyticsData(true); // Initial CSV load
       fetchUserMediaAssets(); // Load user media assets for filtering
-      
-      // Load S3 configuration and data only once
-      if (!s3ConfigLoaded) {
-        const loadS3Data = async () => {
-          try {
-            console.log('Starting S3 data loading process...');
-            const config = await loadS3Configuration();
-            if (config) {
-              console.log('S3 config loaded, now fetching CSV files...');
-              await fetchS3CSVFiles(config);
-            } else {
-              console.log('No S3 config found, skipping S3 data fetch');
-            }
-          } catch (error) {
-            console.error('Error in S3 data loading process:', error);
-            setS3Error('Failed to load S3 data');
-            setS3Loading(false);
-          }
-        };
-        
-        loadS3Data();
-      }
     }
-  }, [user, fetchCSVAnalyticsData, fetchUserMediaAssets, loadS3Configuration, fetchS3CSVFiles, s3ConfigLoaded]);
+  }, [user, fetchCSVAnalyticsData, fetchUserMediaAssets]);
 
 
 
@@ -634,7 +479,7 @@ export default function AnalyticsPage() {
   };
 
 
-  if (csvLoading || s3Loading || mediaAssetsLoading) {
+  if (csvLoading || mediaAssetsLoading) {
     return (
       <DashboardLayout
         title="Analytics"
@@ -644,9 +489,7 @@ export default function AnalyticsPage() {
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <p className="text-gray-600">
-              {csvLoading ? 'Loading analytics reports...' : 
-               s3Loading ? 'Loading S3 CSV files...' : 
-               'Loading media assets...'}
+              {csvLoading ? 'Loading analytics reports...' : 'Loading media assets...'}
             </p>
           </div>
         </div>
@@ -654,7 +497,7 @@ export default function AnalyticsPage() {
     );
   }
 
-  if (csvError || s3Error) {
+  if (csvError) {
     return (
       <DashboardLayout
         title="Analytics"
@@ -667,30 +510,13 @@ export default function AnalyticsPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
               </svg>
             </div>
-            <p className="text-gray-600 mb-4">{csvError || s3Error}</p>
-            <div className="space-x-4">
-              {csvError && (
-                <button 
-                  onClick={() => fetchCSVAnalyticsData(true)}
-                  className="btn-primary"
-                >
-                  Retry CSV Data
-                </button>
-              )}
-              {s3Error && (
-                <button 
-                  onClick={async () => {
-                    const config = await loadS3Configuration();
-                    if (config) {
-                      await fetchS3CSVFiles(config);
-                    }
-                  }}
-                  className="btn-primary"
-                >
-                  Retry S3 Data
-                </button>
-              )}
-            </div>
+            <p className="text-gray-600 mb-4">{csvError}</p>
+            <button 
+              onClick={() => fetchCSVAnalyticsData(true)}
+              className="btn-primary"
+            >
+              Retry CSV Data
+            </button>
           </div>
         </div>
       </DashboardLayout>
@@ -699,50 +525,6 @@ export default function AnalyticsPage() {
 
   // Check if data is available
   const hasCSVData = csvAnalyticsData && csvAnalyticsData.length > 0;
-  const hasS3Data = s3AnalyticsData && s3AnalyticsData.length > 0;
-  const hasAnyData = hasCSVData || hasS3Data;
-
-  if (!hasAnyData && !csvLoading && !s3Loading) {
-    return (
-      <DashboardLayout
-        title="Analytics"
-        subtitle="Analytics reports and performance insights"
-      >
-        <div className="text-center py-12">
-          <p className="text-gray-500 mb-4">No data available</p>
-          <div className="space-x-4">
-            <button 
-              onClick={() => fetchCSVAnalyticsData(true)}
-              className="btn-primary"
-            >
-              Load CSV Data
-            </button>
-            <button 
-              onClick={async () => {
-                const config = await loadS3Configuration();
-                if (config) {
-                  await fetchS3CSVFiles(config);
-                }
-              }}
-              className="btn-primary"
-            >
-              Load S3 Data
-            </button>
-            <button 
-              onClick={testS3Connection}
-              className="px-3 sm:px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 text-xs sm:text-sm"
-            >
-              <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span className="hidden sm:inline">Test S3 Connection</span>
-              <span className="sm:hidden">Test S3</span>
-            </button>
-          </div>
-        </div>
-      </DashboardLayout>
-    );
-  }
 
   return (
     <DashboardLayout
@@ -774,15 +556,11 @@ export default function AnalyticsPage() {
             onClick={async () => {
               fetchCSVAnalyticsData(false); // Don't show loading state for refresh
               fetchUserMediaAssets(); // Refresh user media assets
-              const config = await loadS3Configuration();
-              if (config) {
-                await fetchS3CSVFiles(config);
-              }
             }}
-            disabled={csvLoading || s3Loading || mediaAssetsLoading}
+            disabled={csvLoading || mediaAssetsLoading}
             className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 text-xs sm:text-sm"
           >
-            <svg className={`w-3 h-3 sm:w-4 sm:h-4 ${(csvLoading || s3Loading || mediaAssetsLoading) ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className={`w-3 h-3 sm:w-4 sm:h-4 ${(csvLoading || mediaAssetsLoading) ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
             <span className="hidden sm:inline">Refresh Data</span>
@@ -791,472 +569,178 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      {/* Selected Period Analytics Summary */}
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Analytics Summary - {dateRange}</h2>
-        
-        {/* CSV Data Summary for Selected Period */}
-        {hasCSVData && (
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">AWS S3 Imported Data - {dateRange}</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-              {(() => {
-                const filteredData = getFilteredCSVData();
-                const totalImpressions = filteredData.reduce((sum, row) => sum + (row.impressions || 0), 0);
-                const totalPlays = filteredData.reduce((sum, row) => sum + (row.plays || 0), 0);
-                const totalClicks = filteredData.reduce((sum, row) => sum + (row.clicks || 0), 0);
-                const totalCompletions = filteredData.reduce((sum, row) => sum + (row.completions || 0), 0);
-                
-                return (
-                  <>
-                    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 p-4 sm:p-6">
-                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Impressions</h4>
-                      <div className="text-3xl font-bold text-blue-600 mb-2">{formatNumber(totalImpressions)}</div>
-                      <p className="text-gray-600 dark:text-white text-sm">Total impressions</p>
-                    </div>
-                    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 p-4 sm:p-6">
-                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Plays</h4>
-                      <div className="text-3xl font-bold text-green-600 mb-2">{formatNumber(totalPlays)}</div>
-                      <p className="text-gray-600 dark:text-white text-sm">Total plays</p>
-                    </div>
-                    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 p-4 sm:p-6">
-                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Clicks</h4>
-                      <div className="text-3xl font-bold text-purple-600 mb-2">{formatNumber(totalClicks)}</div>
-                      <p className="text-gray-600 dark:text-white text-sm">Total clicks</p>
-                    </div>
-                    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 p-4 sm:p-6">
-                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Completions</h4>
-                      <div className="text-3xl font-bold text-orange-600 mb-2">{formatNumber(totalCompletions)}</div>
-                      <p className="text-gray-600 dark:text-white text-sm">Total completions</p>
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
-          </div>
-        )}
+      {/* Estimated Impressions Analytics - Show First */}
+      <EstimatedImpressionsSection userId={user?.id} dateRange={dateRange} />
 
-        {/* S3 Data Summary for Selected Period */}
-        
-      </div>
-
-      {/* Asset Analytics Section */}
-      {hasS3Data && (
-        <div className="mb-12">
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
-            Shows total plays and duration for each unique Asset ID from the selected number of CSV files
-          </p>
-          
-          {(() => {
-            const assetData = getAssetAnalytics();
-            
-            if (assetData.length === 0) {
-              return (
-                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                  <p>No asset data found in the selected CSV files ({dateRange})</p>
-                  <p className="text-sm mt-2">
-                    Only assets that match your uploaded campaign media are displayed.
-                  </p>
-                </div>
-              );
-            }
-
-            // Calculate totals
-            const totalPlays = assetData.reduce((sum, asset) => sum + asset.total_plays, 0);
-            const totalDuration = assetData.reduce((sum, asset) => sum + asset.total_duration, 0);
-            
-            
-            return (
-              <>
-                {/* Summary Stats */}
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-6">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-                    <div>
-                      <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                        {assetData.length}
-                      </div>
-                      <div className="text-sm text-gray-600 dark:text-gray-300">Unique Assets</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                        {formatNumber(totalPlays)}
-                      </div>
-                      <div className="text-sm text-gray-600 dark:text-gray-300">Total Plays</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                        {formatNumber(totalDuration)}s
-                      </div>
-                      <div className="text-sm text-gray-600 dark:text-gray-300">Total Duration</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Asset Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {assetData.map((asset) => (
-                  <div key={asset.asset_id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-                    <div className="p-6 text-center">
-                      {/* Large Plays Count - Similar to image style */}
-                      <div className="flex flex-col items-center justify-center mb-6">
-                        <div className="text-5xl font-extrabold text-teal-500 dark:text-teal-400 mb-2">
-                          {formatNumber(asset.total_plays)}
-                        </div>
-                        <div className="text-lg text-gray-600 dark:text-gray-300">
-                          Plays
-                        </div>
-                      </div>
-
-                      {/* Asset Info */}
-                      <p className="text-gray-600 dark:text-gray-300 text-sm mb-2">
-                        Name: {asset.asset_name}
-                      </p>
-                      <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">
-                        Period: {asset.display_date_range}
-                      </p>
-
-                      {/* Ad Preview - Show actual media if available */}
-                      <div className="relative w-full h-48 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden mb-4 flex items-center justify-center">
-                        {(() => {
-                          // Debug: Log asset matching attempt
-                          console.log('Asset Matching Debug:', {
-                            assetName: asset.asset_name,
-                            assetId: asset.asset_id,
-                            userMediaAssets: userMediaAssets.map(ma => ({
-                              id: ma.id,
-                              file_name: ma.file_name,
-                              file_type: ma.file_type
-                            }))
-                          });
-                          
-                          // Find matching media asset in database
-                          const matchingAsset = userMediaAssets.find(mediaAsset => 
-                            mediaAsset.file_name === asset.asset_name || 
-                            mediaAsset.id === asset.asset_id
-                          );
-                          
-                          console.log('Matching Asset Found:', matchingAsset);
-                          
-                          if (matchingAsset) {
-                            // Get public URL for the media asset using file_path
-                            const { data } = supabase.storage
-                              .from('media-assets')
-                              .getPublicUrl(matchingAsset.file_path);
-                            
-                            const mediaUrl = data?.publicUrl;
-                            
-                            console.log('Media URL Debug:', {
-                              file_path: matchingAsset.file_path,
-                              mediaUrl: mediaUrl,
-                              file_type: matchingAsset.file_type
-                            });
-                            
-                            if (mediaUrl) {
-                                if (matchingAsset.file_type === 'image') {
-                                  return (
-                                    <img 
-                                      src={mediaUrl} 
-                                      alt={asset.asset_name}
-                                      className="w-full h-full object-contain"
-                                      style={{ objectFit: 'contain' }}
-                                      onError={(e) => {
-                                        // Fallback to placeholder if image fails to load
-                                        e.currentTarget.style.display = 'none';
-                                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                      }}
-                                    />
-                                  );
-                                } else if (matchingAsset.file_type === 'video') {
-                                  return (
-                                    <video 
-                                      src={mediaUrl} 
-                                      className="w-full h-full object-contain"
-                                      style={{ objectFit: 'contain' }}
-                                      controls
-                                      onError={(e) => {
-                                        // Fallback to placeholder if video fails to load
-                                        e.currentTarget.style.display = 'none';
-                                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                      }}
-                                    />
-                                  );
-                                }
-                            }
-                          }
-                          
-                          // Fallback to placeholder
-                          return (
-                            <div className="w-full h-full bg-gradient-to-br from-blue-500 to-teal-500 flex items-center justify-center">
-                              <div className="text-center text-white">
-                                <div className="text-2xl font-bold mb-2">📺</div>
-                                <div className="text-lg font-semibold">Ad Preview</div>
-                                <div className="text-sm opacity-80">{asset.asset_name}</div>
-                              </div>
-                            </div>
-                          );
-                        })()}
-                        
-                        {/* Overlay text - only show if no media found */}
-                        {/* <div className="absolute inset-0 flex flex-col justify-center items-center text-white text-center p-4 pointer-events-none">
-                          <span className="text-lg font-bold bg-black bg-opacity-50 px-3 py-2 rounded mb-2">
-                            I AM YOUR AD
-                          </span>
-                          <span className="text-sm bg-black bg-opacity-50 px-2 py-1 rounded">
-                            Asset: {asset.asset_name}
-                          </span>
-                        </div> */}
-                      </div>
-
-                      {/* Key Metrics - Total Count and Duration */}
-                      <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4">
-                        <div className="grid grid-cols-2 gap-4 text-center">
-                          <div>
-                            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                              {formatNumber(asset.total_plays)}
-                            </div>
-                            <div className="text-sm text-gray-600 dark:text-gray-300">Total Plays</div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">for this Asset ID</div>
-                          </div>
-                          <div>
-                            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                              {formatNumber(asset.total_duration)}s
-                            </div>
-                            <div className="text-sm text-gray-600 dark:text-gray-300">Total Duration</div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">across time period</div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Additional Metrics */}
-                      <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 dark:text-gray-300">
-                        <div className="text-center">
-                          <div className="font-bold text-purple-600 dark:text-purple-400">
-                            {formatNumber(asset.total_impressions)}
-                          </div>
-                          <div className="text-xs">Impressions</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="font-bold text-orange-600 dark:text-orange-400">
-                            {asset.data_points}
-                          </div>
-                          <div className="text-xs">Data Points</div>
-                        </div>
-                      </div>
-
-                      {/* Campaign and Location Info */}
-                      <div className="mt-4 text-xs text-gray-500 dark:text-gray-400">
-                        <div className="flex justify-between">
-                          <span>Campaigns: {asset.campaigns.length}</span>
-                          <span>Locations: {asset.locations.length}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                </div>
-              </>
-            );
-          })()}
-        </div>
-      )}
-
-      {/* Time Period Analytics Overview */}
-      <div className="mb-12">
-        {/* CSV Data Time Period Metrics */}
-        {hasCSVData && (
-          <div className="mb-8">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">AWS S3 Imported Data</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-              {[
-                { label: '1 Day', days: 1 },
-                { label: '7 Days', days: 7 },
-                { label: '30 Days', days: 30 },
-                { label: '90 Days', days: 90 }
-              ].map(({ label, days }) => {
-                const metrics = calculateTimePeriodMetrics(csvAnalyticsData, days);
-                return (
-                  <div key={label} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 p-4 sm:p-6">
-                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{label}</h4>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600 dark:text-gray-300">Impressions:</span>
-                        <span className="text-lg font-bold text-blue-600">{formatNumber(metrics.impressions)}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600 dark:text-gray-300">Plays:</span>
-                        <span className="text-lg font-bold text-green-600">{formatNumber(metrics.plays)}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600 dark:text-gray-300">Clicks:</span>
-                        <span className="text-lg font-bold text-purple-600">{formatNumber(metrics.clicks)}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600 dark:text-gray-300">Completions:</span>
-                        <span className="text-lg font-bold text-orange-600">{formatNumber(metrics.completions)}</span>
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                        {metrics.dataPoints} data points
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-      </div>
-
-      {/* AWS S3 Analytics Overview */}
-      {csvAnalyticsSummary && csvAnalyticsSummary.data_points_count > 0 && (
-        <div className="mb-12">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Analytics Data from AWS S3</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+      {/* CSV Data Summary for Selected Period */}
+      {hasCSVData && (
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Historical Analytics Data - {dateRange}</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {(() => {
               const filteredData = getFilteredCSVData();
               const totalImpressions = filteredData.reduce((sum, row) => sum + (row.impressions || 0), 0);
+              const totalPlays = filteredData.reduce((sum, row) => sum + (row.plays || 0), 0);
               const totalClicks = filteredData.reduce((sum, row) => sum + (row.clicks || 0), 0);
-              const avgEngagementRate = filteredData.length > 0 ? 
-                filteredData.reduce((sum, row) => sum + (row.engagement_rate || 0), 0) / filteredData.length : 0;
+              const totalCompletions = filteredData.reduce((sum, row) => sum + (row.completions || 0), 0);
               
               return (
                 <>
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 p-4 sm:p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">AWS S3 Impressions</h3>
-              <div className="text-3xl font-bold text-gray-900 mb-2">
-                      {formatNumber(totalImpressions)}
-              </div>
-                    <p className="text-gray-600 dark:text-white text-sm">From AWS S3 daily imports - {dateRange}</p>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 p-4 sm:p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">AWS S3 Clicks</h3>
-              <div className="text-3xl font-bold text-gray-900 mb-2">
-                      {formatNumber(totalClicks)}
-              </div>
-                    <p className="text-gray-600 dark:text-white text-sm">From AWS S3 daily imports - {dateRange}</p>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 p-4 sm:p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">AWS S3 Engagement Rate</h3>
-              <div className="text-3xl font-bold text-gray-900 mb-2">
-                      {formatPercentage(avgEngagementRate)}%
-              </div>
-                    <p className="text-gray-600 dark:text-white text-sm">Average - {dateRange}</p>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 p-4 sm:p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Data Points</h3>
-              <div className="text-3xl font-bold text-gray-900 mb-2">
-                      {formatNumber(filteredData.length)}
-              </div>
-                    <p className="text-gray-600 dark:text-white text-sm">Records from AWS S3 - {dateRange}</p>
-            </div>
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 p-4 sm:p-6">
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Impressions</h4>
+                    <div className="text-3xl font-bold text-blue-600 mb-2">{formatNumber(totalImpressions)}</div>
+                    <p className="text-gray-600 dark:text-white text-sm">Total impressions</p>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 p-4 sm:p-6">
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Plays</h4>
+                    <div className="text-3xl font-bold text-green-600 mb-2">{formatNumber(totalPlays)}</div>
+                    <p className="text-gray-600 dark:text-white text-sm">Total plays</p>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 p-4 sm:p-6">
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Clicks</h4>
+                    <div className="text-3xl font-bold text-purple-600 mb-2">{formatNumber(totalClicks)}</div>
+                    <p className="text-gray-600 dark:text-white text-sm">Total clicks</p>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 p-4 sm:p-6">
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Completions</h4>
+                    <div className="text-3xl font-bold text-orange-600 mb-2">{formatNumber(totalCompletions)}</div>
+                    <p className="text-gray-600 dark:text-white text-sm">Total completions</p>
+                  </div>
                 </>
               );
             })()}
           </div>
+        </div>
+      )}
+      
+    </DashboardLayout>
+  );
+}
 
-          {/* AWS S3 Data Table */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 p-4 sm:p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 sm:mb-6">Analytics Data Table (AWS S3)</h3>
-            {csvLoading ? (
-              <div className="flex items-center justify-center h-32">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                  <p className="text-gray-600">Loading analytics reports...</p>
-                </div>
-              </div>
-            ) : csvError ? (
-              <div className="text-center py-8 text-red-600">
-                <p>{csvError}</p>
-                <button 
-                  onClick={() => fetchCSVAnalyticsData(true)}
-                  className="mt-2 text-blue-600 hover:text-blue-800 underline"
-                >
-                  Try Again
-                </button>
-              </div>
-            ) : csvAnalyticsData.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <p>No data available</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                  <thead className="bg-gray-50 dark:bg-gray-700">
-                    <tr>
-                      <th className="px-2 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Date
-                      </th>
-                      <th className="px-2 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider hidden sm:table-cell">
-                        Location
-                      </th>
-                      <th className="px-2 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Impressions
-                      </th>
-                      <th className="px-2 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider hidden md:table-cell">
-                        Clicks
-                      </th>
-                      <th className="px-2 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Plays
-                      </th>
-                      <th className="px-2 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider hidden lg:table-cell">
-                        Completions
-                      </th>
-                      <th className="px-2 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider hidden lg:table-cell">
-                        Engagement Rate
-                      </th>
-                      <th className="px-2 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider hidden xl:table-cell">
-                        Click Rate
-                      </th>
-                      <th className="px-2 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider hidden xl:table-cell">
-                        Completion Rate
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    {getFilteredCSVData().map((row) => (
-                      <tr key={row.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                        <td className="px-2 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                          {new Date(row.data_date).toLocaleDateString()}
-                        </td>
-                        <td className="px-2 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white hidden sm:table-cell">
-                          {row.location || 'Unknown'}
-                        </td>
-                        <td className="px-2 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                          {formatNumber(row.impressions)}
-                        </td>
-                        <td className="px-2 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white hidden md:table-cell">
-                          {formatNumber(row.clicks)}
-                        </td>
-                        <td className="px-2 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                          {formatNumber(row.plays)}
-                        </td>
-                        <td className="px-2 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white hidden lg:table-cell">
-                          {formatNumber(row.completions)}
-                        </td>
-                        <td className="px-2 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white hidden lg:table-cell">
-                          {formatPercentage(row.engagement_rate)}%
-                        </td>
-                        <td className="px-2 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white hidden xl:table-cell">
-                          {formatPercentage(row.play_rate)}%
-                        </td>
-                        <td className="px-2 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white hidden xl:table-cell">
-                          {formatPercentage(row.completion_rate)}%
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+// Estimated Impressions Component
+function EstimatedImpressionsSection({ userId, dateRange }: { userId?: string; dateRange: string }) {
+  const [activeCampaigns, setActiveCampaigns] = useState<Campaign[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  // Average impressions per slot per day (configurable estimate)
+  const IMPRESSIONS_PER_SLOT_PER_DAY = 150;
+
+  useEffect(() => {
+    if (!userId) return;
+    
+    const fetchActiveCampaigns = async () => {
+      try {
+        setLoading(true);
+        const campaigns = await CampaignService.getUserCampaigns(userId);
+        // Filter for active campaigns
+        const active = campaigns.filter(c => c.status === 'active');
+        setActiveCampaigns(active);
+      } catch (error) {
+        console.error('Error fetching active campaigns:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchActiveCampaigns();
+  }, [userId]);
+
+  const calculateEstimates = () => {
+    if (!activeCampaigns.length) {
+      return {
+        totalSlots: 0,
+        estimatedImpressionsPerDay: 0,
+        estimatedImpressionsForRange: 0,
+        activeCampaignsCount: 0
+      };
+    }
+
+    const totalSlots = activeCampaigns.reduce((sum, campaign) => sum + (campaign.total_slots || 0), 0);
+    const estimatedImpressionsPerDay = totalSlots * IMPRESSIONS_PER_SLOT_PER_DAY;
+    
+    const days = dateRange === '1 Day' ? 1 : dateRange === '7 Days' ? 7 : dateRange === '30 Days' ? 30 : 90;
+    const estimatedImpressionsForRange = estimatedImpressionsPerDay * days;
+
+    return {
+      totalSlots,
+      estimatedImpressionsPerDay,
+      estimatedImpressionsForRange,
+      activeCampaignsCount: activeCampaigns.length
+    };
+  };
+
+  const estimates = calculateEstimates();
+  const formatNumber = (num: number) => num.toLocaleString();
+
+  if (loading) {
+    return (
+      <div className="mb-12">
+        <div className="flex items-center justify-center h-32">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-12">
+      <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Estimated Impressions Analytics</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 p-4 sm:p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Estimated Impressions Per Day</h3>
+          <div className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+            {formatNumber(estimates.estimatedImpressionsPerDay)}
           </div>
+          <p className="text-gray-600 dark:text-gray-400 text-sm">
+            Based on {estimates.totalSlots} total slots × {IMPRESSIONS_PER_SLOT_PER_DAY} impressions/slot/day
+          </p>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 p-4 sm:p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Estimated Impressions ({dateRange})</h3>
+          <div className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+            {formatNumber(estimates.estimatedImpressionsForRange)}
+          </div>
+          <p className="text-gray-600 dark:text-gray-400 text-sm">
+            Projected impressions for selected period
+          </p>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 p-4 sm:p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Active Campaigns</h3>
+          <div className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+            {estimates.activeCampaignsCount}
+          </div>
+          <p className="text-gray-600 dark:text-gray-400 text-sm">
+            Currently running campaigns
+          </p>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 p-4 sm:p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Total Slots</h3>
+          <div className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+            {formatNumber(estimates.totalSlots)}
+          </div>
+          <p className="text-gray-600 dark:text-gray-400 text-sm">
+            Across all active campaigns
+          </p>
+        </div>
+      </div>
+
+      {estimates.activeCampaignsCount === 0 && (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+          <p className="text-yellow-800 dark:text-yellow-200">
+            No active campaigns found. Start a campaign to see estimated impressions.
+          </p>
         </div>
       )}
 
-      {/* S3 CSV Files Overview */}
-      
-    </DashboardLayout>
+      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mt-4">
+        <p className="text-blue-800 dark:text-blue-200 text-sm">
+          <strong>Note:</strong> These are estimated impressions based on average performance metrics. 
+          Actual impressions may vary based on kiosk location, time of day, and audience engagement.
+        </p>
+      </div>
+    </div>
   );
 }

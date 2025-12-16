@@ -1760,16 +1760,42 @@ export class AdminService {
   // Create coupon
   static async createCoupon(couponData: any): Promise<string> {
     try {
+      const { scopes, ...couponFields } = couponData;
+      
       const { data, error } = await supabase
         .from('coupon_codes')
-        .insert(couponData)
+        .insert(couponFields)
         .select('id')
         .single();
 
       if (error) throw error;
 
-      await this.logAdminAction('create_coupon', 'coupon_code', data.id, couponData);
-      return data.id;
+      const couponId = data.id;
+
+      // Insert scopes if provided
+      if (scopes && Array.isArray(scopes) && scopes.length > 0) {
+        const scopeInserts = scopes
+          .filter(scope => scope.value && scope.value.trim() !== '')
+          .map(scope => ({
+            coupon_id: couponId,
+            scope_type: scope.type,
+            scope_value: scope.value
+          }));
+
+        if (scopeInserts.length > 0) {
+          const { error: scopeError } = await supabase
+            .from('coupon_scopes')
+            .insert(scopeInserts);
+
+          if (scopeError) {
+            console.error('Error inserting coupon scopes:', scopeError);
+            // Don't throw - coupon is created, scopes can be added later
+          }
+        }
+      }
+
+      await this.logAdminAction('create_coupon', 'coupon_code', couponId, couponData);
+      return couponId;
     } catch (error) {
       console.error('Error creating coupon:', error);
       throw error;
@@ -1779,12 +1805,48 @@ export class AdminService {
   // Update coupon
   static async updateCoupon(couponId: string, updates: any): Promise<void> {
     try {
+      const { scopes, ...couponFields } = updates;
+      
       const { error } = await supabase
         .from('coupon_codes')
-        .update({ ...updates, updated_at: new Date().toISOString() })
+        .update({ ...couponFields, updated_at: new Date().toISOString() })
         .eq('id', couponId);
 
       if (error) throw error;
+
+      // Update scopes if provided
+      if (scopes !== undefined) {
+        // Delete existing scopes
+        const { error: deleteError } = await supabase
+          .from('coupon_scopes')
+          .delete()
+          .eq('coupon_id', couponId);
+
+        if (deleteError) {
+          console.error('Error deleting coupon scopes:', deleteError);
+        }
+
+        // Insert new scopes
+        if (Array.isArray(scopes) && scopes.length > 0) {
+          const scopeInserts = scopes
+            .filter(scope => scope.value && scope.value.trim() !== '')
+            .map(scope => ({
+              coupon_id: couponId,
+              scope_type: scope.type,
+              scope_value: scope.value
+            }));
+
+          if (scopeInserts.length > 0) {
+            const { error: scopeError } = await supabase
+              .from('coupon_scopes')
+              .insert(scopeInserts);
+
+            if (scopeError) {
+              console.error('Error inserting coupon scopes:', scopeError);
+            }
+          }
+        }
+      }
 
       await this.logAdminAction('update_coupon', 'coupon_code', couponId, updates);
     } catch (error) {

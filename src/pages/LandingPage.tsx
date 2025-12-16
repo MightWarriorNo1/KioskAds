@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { MapPin, Clock, Upload, Check, Star ,Aperture, Camera, Videotape} from 'lucide-react';
+import { MapPin, Clock, Upload, Check, Star ,Aperture, Camera, Videotape, HelpCircle, BookOpen} from 'lucide-react';
 import SiteHeader from '../components/layouts/SiteHeader';
 import MarketingToolsManager from '../components/marketing/MarketingToolsManager';
 import MarketingOverlays from '../components/marketing/MarketingOverlays';
@@ -51,8 +51,17 @@ export default function LandingPage() {
               <div className="flex flex-col sm:flex-row gap-3 mb-6 sm:mb-8 justify-center lg:justify-start">
                 <Link to="/signin" className="btn-primary px-6 py-3 text-center">Get started</Link>
                 <Link to="/custom-ads" className="btn-secondary px-6 py-3 text-center">Custom Ads</Link>
-                <Link to="/kiosks" className="btn-secondary px-6 py-3 text-center">Learn more</Link>
+
+                <Link to="/how-it-works" className="btn-secondary px-6 py-3 text-center flex items-center justify-center gap-2">
+                  <BookOpen className="w-4 h-4" />
+                  How It Works
+                </Link>
+                <Link to="/faqs" className="btn-secondary px-6 py-3 text-center flex items-center justify-center gap-2">
+                  <HelpCircle className="w-4 h-4" />
+                  FAQs
+                </Link>
               </div>
+
               <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 text-sm sm:text-base text-gray-600 dark:text-gray-300 justify-center lg:justify-start">
                 <div className="flex items-center gap-2"><Star className="w-4 h-4 text-primary-600" /><span>Trusted by local brands</span></div>
                 <div className="flex items-center gap-2"><Clock className="w-4 h-4 text-primary-600" /><span>Launch in minutes</span></div>
