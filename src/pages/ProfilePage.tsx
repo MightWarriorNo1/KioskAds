@@ -7,6 +7,8 @@ import Button from '../components/ui/Button';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
 import { ProfileService, Profile } from '../services/profileService';
+import { BillingService, Subscription } from '../services/billingService';
+import { X, AlertTriangle } from 'lucide-react';
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -25,6 +27,9 @@ export default function ProfilePage() {
     confirmPassword: ''
   });
   const [appearance, setAppearance] = useState<'light' | 'dark' | 'system'>('system');
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [showCancelConfirm, setShowCancelConfirm] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     // Load theme preference
@@ -42,6 +47,7 @@ export default function ProfilePage() {
     // Load user profile data
     if (user) {
       loadProfile();
+      loadSubscriptions();
     }
   }, [user]);
 
@@ -185,6 +191,39 @@ export default function ProfilePage() {
     }
   };
 
+  const loadSubscriptions = async () => {
+    if (!user) return;
+    
+    try {
+      const userSubscriptions = await BillingService.getSubscriptions(user.id);
+      setSubscriptions(userSubscriptions);
+    } catch (error) {
+      console.error('Error loading subscriptions:', error);
+    }
+  };
+
+  const handleCancelSubscription = async (subscriptionId: string) => {
+    if (!user) return;
+    
+    try {
+      setCancelling(true);
+      const success = await BillingService.cancelSubscription(subscriptionId);
+      
+      if (success) {
+        addNotification('success', 'Subscription Cancelled', 'Your monthly subscription has been cancelled successfully.');
+        await loadSubscriptions();
+        setShowCancelConfirm(null);
+      } else {
+        addNotification('error', 'Cancellation Failed', 'Failed to cancel subscription. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error cancelling subscription:', error);
+      addNotification('error', 'Cancellation Failed', 'Failed to cancel subscription. Please try again.');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   if (loading) {
     return (
       <DashboardLayout
@@ -305,6 +344,109 @@ export default function ProfilePage() {
               </Button>
             </div>
           </form>
+        </Card>
+      </div>
+
+      {/* Subscription Management Section */}
+      <div className="mb-8">
+        <Card title="Subscription Management" subtitle="Manage your monthly subscriptions.">
+          {subscriptions.length === 0 ? (
+            <p className="text-gray-600 dark:text-gray-400">You don't have any active subscriptions.</p>
+          ) : (
+            <div className="space-y-4">
+              {subscriptions.map((subscription) => (
+                <div
+                  key={subscription.id}
+                  className={`p-4 rounded-lg border ${
+                    subscription.status === 'active'
+                      ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                      : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                  }`}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          subscription.status === 'active'
+                            ? 'bg-green-600 text-white'
+                            : 'bg-gray-600 text-white'
+                        }`}>
+                          {subscription.status.toUpperCase()}
+                        </span>
+                        {subscription.auto_renewal && subscription.status === 'active' && (
+                          <span className="px-2 py-1 rounded text-xs font-medium bg-blue-600 text-white">
+                            AUTO-RENEWAL
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                        <p><strong>Start Date:</strong> {new Date(subscription.start_date).toLocaleDateString()}</p>
+                        {subscription.end_date && (
+                          <p><strong>End Date:</strong> {new Date(subscription.end_date).toLocaleDateString()}</p>
+                        )}
+                        {subscription.linked_campaigns && subscription.linked_campaigns.length > 0 && (
+                          <p><strong>Linked Campaigns:</strong> {subscription.linked_campaigns.length}</p>
+                        )}
+                      </div>
+                    </div>
+                    {subscription.status === 'active' && (
+                      <div className="ml-4">
+                        {showCancelConfirm === subscription.id ? (
+                          <div className="bg-white dark:bg-gray-700 p-3 rounded-lg border border-red-200 dark:border-red-800 shadow-lg">
+                            <div className="flex items-start gap-2 mb-3">
+                              <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5" />
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">
+                                  Cancel Subscription?
+                                </p>
+                                <p className="text-xs text-gray-600 dark:text-gray-400">
+                                  This will cancel your monthly subscription. You can resubscribe at any time.
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => handleCancelSubscription(subscription.id)}
+                                disabled={cancelling}
+                              >
+                                {cancelling ? (
+                                  <>
+                                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                    Cancelling...
+                                  </>
+                                ) : (
+                                  'Confirm Cancel'
+                                )}
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => setShowCancelConfirm(null)}
+                                disabled={cancelling}
+                              >
+                                <X className="h-3 w-3 mr-1" />
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setShowCancelConfirm(subscription.id)}
+                          >
+                            Cancel Subscription
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
       </div>
 

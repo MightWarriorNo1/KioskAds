@@ -25,6 +25,7 @@ import AdminHostAdManagement from '../components/admin/AdminHostAdManagement';
 import AssetArchiveTester from '../components/admin/AssetArchiveTester';
 import SocialLinksManagement from '../components/admin/SocialLinksManagement';
 import HowItWorksManagement from '../components/admin/HowItWorksManagement';
+import FAQsManagement from '../components/admin/FAQsManagement';
 
 export default function AdminPortal() {
   return (
@@ -53,6 +54,7 @@ export default function AdminPortal() {
         <Route path="/phone-preview-demo" element={<PhonePreviewDemo />} />
         <Route path="/social-links" element={<SocialLinksManagement />} />
         <Route path="/how-it-works" element={<HowItWorksManagement />} />
+        <Route path="/faqs" element={<FAQsManagement />} />
         <Route path="/settings" element={<SystemSettings />} />
       </Routes>
     </AdminLayout>

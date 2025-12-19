@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { MapPin, Clock, Upload, Check, Star ,Aperture, Camera, Videotape, HelpCircle, BookOpen} from 'lucide-react';
+import { MapPin, Clock, Check, Star ,Aperture, Camera, Videotape} from 'lucide-react';
 import SiteHeader from '../components/layouts/SiteHeader';
 import MarketingToolsManager from '../components/marketing/MarketingToolsManager';
 import MarketingOverlays from '../components/marketing/MarketingOverlays';
@@ -51,15 +51,6 @@ export default function LandingPage() {
               <div className="flex flex-col sm:flex-row gap-3 mb-6 sm:mb-8 justify-center lg:justify-start">
                 <Link to="/signin" className="btn-primary px-6 py-3 text-center">Get started</Link>
                 <Link to="/custom-ads" className="btn-secondary px-6 py-3 text-center">Custom Ads</Link>
-
-                <Link to="/how-it-works" className="btn-secondary px-6 py-3 text-center flex items-center justify-center gap-2">
-                  <BookOpen className="w-4 h-4" />
-                  How It Works
-                </Link>
-                <Link to="/faqs" className="btn-secondary px-6 py-3 text-center flex items-center justify-center gap-2">
-                  <HelpCircle className="w-4 h-4" />
-                  FAQs
-                </Link>
               </div>
 
               <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 text-sm sm:text-base text-gray-600 dark:text-gray-300 justify-center lg:justify-start">
@@ -74,48 +65,6 @@ export default function LandingPage() {
                 alt="Digital kiosk showcase"
                 className="relative mx-auto w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-none lg:w-96 lg:h-[28rem] h-80 sm:h-96 md:h-[28rem] rounded-2xl object-cover shadow-elevated border border-slate-300 dark:border-slate-700"
               />
-            </div>
-          </div>
-        </div>
-      </section>
-
-{/* How It Works Section */}
-<section className="px-4 sm:px-6 py-16 sm:py-20">
-        <div className="max-w-7xl mx-auto text-center">
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4">How it works</h2>
-          <p className="text-lg sm:text-xl mb-12 sm:mb-16 max-w-3xl mx-auto text-black dark:text-white/90">
-            Get your ads in front of customers in just a few simple steps.
-          </p>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-            <div className="card p-6 sm:p-8 text-center text-black dark:text-white/90 hover:shadow-lg transition-shadow duration-300 relative">
-              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center text-sm font-bold">
-                1
-              </div>
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg">
-                <MapPin className="h-8 w-8 sm:h-10 sm:w-10" />
-              </div>
-              <h3 className="text-lg sm:text-xl font-semibold mb-2">Select locations</h3>
-              <p className="text-sm sm:text-base">Choose from our network of kiosks in high‑traffic areas.</p>
-            </div>
-            <div className="card p-6 sm:p-8 text-center text-black dark:text-white/90 hover:shadow-lg transition-shadow duration-300 relative">
-              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center text-sm font-bold">
-                2
-              </div>
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-green-500 to-green-600 text-white flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg">
-                <Clock className="h-8 w-8 sm:h-10 sm:w-10" />
-              </div>
-              <h3 className="text-lg sm:text-xl font-semibold mb-2">Set duration</h3>
-              <p className="text-sm sm:text-base">Choose your ad slot duration and campaign length.</p>
-            </div>
-            <div className="card p-6 sm:p-8 text-center text-black dark:text-white/90 hover:shadow-lg transition-shadow duration-300 relative sm:col-span-2 lg:col-span-1">
-              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center text-sm font-bold">
-                3
-              </div>
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 text-white flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg">
-                <Upload className="h-8 w-8 sm:h-10 sm:w-10" />
-              </div>
-              <h3 className="text-lg sm:text-xl font-semibold mb-2">Pay & upload</h3>
-              <p className="text-sm sm:text-base">Upload your ad content and pay securely online.</p>
             </div>
           </div>
         </div>

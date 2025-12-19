@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Mail, Lock, UserCircle2, Eye, EyeOff, AlertCircle, Shield } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
@@ -13,7 +13,6 @@ export default function SignUp() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
-  const [address, setAddress] = useState('');
   const [role] = useState<'client' | 'host' | 'designer' | 'admin'>('client');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -22,12 +21,76 @@ export default function SignUp() {
   const [errors, setErrors] = useState<{ name?: string; email?: string; password?: string; confirmPassword?: string }>({});
   const [newsletterOptIn, setNewsletterOptIn] = useState(true);
   const [invitationToken, setInvitationToken] = useState<string | null>(null);
-  const [invitationEmail, setInvitationEmail] = useState<string | null>(null);
   const [invitationRole, setInvitationRole] = useState<string | null>(null);
   const [isInvitationValid, setIsInvitationValid] = useState<boolean | null>(null);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { addNotification } = useNotification();
+
+  const validateInvitation = useCallback(async (token: string, email: string, role: string) => {
+    try {
+      // First, try to find the invitation without status filter to get better error info
+      const { data: allInvitations, error: fetchError } = await supabase
+        .from('invitations')
+        .select('*')
+        .eq('token', token)
+        .eq('email', email.toLowerCase().trim()) // Normalize email
+        .eq('role', role.toLowerCase().trim()); // Normalize role
+
+      if (fetchError) {
+        console.error('Error fetching invitation:', fetchError);
+        setIsInvitationValid(false);
+        addNotification('error', 'Invalid Invitation', 'This invitation is invalid or has expired.');
+        return;
+      }
+
+      if (!allInvitations || allInvitations.length === 0) {
+        setIsInvitationValid(false);
+        addNotification('error', 'Invalid Invitation', 'This invitation link is invalid. Please check the link or request a new invitation.');
+        return;
+      }
+
+      const invitation = allInvitations[0];
+
+      // Check status - allow pending and sent, reject expired and revoked
+      if (invitation.status === 'expired' || invitation.status === 'revoked') {
+        setIsInvitationValid(false);
+        if (invitation.status === 'expired') {
+          addNotification('error', 'Invitation Expired', 'This invitation has expired. Please request a new invitation.');
+        } else {
+          addNotification('error', 'Invitation Revoked', 'This invitation has been revoked. Please contact support if you believe this is an error.');
+        }
+        return;
+      }
+
+      // Only accept pending and sent statuses
+      if (invitation.status !== 'pending' && invitation.status !== 'sent') {
+        if (invitation.status === 'accepted') {
+          setIsInvitationValid(false);
+          addNotification('error', 'Invitation Already Used', 'This invitation has already been used. If you need to sign up, please use the regular signup page.');
+        } else {
+          setIsInvitationValid(false);
+          addNotification('error', 'Invalid Invitation', 'This invitation is in an invalid state. Please request a new invitation.');
+        }
+        return;
+      }
+
+      // Check if invitation is expired (by date)
+      const now = new Date();
+      const expiresAt = new Date(invitation.expires_at);
+      if (now > expiresAt) {
+        setIsInvitationValid(false);
+        addNotification('error', 'Invitation Expired', 'This invitation has expired. Please request a new invitation.');
+        return;
+      }
+
+      setIsInvitationValid(true);
+    } catch (error) {
+      console.error('Error validating invitation:', error);
+      setIsInvitationValid(false);
+      addNotification('error', 'Error', 'Failed to validate invitation. Please try again or contact support.');
+    }
+  }, [addNotification]);
 
   // Handle invitation parameters
   useEffect(() => {
@@ -36,50 +99,20 @@ export default function SignUp() {
     const roleParam = searchParams.get('role');
 
     if (token && emailParam && roleParam) {
-      setInvitationToken(token);
-      setInvitationEmail(emailParam);
-      setInvitationRole(roleParam);
-      setEmail(emailParam);
+      // Decode URL-encoded parameters
+      const decodedToken = decodeURIComponent(token);
+      const decodedEmail = decodeURIComponent(emailParam);
+      const decodedRole = decodeURIComponent(roleParam);
+      
+      setInvitationToken(decodedToken);
+      setInvitationRole(decodedRole);
+      setEmail(decodedEmail);
       // Role is now fixed to 'client' for all signups
       
       // Validate invitation
-      validateInvitation(token, emailParam, roleParam);
+      validateInvitation(decodedToken, decodedEmail, decodedRole);
     }
-  }, [searchParams]);
-
-  const validateInvitation = async (token: string, email: string, role: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('invitations')
-        .select('*')
-        .eq('token', token)
-        .eq('email', email)
-        .eq('role', role)
-        .eq('status', 'sent')
-        .single();
-
-      if (error || !data) {
-        setIsInvitationValid(false);
-        addNotification('error', 'Invalid Invitation', 'This invitation is invalid or has expired.');
-        return;
-      }
-
-      // Check if invitation is expired
-      const now = new Date();
-      const expiresAt = new Date(data.expires_at);
-      if (now > expiresAt) {
-        setIsInvitationValid(false);
-        addNotification('error', 'Invitation Expired', 'This invitation has expired.');
-        return;
-      }
-
-      setIsInvitationValid(true);
-    } catch (error) {
-      console.error('Error validating invitation:', error);
-      setIsInvitationValid(false);
-      addNotification('error', 'Error', 'Failed to validate invitation.');
-    }
-  };
+  }, [searchParams, validateInvitation]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,8 +163,7 @@ export default function SignUp() {
         options: {
           data: { 
             name: name.trim(), 
-            role: actualRole,
-            address: address.trim()
+            role: actualRole
           },
           emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
@@ -181,7 +213,7 @@ export default function SignUp() {
         }
         
         // Automatically add clients and hosts to Mailchimp with appropriate tags (regardless of newsletterOptIn)
-        if ((import.meta as any)?.env?.VITE_ENABLE_MAILCHIMP && (actualRole === 'client' || actualRole === 'host')) {
+        if ((import.meta.env as { VITE_ENABLE_MAILCHIMP?: string })?.VITE_ENABLE_MAILCHIMP && (actualRole === 'client' || actualRole === 'host')) {
           MailchimpService.subscribe({
             email: email.trim(),
             first_name: name.trim().split(' ')[0] || undefined,
@@ -195,7 +227,7 @@ export default function SignUp() {
         }
         
         // Also handle newsletter opt-in for other roles or additional subscriptions
-        if ((import.meta as any)?.env?.VITE_ENABLE_MAILCHIMP && newsletterOptIn && actualRole !== 'client' && actualRole !== 'host') {
+        if ((import.meta.env as { VITE_ENABLE_MAILCHIMP?: string })?.VITE_ENABLE_MAILCHIMP && newsletterOptIn && actualRole !== 'client' && actualRole !== 'host') {
           MailchimpService.subscribe({
             email: email.trim(),
             first_name: name.trim().split(' ')[0] || undefined,
@@ -208,18 +240,26 @@ export default function SignUp() {
       } else {
         throw new Error('No user data returned from signup');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Signup error:', error);
       
+      // Extract error message from various error types
+      let errorMessage = 'An unexpected error occurred';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (error && typeof error === 'object' && 'message' in error) {
+        errorMessage = String(error.message);
+      }
+      
       // Handle specific error cases
-      if (error.message?.includes('Database error')) {
+      if (errorMessage.includes('Database error')) {
         addNotification('error', 'Sign Up Failed', 'There was an issue creating your account. Please try again or contact support.');
-      } else if (error.message?.includes('already registered')) {
+      } else if (errorMessage.includes('already registered')) {
         addNotification('error', 'Email Already Exists', 'An account with this email already exists. Please sign in instead.');
-      } else if (error.message?.includes('password')) {
+      } else if (errorMessage.includes('password')) {
         addNotification('error', 'Invalid Password', 'Please ensure your password meets the requirements.');
       } else {
-        addNotification('error', 'Sign Up Failed', error.message || 'An unexpected error occurred. Please try again.');
+        addNotification('error', 'Sign Up Failed', errorMessage);
       }
     } finally {
       setIsLoading(false);
@@ -296,18 +336,6 @@ export default function SignUp() {
                   <span>{errors.name}</span>
                 </div>
               )}
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Address</label>
-            <div className="relative group">
-              <input 
-                type="text"
-                className="w-full px-4 py-3 border-2 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 bg-white dark:bg-slate-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 hover:border-gray-400 dark:hover:border-gray-600 border-gray-300 dark:border-gray-600 focus:bg-white dark:focus:bg-slate-700"
-                placeholder="Enter your address"
-                value={address} 
-                onChange={(e) => setAddress(e.target.value)}
-              />
             </div>
           </div>
           <div>

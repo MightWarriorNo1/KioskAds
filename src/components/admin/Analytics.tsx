@@ -88,6 +88,15 @@ export default function HostAnalytics() {
     return num.toFixed(2);
   };
 
+  // Calculate estimated impressions per day
+  // Every ad runs every 5 minutes, so in 24 hours (1440 minutes) = 1440 / 5 = 288 impressions per day per ad
+  const calculateEstimatedImpressionsPerDay = (numberOfAds: number): number => {
+    const minutesPerDay = 24 * 60; // 1440 minutes
+    const adIntervalMinutes = 5; // Every 5 minutes
+    const impressionsPerAdPerDay = minutesPerDay / adIntervalMinutes; // 288 impressions per ad per day
+    return numberOfAds * impressionsPerAdPerDay;
+  };
+
   // Fetch user's media assets for filtering
   const fetchUserMediaAssets = useCallback(async () => {
     if (!user) return;
@@ -659,13 +668,15 @@ export default function HostAnalytics() {
           {hasCSVData && (
             <div className="mb-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">AWS S3 Imported Data - {dateRange}</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
                 {(() => {
                   const filteredData = getFilteredCSVData();
                   const totalImpressions = filteredData.reduce((sum, row) => sum + (row.impressions || 0), 0);
                   const totalPlays = filteredData.reduce((sum, row) => sum + (row.plays || 0), 0);
                   const totalClicks = filteredData.reduce((sum, row) => sum + (row.clicks || 0), 0);
                   const totalCompletions = filteredData.reduce((sum, row) => sum + (row.completions || 0), 0);
+                  const uniqueAssets = new Set(filteredData.map(row => row.file_name)).size;
+                  const estimatedImpressionsPerDay = calculateEstimatedImpressionsPerDay(uniqueAssets);
                   
                   return (
                     <>
@@ -688,6 +699,12 @@ export default function HostAnalytics() {
                         <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Completions</h4>
                         <div className="text-3xl font-bold text-orange-600 mb-2">{formatNumber(totalCompletions)}</div>
                         <p className="text-gray-600 dark:text-white text-sm">Total completions</p>
+                      </div>
+                      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 p-4 sm:p-6">
+                        <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Est. Impressions/Day</h4>
+                        <div className="text-3xl font-bold text-teal-600 mb-2">{formatNumber(estimatedImpressionsPerDay)}</div>
+                        <p className="text-gray-600 dark:text-white text-sm">Based on 5-min intervals</p>
+                        <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">({uniqueAssets} unique assets)</p>
                       </div>
                     </>
                   );
@@ -727,7 +744,7 @@ export default function HostAnalytics() {
                 <>
                   {/* Summary Stats */}
                   <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
                       <div>
                         <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                           {assetData.length}
@@ -745,6 +762,13 @@ export default function HostAnalytics() {
                           {formatNumber(totalDuration)}s
                         </div>
                         <div className="text-sm text-gray-600 dark:text-gray-300">Total Duration</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold text-teal-600 dark:text-teal-400">
+                          {formatNumber(calculateEstimatedImpressionsPerDay(assetData.length))}
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-300">Est. Impressions/Day</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">(5-min intervals)</div>
                       </div>
                     </div>
                   </div>

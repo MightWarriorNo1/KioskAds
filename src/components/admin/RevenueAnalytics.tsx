@@ -324,10 +324,21 @@ export default function RevenueAnalytics() {
       pendingPayouts: number;
     };
   }) => {
+    // Calculate monthly revenue (current month) - always use all payments, not filtered ones
+    const currentMonth = new Date();
+    const monthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+    const monthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+    
+    const monthlyPayments = allData?.allPayments?.filter(payment => {
+      const paymentDate = new Date(payment.payment_date);
+      return paymentDate >= monthStart && paymentDate <= monthEnd;
+    }) || [];
+    const monthlyRevenue = monthlyPayments.reduce((sum, payment) => sum + payment.amount, 0);
+
     if (!filteredPayments || filteredPayments.length === 0) {
       return {
         totalRevenue: 0,
-        monthlyRevenue: 0,
+        monthlyRevenue,
         revenueGrowth: 0,
         totalTransactions: 0,
         averageTransactionValue: 0,
@@ -358,17 +369,6 @@ export default function RevenueAnalytics() {
     });
     
     const totalPlatformRevenue = totalRevenue - totalHostCommission;
-
-    // Calculate monthly revenue (current month)
-    const currentMonth = new Date();
-    const monthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-    const monthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
-    
-    const monthlyPayments = filteredPayments.filter(payment => {
-      const paymentDate = new Date(payment.payment_date);
-      return paymentDate >= monthStart && paymentDate <= monthEnd;
-    });
-    const monthlyRevenue = monthlyPayments.reduce((sum, payment) => sum + payment.amount, 0);
 
     // Calculate growth (compare with previous period)
     const previousStart = new Date();

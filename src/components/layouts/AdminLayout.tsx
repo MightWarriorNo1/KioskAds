@@ -24,6 +24,8 @@ import {
   Upload,
   Clock,
   Share2,
+  HelpCircle,
+  PlayCircle,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import NotificationToast from '../NotificationToast';
@@ -53,6 +55,8 @@ const navigation = [
   { name: 'Revenue Analytics', href: '/admin/revenue', icon: DollarSign },
   // { name: 'Phone Preview Demo', href: '/admin/phone-preview-demo', icon: Smartphone },
   { name: 'Social Links', href: '/admin/social-links', icon: Share2 },
+  { name: 'How It Works', href: '/admin/how-it-works', icon: PlayCircle },
+  { name: 'FAQs', href: '/admin/faqs', icon: HelpCircle },
   { name: 'System Settings', href: '/admin/settings', icon: SettingsIcon },
 ];
 

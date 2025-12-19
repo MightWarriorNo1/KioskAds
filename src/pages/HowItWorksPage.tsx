@@ -1,11 +1,25 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Loader2 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import SiteHeader from '../components/layouts/SiteHeader';
+import Footer from '../components/shared/Footer';
 
 export default function HowItWorksPage() {
+  const { user } = useAuth();
   const [title, setTitle] = useState('How It Works');
   const [description, setDescription] = useState('');
-  const [youtubeUrl, setYoutubeUrl] = useState('');
+  
+  // Client video settings
+  const [clientVideoTitle, setClientVideoTitle] = useState('');
+  const [clientVideoDescription, setClientVideoDescription] = useState('');
+  const [clientYoutubeUrl, setClientYoutubeUrl] = useState('');
+  
+  // Host video settings
+  const [hostVideoTitle, setHostVideoTitle] = useState('');
+  const [hostVideoDescription, setHostVideoDescription] = useState('');
+  const [hostYoutubeUrl, setHostYoutubeUrl] = useState('');
+  
   const [isHidden, setIsHidden] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -24,8 +38,13 @@ export default function HowItWorksPage() {
         .in('key', [
           'how_it_works_title',
           'how_it_works_description',
-          'how_it_works_youtube_url',
-          'how_it_works_hidden'
+          'how_it_works_hidden',
+          'how_it_works_client_video_title',
+          'how_it_works_client_video_description',
+          'how_it_works_client_youtube_url',
+          'how_it_works_host_video_title',
+          'how_it_works_host_video_description',
+          'how_it_works_host_youtube_url'
         ])
         .eq('is_public', true);
 
@@ -36,8 +55,17 @@ export default function HowItWorksPage() {
 
       setTitle(settingsMap.get('how_it_works_title') || 'How It Works');
       setDescription(settingsMap.get('how_it_works_description') || '');
-      setYoutubeUrl(settingsMap.get('how_it_works_youtube_url') || '');
       setIsHidden(settingsMap.get('how_it_works_hidden') === true || settingsMap.get('how_it_works_hidden') === 'true');
+      
+      // Client video settings
+      setClientVideoTitle(settingsMap.get('how_it_works_client_video_title') || '');
+      setClientVideoDescription(settingsMap.get('how_it_works_client_video_description') || '');
+      setClientYoutubeUrl(settingsMap.get('how_it_works_client_youtube_url') || '');
+      
+      // Host video settings
+      setHostVideoTitle(settingsMap.get('how_it_works_host_video_title') || '');
+      setHostVideoDescription(settingsMap.get('how_it_works_host_video_description') || '');
+      setHostYoutubeUrl(settingsMap.get('how_it_works_host_youtube_url') || '');
     } catch (error) {
       console.error('Error loading how it works page settings:', error);
     } finally {
@@ -64,7 +92,15 @@ export default function HowItWorksPage() {
     return null;
   };
 
-  const videoId = getYouTubeVideoId(youtubeUrl);
+  // Determine which video to show based on user role
+  const isHost = user?.role === 'host';
+  const isClient = user?.role === 'client';
+  
+  const activeYoutubeUrl = isHost ? hostYoutubeUrl : isClient ? clientYoutubeUrl : (clientYoutubeUrl || hostYoutubeUrl);
+  const activeVideoTitle = isHost ? hostVideoTitle : isClient ? clientVideoTitle : '';
+  const activeVideoDescription = isHost ? hostVideoDescription : isClient ? clientVideoDescription : '';
+  
+  const videoId = getYouTubeVideoId(activeYoutubeUrl);
 
   // If page is hidden, show 404-like message
   if (isHidden) {
@@ -120,7 +156,7 @@ export default function HowItWorksPage() {
           </div>
         )}
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Getting Started</h2>
           <div className="space-y-4 text-gray-700 dark:text-gray-300">
             <div>

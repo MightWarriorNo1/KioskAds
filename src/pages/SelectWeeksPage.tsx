@@ -462,7 +462,7 @@ export default function SelectWeeksPage() {
                           setSubscriptionDuration(1);
                           setCustomMonths('');
                         }}
-                        className={`w-full p-4 rounded-xl border-2 transition-all ${
+                        className={`w-auto max-w-xs p-4 rounded-xl border-2 transition-all ${
                           subscriptionDuration === 1 && !customMonths
                             ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 ring-2 ring-blue-200 dark:ring-blue-800'
                             : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600'
@@ -476,7 +476,7 @@ export default function SelectWeeksPage() {
                       {/* Custom Months Input */}
                       <div className="space-y-2">
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Custom Duration (Months)
+                          Monthly Subscription
                         </label>
                         <div className="flex gap-2">
                           <input
@@ -503,7 +503,7 @@ export default function SelectWeeksPage() {
                               }
                             }}
                             placeholder="Enter number of months"
-                            className={`flex-1 px-4 py-3 border-2 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 bg-white dark:bg-slate-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 ${
+                            className={`w-auto max-w-xs px-4 py-3 border-2 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 bg-white dark:bg-slate-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 ${
                               customMonths && subscriptionDuration > 1
                                 ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                                 : 'border-gray-300 dark:border-gray-600'

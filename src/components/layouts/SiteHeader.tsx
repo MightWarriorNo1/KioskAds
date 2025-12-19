@@ -172,6 +172,26 @@ export default function SiteHeader() {
             </Link>
           )}
           <Link 
+            to="/how-it-works" 
+            className={`transition-colors ${
+              isActive('/how-it-works') 
+                ? 'text-primary-600 dark:text-primary-400 font-semibold' 
+                : 'text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
+            }`}
+          >
+            How It Works
+          </Link>
+          <Link 
+            to="/faqs" 
+            className={`transition-colors ${
+              isActive('/faqs') 
+                ? 'text-primary-600 dark:text-primary-400 font-semibold' 
+                : 'text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
+            }`}
+          >
+            FAQs
+          </Link>
+          <Link 
             to="/contact" 
             className={`transition-colors ${
               isActive('/contact') 
@@ -264,6 +284,28 @@ export default function SiteHeader() {
                 Our Partners
               </Link>
             )}
+            <Link 
+              to="/how-it-works" 
+              onClick={() => setMobileMenuOpen(false)}
+              className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                isActive('/how-it-works') 
+                  ? 'text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20' 
+                  : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800'
+              }`}
+            >
+              How It Works
+            </Link>
+            <Link 
+              to="/faqs" 
+              onClick={() => setMobileMenuOpen(false)}
+              className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                isActive('/faqs') 
+                  ? 'text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20' 
+                  : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800'
+              }`}
+            >
+              FAQs
+            </Link>
             <Link 
               to="/contact" 
               onClick={() => setMobileMenuOpen(false)}

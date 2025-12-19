@@ -133,6 +133,15 @@ export default function Analytics() {
     addNotification('success', 'Data Refreshed', 'Analytics data has been refreshed');
   };
 
+  // Calculate estimated impressions per day
+  // Every ad runs every 5 minutes, so in 24 hours (1440 minutes) = 1440 / 5 = 288 impressions per day per ad
+  const calculateEstimatedImpressionsPerDay = (numberOfAds: number): number => {
+    const minutesPerDay = 24 * 60; // 1440 minutes
+    const adIntervalMinutes = 5; // Every 5 minutes
+    const impressionsPerAdPerDay = minutesPerDay / adIntervalMinutes; // 288 impressions per ad per day
+    return numberOfAds * impressionsPerAdPerDay;
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -190,7 +199,7 @@ export default function Analytics() {
           Shows total plays and duration for each unique Asset ID within the selected time period
         </p>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="text-center">
             <div className="text-3xl font-bold text-blue-600">{summary.uniqueAssets}</div>
             <div className="text-sm text-gray-600">Unique Assets</div>
@@ -202,6 +211,11 @@ export default function Analytics() {
           <div className="text-center">
             <div className="text-3xl font-bold text-purple-600">{summary.totalDuration.toFixed(3)}s</div>
             <div className="text-sm text-gray-600">Total Duration</div>
+          </div>
+          <div className="text-center">
+            <div className="text-3xl font-bold text-orange-600">{calculateEstimatedImpressionsPerDay(summary.uniqueAssets).toLocaleString()}</div>
+            <div className="text-sm text-gray-600">Est. Impressions/Day</div>
+            <div className="text-xs text-gray-500 mt-1">(Based on 5-min intervals)</div>
           </div>
         </div>
       </div>

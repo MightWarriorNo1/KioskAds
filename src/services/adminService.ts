@@ -758,13 +758,95 @@ export class AdminService {
         supabase.from('host_ads').select('*', { count: 'exact', head: true })
       ]);
 
-      // Get platform revenue from invoices
-      const { data: revenueData } = await supabase
-        .from('invoices')
-        .select('amount')
-        .eq('status', 'paid');
+      // Calculate platform revenue correctly: Total revenue - Host commission
+      // Get all succeeded payments
+      const { data: paymentsData } = await supabase
+        .from('payment_history')
+        .select('id, amount, campaign_id')
+        .eq('status', 'succeeded');
 
-      const platformRevenue = revenueData?.reduce((sum, invoice) => sum + Number(invoice.amount), 0) || 0;
+      let platformRevenue = 0;
+      
+      if (paymentsData && paymentsData.length > 0) {
+        const totalRevenue = paymentsData.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+        
+        // Get campaign IDs that have payments
+        const campaignIdsWithPayments = [...new Set(
+          paymentsData
+            .map(p => p.campaign_id)
+            .filter(Boolean) as string[]
+        )];
+        
+        let totalHostCommission = 0;
+        const hostCommissionRate = 0.70; // 70% commission for hosts
+        
+        if (campaignIdsWithPayments.length > 0) {
+          // Find which campaigns have hosts via kiosk assignments
+          // Get kiosks for these campaigns
+          const { data: kioskCampaigns } = await supabase
+            .from('kiosk_campaigns')
+            .select('campaign_id, kiosk_id')
+            .in('campaign_id', campaignIdsWithPayments);
+          
+          // Also check campaigns.selected_kiosk_ids
+          const { data: campaigns } = await supabase
+            .from('campaigns')
+            .select('id, selected_kiosk_ids')
+            .in('id', campaignIdsWithPayments);
+          
+          // Collect all kiosk IDs
+          const allKioskIds = new Set<string>();
+          kioskCampaigns?.forEach(kc => {
+            if (kc.kiosk_id) allKioskIds.add(kc.kiosk_id);
+          });
+          campaigns?.forEach(c => {
+            if (c.selected_kiosk_ids && Array.isArray(c.selected_kiosk_ids)) {
+              c.selected_kiosk_ids.forEach((kid: string) => allKioskIds.add(kid));
+            }
+          });
+          
+          // Check which kiosks have active host assignments
+          if (allKioskIds.size > 0) {
+            const { data: hostAssignments } = await supabase
+              .from('host_kiosks')
+              .select('kiosk_id')
+              .in('kiosk_id', Array.from(allKioskIds))
+              .eq('status', 'active');
+            
+            const kiosksWithHosts = new Set(
+              hostAssignments?.map(ha => ha.kiosk_id) || []
+            );
+            
+            // Build campaign -> has host map
+            const campaignHasHost = new Set<string>();
+            
+            // Check via kiosk_campaigns
+            kioskCampaigns?.forEach(kc => {
+              if (kc.campaign_id && kc.kiosk_id && kiosksWithHosts.has(kc.kiosk_id)) {
+                campaignHasHost.add(kc.campaign_id);
+              }
+            });
+            
+            // Check via selected_kiosk_ids
+            campaigns?.forEach(c => {
+              if (c.selected_kiosk_ids && Array.isArray(c.selected_kiosk_ids)) {
+                const hasHost = c.selected_kiosk_ids.some((kid: string) => kiosksWithHosts.has(kid));
+                if (hasHost) campaignHasHost.add(c.id);
+              }
+            });
+            
+            // Calculate host commission for payments that have hosts
+            paymentsData.forEach(payment => {
+              if (payment.campaign_id && campaignHasHost.has(payment.campaign_id)) {
+                totalHostCommission += Number(payment.amount || 0) * hostCommissionRate;
+              }
+            });
+          }
+        }
+        
+        // Platform revenue = Total revenue - Host commission
+        platformRevenue = totalRevenue - totalHostCommission;
+      }
 
       // Calculate monthly growth (simplified)
       const { count: lastMonthUsers } = await supabase

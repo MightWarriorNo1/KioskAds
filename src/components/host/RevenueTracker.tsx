@@ -102,8 +102,8 @@ export default function RevenueTracker() {
         setRevenueData(revenueDataResult);
         setRevenueSummary(summaryResult);
 
-        // Prefer Stripe live numbers for headline metrics if available
-        setUseStripeData(!!overview);
+        // Use Stripe data only as fallback if database data is empty
+        setUseStripeData(!!overview && (!revenueDataResult || revenueDataResult.length === 0));
       } catch (error) {
         console.error('Error loading revenue data:', error);
         addNotification('error', 'Error', 'Failed to load revenue data');
@@ -238,20 +238,30 @@ export default function RevenueTracker() {
         </div>
       </div>
 
-      {/* Revenue Metrics (Stripe live preferred) */}
+      {/* Revenue Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Revenue</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {useStripeData && stripeOverview
-                  ? (() => {
-                      const tx = (stripeOverview.recent_balance_transactions || []).filter(t => t.currency === 'usd');
-                      const totalNet = tx.reduce((s, t) => s + (Number(t.net) || 0), 0);
-                      return `$${totalNet.toFixed(2)}`;
-                    })()
-                  : `$${revenueSummary.total_revenue.toFixed(2)}`}
+                {(() => {
+                  // Always prefer database data if available (even if zero)
+                  if (revenueData && revenueData.length > 0) {
+                    return `$${revenueSummary.total_revenue.toFixed(2)}`;
+                  } else if (stripeOverview) {
+                    // For Stripe fallback, use gross amount (amount field) for total revenue
+                    // Filter by date range
+                    const daysBack = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : timeRange === '90d' ? 90 : 365;
+                    const cutoffDate = new Date();
+                    cutoffDate.setDate(cutoffDate.getDate() - daysBack);
+                    const tx = (stripeOverview.recent_balance_transactions || [])
+                      .filter(t => t.currency === 'usd' && new Date(t.created * 1000) >= cutoffDate);
+                    const totalGross = tx.reduce((s, t) => s + (Number(t.amount) || 0), 0);
+                    return `$${totalGross.toFixed(2)}`;
+                  }
+                  return '$0.00';
+                })()}
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400">{getTimeRangeLabel()}</p>
             </div>
@@ -266,13 +276,23 @@ export default function RevenueTracker() {
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Your Commission</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {useStripeData && stripeOverview
-                  ? (() => {
-                      const tx = (stripeOverview.recent_balance_transactions || []).filter(t => t.currency === 'usd');
-                      const totalNet = tx.reduce((s, t) => s + (Number(t.net) || 0), 0);
-                      return `$${totalNet.toFixed(2)}`;
-                    })()
-                  : `$${revenueSummary.total_commission.toFixed(2)}`}
+                {(() => {
+                  // Always prefer database data if available (even if zero)
+                  if (revenueData && revenueData.length > 0) {
+                    return `$${revenueSummary.total_commission.toFixed(2)}`;
+                  } else if (stripeOverview) {
+                    // For Stripe fallback, use net amount (net field) for commission
+                    // Filter by date range
+                    const daysBack = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : timeRange === '90d' ? 90 : 365;
+                    const cutoffDate = new Date();
+                    cutoffDate.setDate(cutoffDate.getDate() - daysBack);
+                    const tx = (stripeOverview.recent_balance_transactions || [])
+                      .filter(t => t.currency === 'usd' && new Date(t.created * 1000) >= cutoffDate);
+                    const totalNet = tx.reduce((s, t) => s + (Number(t.net) || 0), 0);
+                    return `$${totalNet.toFixed(2)}`;
+                  }
+                  return '$0.00';
+                })()}
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400">{getTimeRangeLabel()}</p>
             </div>
@@ -287,17 +307,33 @@ export default function RevenueTracker() {
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Avg. Daily Revenue</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {useStripeData && stripeOverview
-                  ? (() => {
-                      const days = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : timeRange === '90d' ? 90 : 365;
-                      const tx = (stripeOverview.recent_balance_transactions || []).filter(t => t.currency === 'usd');
-                      const totalNet = tx.reduce((s, t) => s + (Number(t.net) || 0), 0);
-                      return `$${(totalNet / days).toFixed(2)}`;
-                    })()
-                  : `$${(revenueSummary.total_revenue / (timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : timeRange === '90d' ? 90 : 365)).toFixed(2)}`}
+                {(() => {
+                  const days = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : timeRange === '90d' ? 90 : 365;
+                  
+                  // Always prefer database data if available (even if zero)
+                  if (revenueData && revenueData.length > 0) {
+                    const avgDaily = revenueSummary.total_revenue / days;
+                    return `$${avgDaily.toFixed(2)}`;
+                  } else if (stripeOverview) {
+                    // For Stripe fallback, use gross amount (amount field) for total revenue
+                    // Filter by date range
+                    const daysBack = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : timeRange === '90d' ? 90 : 365;
+                    const cutoffDate = new Date();
+                    cutoffDate.setDate(cutoffDate.getDate() - daysBack);
+                    const tx = (stripeOverview.recent_balance_transactions || [])
+                      .filter(t => t.currency === 'usd' && new Date(t.created * 1000) >= cutoffDate);
+                    const totalGross = tx.reduce((s, t) => s + (Number(t.amount) || 0), 0);
+                    const avgDaily = totalGross / days;
+                    return `$${avgDaily.toFixed(2)}`;
+                  }
+                  return '$0.00';
+                })()}
               </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{getTimeRangeLabel()}</p>
             </div>
-            <Clock className="h-8 w-8 text-pink-600 dark:text-pink-400" />
+            <div className="p-3 bg-pink-50 dark:bg-pink-900/20 rounded-lg">
+              <Clock className="h-6 w-6 text-pink-600 dark:text-pink-400" />
+            </div>
           </div>
         </Card>
       </div>

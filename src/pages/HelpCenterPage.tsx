@@ -10,13 +10,16 @@ export default function HelpCenterPage() {
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const { addNotification } = useNotification();
   const { user } = useAuth();
+  const isHost = user?.role === 'host';
+  const isClient = user?.role === 'client';
+  
   const [contactFormData, setContactFormData] = useState({
-    businessName: '',
+    name: '',
     contactName: '',
-    businessType: '',
+    type: '',
     email: '',
     phone: '',
-    businessAddress: '',
+    address: '',
     additionalInfo: ''
   });
   const [submittingContact, setSubmittingContact] = useState(false);
@@ -133,7 +136,14 @@ export default function HelpCenterPage() {
       {/* Contact Form */}
       <div>
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Contact Form</h3>
-        <p className="text-gray-600 dark:text-gray-300 mb-6">We're currently placing kiosks across the area and would love to partner with you. Fill out the form below to get in touch or book a quick 10‑minute call.</p>
+        <p className="text-gray-600 dark:text-gray-300 mb-6">
+          {isHost 
+            ? "Have questions about your kiosk or need support? Fill out the form below and we'll get back to you within 24 business hours."
+            : isClient
+            ? "Need help with your campaigns or have questions? Fill out the form below and we'll get back to you within 24 business hours."
+            : "Fill out the form below to get in touch or book a quick 10‑minute call."
+          }
+        </p>
         
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-8">
           <form className="space-y-4 sm:space-y-6" onSubmit={async (e) => {
@@ -148,18 +158,23 @@ export default function HelpCenterPage() {
             }
             setSubmittingContact(true);
             try {
-              const message = `Business Name: ${contactFormData.businessName || 'N/A'}\nBusiness Type: ${contactFormData.businessType || 'N/A'}\nPhone: ${contactFormData.phone || 'N/A'}\nBusiness Address: ${contactFormData.businessAddress || 'N/A'}\n\nAdditional Information:\n${contactFormData.additionalInfo.trim()}`;
+              const roleLabel = isHost ? 'Host' : isClient ? 'Client' : 'User';
+              const nameLabel = isHost ? 'Kiosk Location Name' : isClient ? 'Company Name' : 'Business Name';
+              const typeLabel = isHost ? 'Kiosk Type' : isClient ? 'Campaign Type' : 'Business Type';
+              const addressLabel = isHost ? 'Kiosk Location Address' : isClient ? 'Company Address' : 'Business Address';
+              
+              const message = `${nameLabel}: ${contactFormData.name || 'N/A'}\n${typeLabel}: ${contactFormData.type || 'N/A'}\nPhone: ${contactFormData.phone || 'N/A'}\n${addressLabel}: ${contactFormData.address || 'N/A'}\nUser Role: ${roleLabel}\n\nAdditional Information:\n${contactFormData.additionalInfo.trim()}`;
               
               await ContactService.sendContactFormToAdmins({
                 name: contactFormData.contactName.trim(),
                 email: contactFormData.email.trim(),
-                company: contactFormData.businessName.trim() || undefined,
+                company: contactFormData.name.trim() || undefined,
                 budget: undefined,
-                interest: contactFormData.businessType.trim() || 'General Inquiry',
+                interest: contactFormData.type.trim() || (isHost ? 'Kiosk Inquiry' : isClient ? 'Campaign Inquiry' : 'General Inquiry'),
                 message: message
               });
               addNotification('success', 'Message Sent', 'Your message has been sent. We will get back to you within 24 business hours.');
-              setContactFormData({ businessName: '', contactName: '', businessType: '', email: '', phone: '', businessAddress: '', additionalInfo: '' });
+              setContactFormData({ name: '', contactName: '', type: '', email: '', phone: '', address: '', additionalInfo: '' });
             } catch (error) {
               console.error('Contact form submission error:', error);
               addNotification('error', 'Submission Failed', 'Failed to send message. Please try again later.');
@@ -168,12 +183,14 @@ export default function HelpCenterPage() {
             }
           }}>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Business Name</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {isHost ? 'Kiosk Location Name' : isClient ? 'Company Name' : 'Business Name'}
+              </label>
               <input 
                 className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[48px]" 
-                placeholder="Your Business Name"
-                value={contactFormData.businessName}
-                onChange={(e) => setContactFormData({ ...contactFormData, businessName: e.target.value })}
+                placeholder={isHost ? 'Your Kiosk Location Name' : isClient ? 'Your Company Name' : 'Your Business Name'}
+                value={contactFormData.name}
+                onChange={(e) => setContactFormData({ ...contactFormData, name: e.target.value })}
               />
             </div>
             
@@ -189,18 +206,42 @@ export default function HelpCenterPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Business Type</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {isHost ? 'Kiosk Type' : isClient ? 'Campaign Type' : 'Business Type'}
+                </label>
                 <select 
                   className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[48px]"
-                  value={contactFormData.businessType}
-                  onChange={(e) => setContactFormData({ ...contactFormData, businessType: e.target.value })}
+                  value={contactFormData.type}
+                  onChange={(e) => setContactFormData({ ...contactFormData, type: e.target.value })}
                 >
-                  <option value="">Select a business type</option>
-                  <option>Retail</option>
-                  <option>Restaurant</option>
-                  <option>Fitness</option>
-                  <option>Entertainment</option>
-                  <option>Other</option>
+                  <option value="">
+                    {isHost ? 'Select kiosk type' : isClient ? 'Select campaign type' : 'Select a business type'}
+                  </option>
+                  {isHost ? (
+                    <>
+                      <option>Indoor</option>
+                      <option>Outdoor</option>
+                      <option>Digital Display</option>
+                      <option>Interactive</option>
+                      <option>Other</option>
+                    </>
+                  ) : isClient ? (
+                    <>
+                      <option>Image Ad</option>
+                      <option>Video Ad</option>
+                      <option>Photo Display</option>
+                      <option>Custom Campaign</option>
+                      <option>Other</option>
+                    </>
+                  ) : (
+                    <>
+                      <option>Retail</option>
+                      <option>Restaurant</option>
+                      <option>Fitness</option>
+                      <option>Entertainment</option>
+                      <option>Other</option>
+                    </>
+                  )}
                 </select>
               </div>
             </div>
@@ -228,12 +269,14 @@ export default function HelpCenterPage() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Business Address</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {isHost ? 'Kiosk Location Address' : isClient ? 'Company Address' : 'Business Address'}
+              </label>
               <input 
                 className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[48px]" 
                 placeholder="Street, City, State, ZIP"
-                value={contactFormData.businessAddress}
-                onChange={(e) => setContactFormData({ ...contactFormData, businessAddress: e.target.value })}
+                value={contactFormData.address}
+                onChange={(e) => setContactFormData({ ...contactFormData, address: e.target.value })}
               />
             </div>
             <div>
@@ -241,7 +284,13 @@ export default function HelpCenterPage() {
               <textarea 
                 className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none min-h-[120px]" 
                 rows={4} 
-                placeholder="Tell us more about your location, hours, space, or any questions you have."
+                placeholder={
+                  isHost 
+                    ? "Tell us more about your kiosk location, hours, space availability, or any questions you have."
+                    : isClient
+                    ? "Tell us more about your advertising needs, campaign goals, or any questions you have."
+                    : "Tell us more about your location, hours, space, or any questions you have."
+                }
                 value={contactFormData.additionalInfo}
                 onChange={(e) => setContactFormData({ ...contactFormData, additionalInfo: e.target.value })}
                 required

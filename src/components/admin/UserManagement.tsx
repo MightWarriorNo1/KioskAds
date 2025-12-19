@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Search, Edit, Trash2, Mail, Shield, Download, Upload, RefreshCw, FileText, X, Save, User, Key } from 'lucide-react';
+import { Users, Search, Edit, Trash2, Mail, Shield, Download, Upload, RefreshCw, FileText, X, Save, User, Key, CreditCard } from 'lucide-react';
 import { useNotification } from '../../contexts/NotificationContext';
 import { AdminService } from '../../services/adminService';
 import { supabase } from '../../lib/supabaseClient';
+import { BillingService, Subscription } from '../../services/billingService';
 
 interface User {
   id: string;
@@ -28,7 +29,11 @@ export default function UserManagement() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [userSubscriptions, setUserSubscriptions] = useState<Subscription[]>([]);
+  const [loadingSubscriptions, setLoadingSubscriptions] = useState(false);
+  const [cancellingSubscription, setCancellingSubscription] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     full_name: '',
     email: '',
@@ -146,6 +151,46 @@ export default function UserManagement() {
       message: ''
     });
     setShowEmailModal(true);
+  };
+
+  const handleViewSubscriptions = async (user: User) => {
+    setSelectedUser(user);
+    setShowSubscriptionModal(true);
+    await loadUserSubscriptions(user.id);
+  };
+
+  const loadUserSubscriptions = async (userId: string) => {
+    try {
+      setLoadingSubscriptions(true);
+      const subscriptions = await BillingService.getSubscriptions(userId);
+      setUserSubscriptions(subscriptions);
+    } catch (error) {
+      console.error('Error loading subscriptions:', error);
+      addNotification('error', 'Error', 'Failed to load subscriptions');
+    } finally {
+      setLoadingSubscriptions(false);
+    }
+  };
+
+  const handleCancelUserSubscription = async (subscriptionId: string) => {
+    if (!selectedUser) return;
+    
+    try {
+      setCancellingSubscription(subscriptionId);
+      const success = await BillingService.cancelSubscription(subscriptionId);
+      
+      if (success) {
+        addNotification('success', 'Subscription Cancelled', `Subscription has been cancelled for ${selectedUser.full_name}`);
+        await loadUserSubscriptions(selectedUser.id);
+      } else {
+        addNotification('error', 'Cancellation Failed', 'Failed to cancel subscription. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error cancelling subscription:', error);
+      addNotification('error', 'Cancellation Failed', 'Failed to cancel subscription. Please try again.');
+    } finally {
+      setCancellingSubscription(null);
+    }
   };
 
   const saveUserChanges = async () => {
@@ -300,9 +345,6 @@ export default function UserManagement() {
   };
 
   const filteredUsers = users.filter(user => {
-    // Exclude admin users from display
-    if (user.role === 'admin') return false;
-    
     const matchesSearch = 
       user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -314,10 +356,10 @@ export default function UserManagement() {
   });
 
   const stats = {
-    total: users.filter(u => u.role !== 'admin').length,
+    total: users.length,
     clients: users.filter(u => u.role === 'client').length,
     hosts: users.filter(u => u.role === 'host').length,
-    admins: 0 // Admins are not displayed in user management
+    admins: users.filter(u => u.role === 'admin').length
   };
 
   return (
@@ -368,7 +410,7 @@ export default function UserManagement() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white dark:bg-gray-800  rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -401,6 +443,18 @@ export default function UserManagement() {
             </div>
             <div className="p-3 bg-green-50 rounded-lg">
               <Shield className="h-6 w-6 text-green-600" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800  rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Admins</p>
+              <p className="text-2xl font-bold text-gray-900 mt-2">{stats.admins}</p>
+            </div>
+            <div className="p-3 bg-red-50 rounded-lg">
+              <Shield className="h-6 w-6 text-red-600" />
             </div>
           </div>
         </div>
@@ -514,6 +568,15 @@ export default function UserManagement() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center space-x-2 flex-wrap gap-2">
+                        {(user.role === 'client' || user.role === 'host') && (
+                          <button 
+                            onClick={() => handleViewSubscriptions(user)}
+                            className="p-2 text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 rounded-lg transition-colors"
+                            title="Manage Subscriptions"
+                          >
+                            <CreditCard className="h-4 w-4" />
+                          </button>
+                        )}
                         <button 
                           onClick={() => handleEmailUser(user)}
                           className="p-2 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-colors"
@@ -694,6 +757,7 @@ export default function UserManagement() {
                   <option value="client">Client</option>
                   <option value="host">Host</option>
                   <option value="designer">Designer</option>
+                  <option value="admin">Admin</option>
                 </select>
               </div>
 
@@ -809,6 +873,128 @@ export default function UserManagement() {
                     <Trash2 className="h-4 w-4" />
                   )}
                   <span>{saving ? 'Deleting...' : 'Delete User'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Subscription Management Modal */}
+      {showSubscriptionModal && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-semibold text-gray-900">Manage Subscriptions</h3>
+              <button
+                onClick={() => {
+                  setShowSubscriptionModal(false);
+                  setSelectedUser(null);
+                  setUserSubscriptions([]);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-center space-x-2">
+                  <User className="h-5 w-5 text-blue-600" />
+                  <div>
+                    <p className="text-sm font-medium text-blue-900">
+                      Subscriptions for:
+                    </p>
+                    <p className="text-sm text-blue-800">
+                      {selectedUser.full_name} ({selectedUser.email})
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {loadingSubscriptions ? (
+                <div className="text-center py-8">
+                  <RefreshCw className="h-8 w-8 text-gray-400 animate-spin mx-auto mb-4" />
+                  <p className="text-gray-500">Loading subscriptions...</p>
+                </div>
+              ) : userSubscriptions.length === 0 ? (
+                <div className="text-center py-8">
+                  <CreditCard className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">No subscriptions found for this user.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {userSubscriptions.map((subscription) => (
+                    <div
+                      key={subscription.id}
+                      className={`p-4 rounded-lg border ${
+                        subscription.status === 'active'
+                          ? 'bg-green-50 border-green-200'
+                          : 'bg-gray-50 border-gray-200'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              subscription.status === 'active'
+                                ? 'bg-green-600 text-white'
+                                : 'bg-gray-600 text-white'
+                            }`}>
+                              {subscription.status.toUpperCase()}
+                            </span>
+                            {subscription.auto_renewal && subscription.status === 'active' && (
+                              <span className="px-2 py-1 rounded text-xs font-medium bg-blue-600 text-white">
+                                AUTO-RENEWAL
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-600 space-y-1">
+                            <p><strong>Start Date:</strong> {new Date(subscription.start_date).toLocaleDateString()}</p>
+                            {subscription.end_date && (
+                              <p><strong>End Date:</strong> {new Date(subscription.end_date).toLocaleDateString()}</p>
+                            )}
+                            {subscription.linked_campaigns && subscription.linked_campaigns.length > 0 && (
+                              <p><strong>Linked Campaigns:</strong> {subscription.linked_campaigns.length}</p>
+                            )}
+                          </div>
+                        </div>
+                        {subscription.status === 'active' && (
+                          <button
+                            onClick={() => handleCancelUserSubscription(subscription.id)}
+                            disabled={cancellingSubscription === subscription.id}
+                            className="ml-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center space-x-2 text-sm"
+                          >
+                            {cancellingSubscription === subscription.id ? (
+                              <>
+                                <RefreshCw className="h-4 w-4 animate-spin" />
+                                <span>Cancelling...</span>
+                              </>
+                            ) : (
+                              <>
+                                <X className="h-4 w-4" />
+                                <span>Cancel Subscription</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex justify-end pt-4 border-t border-gray-200">
+                <button
+                  onClick={() => {
+                    setShowSubscriptionModal(false);
+                    setSelectedUser(null);
+                    setUserSubscriptions([]);
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Close
                 </button>
               </div>
             </div>
