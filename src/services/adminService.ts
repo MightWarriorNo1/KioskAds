@@ -267,12 +267,16 @@ export class AdminService {
       expiresAt.setDate(expiresAt.getDate() + expiresInDays);
       const token = crypto.randomUUID?.() || Math.random().toString(36).slice(2);
       
+      // Normalize email and role to match validation logic in SignUp.tsx
+      const normalizedEmail = email.toLowerCase().trim();
+      const normalizedRole = role.toLowerCase().trim() as 'client' | 'host' | 'designer' | 'admin';
+      
       // First create the invitation record
       const { data, error } = await supabase
         .from('invitations')
         .insert({ 
-          email, 
-          role, 
+          email: normalizedEmail, 
+          role: normalizedRole, 
           status: 'pending', // Start as pending, will be updated to 'sent' after email is queued
           expires_at: expiresAt.toISOString(), 
           invited_by: currentUserId, 
@@ -380,9 +384,12 @@ export class AdminService {
       const days = Number(r.expires_days ?? 7) || 7;
       expires.setDate(expires.getDate() + days);
       const token = crypto.randomUUID?.() || Math.random().toString(36).slice(2);
+      // Normalize email and role to match validation logic in SignUp.tsx
+      const normalizedEmail = r.email.toLowerCase().trim();
+      const normalizedRole = r.role.toLowerCase().trim() as 'client' | 'host' | 'designer' | 'admin';
       return {
-        email: r.email.trim(),
-        role: r.role,
+        email: normalizedEmail,
+        role: normalizedRole,
         status: 'sent',
         sent_at: getCurrentCaliforniaTime().toISOString(),
         expires_at: expires.toISOString(),
@@ -1933,6 +1940,35 @@ export class AdminService {
       await this.logAdminAction('update_coupon', 'coupon_code', couponId, updates);
     } catch (error) {
       console.error('Error updating coupon:', error);
+      throw error;
+    }
+  }
+
+  // Delete coupon
+  static async deleteCoupon(couponId: string): Promise<void> {
+    try {
+      // Delete scopes first (foreign key constraint)
+      const { error: scopeError } = await supabase
+        .from('coupon_scopes')
+        .delete()
+        .eq('coupon_id', couponId);
+
+      if (scopeError) {
+        console.error('Error deleting coupon scopes:', scopeError);
+        // Continue with coupon deletion even if scope deletion fails
+      }
+
+      // Delete the coupon
+      const { error } = await supabase
+        .from('coupon_codes')
+        .delete()
+        .eq('id', couponId);
+
+      if (error) throw error;
+
+      await this.logAdminAction('delete_coupon', 'coupon_code', couponId, {});
+    } catch (error) {
+      console.error('Error deleting coupon:', error);
       throw error;
     }
   }

@@ -53,18 +53,34 @@ export class GmailService {
       }
 
       // 2) Fallback to database-stored integration
-      const { data: integration } = await supabase
+      const { data: integration, error: integrationError } = await supabase
         .from('system_integrations')
         .select('config')
         .eq('type', 'gmail')
         .eq('status', 'connected')
         .single();
 
+      if (integrationError) {
+        // PGRST116 means no rows found - this is expected if Gmail isn't configured
+        if (integrationError.code === 'PGRST116') {
+          console.log('Gmail integration not found in database - using email queue only');
+          this.config = null;
+          return;
+        }
+        // For other errors, log and continue
+        console.warn('Error fetching Gmail integration:', integrationError);
+        this.config = null;
+        return;
+      }
+
       if (integration?.config) {
         this.config = integration.config as GmailConfig;
+      } else {
+        this.config = null;
       }
     } catch (error) {
       console.error('Error initializing Gmail service:', error);
+      this.config = null;
     }
   }
 

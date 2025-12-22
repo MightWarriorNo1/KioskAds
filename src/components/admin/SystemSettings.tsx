@@ -18,6 +18,7 @@ export default function SystemSettings() {
   const { addNotification } = useNotification();
   const [activeTab, setActiveTab] = useState('integrations');
   const [discountPercent, setDiscountPercent] = useState<number>(10);
+  const [kiosksLinkVisible, setKiosksLinkVisible] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState(false);
   const [canScrollUp, setCanScrollUp] = useState(false);
   const [canScrollDown, setCanScrollDown] = useState(false);
@@ -33,13 +34,29 @@ export default function SystemSettings() {
     const load = async () => {
       try {
         const settings = await AdminService.getSystemSettings();
-        const item = settings.find(s => s.key === 'additional_kiosk_discount_percent');
-        if (item) {
-          const v = item.value;
+        const discountItem = settings.find(s => s.key === 'additional_kiosk_discount_percent');
+        if (discountItem) {
+          const v = discountItem.value;
           setDiscountPercent(typeof v === 'number' ? v : (v?.percent ?? 10));
         }
+        
+        const kiosksLinkItem = settings.find(s => s.key === 'kiosks_link_visible');
+        if (kiosksLinkItem) {
+          // Handle JSONB boolean values - ensure we get the actual boolean
+          const value = kiosksLinkItem.value;
+          // If it's already a boolean, use it directly
+          if (typeof value === 'boolean') {
+            setKiosksLinkVisible(value);
+          } else if (value === false || value === 'false' || value === '"false"') {
+            // Explicitly handle false values
+            setKiosksLinkVisible(false);
+          } else {
+            // Default to true for any other value
+            setKiosksLinkVisible(value !== null && value !== undefined);
+          }
+        }
       } catch (error) {
-        console.error('Error loading discount percent:', error);
+        console.error('Error loading settings:', error);
       }
     };
     load();
@@ -124,6 +141,9 @@ export default function SystemSettings() {
       
       // Save discount percent setting
       await AdminService.updateSystemSetting('additional_kiosk_discount_percent', discountPercent);
+      
+      // Save kiosks link visibility setting (mark as public so header can access it)
+      await AdminService.updateSystemSetting('kiosks_link_visible', kiosksLinkVisible, true);
       
       // Save notification settings if we're on the notifications tab and have a save function
       if (activeTab === 'notifications' && notificationSaveFunction) {
@@ -318,6 +338,47 @@ export default function SystemSettings() {
                       className="w-full sm:w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm"
                     />
                     <p className="text-xs text-gray-500 dark:text-gray-400">Applied to each kiosk beyond the first.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Navigation Settings */}
+              <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 sm:p-4">
+                <div className="flex items-center justify-between mb-2 sm:mb-3">
+                  <div className="flex items-center space-x-2 sm:space-x-3">
+                    <div className="w-6 h-6 sm:w-8 sm:h-8 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Settings className="h-3 w-3 sm:h-5 sm:w-5 text-indigo-600" />
+                    </div>
+                    <span className="font-medium text-sm sm:text-base text-gray-900 dark:text-white">Navigation</span>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Show Kiosks Page in Header
+                      </label>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Toggle visibility of the Kiosks link in the site header navigation
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setKiosksLinkVisible(!kiosksLinkVisible);
+                        setHasChanges(true);
+                      }}
+                      className={`ml-4 relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                        kiosksLinkVisible ? 'bg-purple-600' : 'bg-gray-200 dark:bg-gray-700'
+                      }`}
+                      role="switch"
+                      aria-checked={kiosksLinkVisible}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          kiosksLinkVisible ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
                   </div>
                 </div>
               </div>

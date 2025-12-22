@@ -1,6 +1,20 @@
+import { useState } from 'react';
 import SiteHeader from '../components/layouts/SiteHeader';
+import { ContactService } from '../services/contactService';
+import { useNotification } from '../contexts/NotificationContext';
 
 export default function HostLanding() {
+  const { addNotification } = useNotification();
+  const [formData, setFormData] = useState({
+    businessName: '',
+    contactName: '',
+    businessType: '',
+    email: '',
+    phone: '',
+    address: '',
+    additionalInfo: ''
+  });
+  const [submitting, setSubmitting] = useState(false);
   return (
     <div className="min-h-screen bg-[rgb(var(--bg))] dark:bg-gradient-to-br dark:from-slate-900 dark:via-blue-900 dark:to-slate-800">
       <SiteHeader />
@@ -124,50 +138,129 @@ export default function HostLanding() {
           <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-center">Ready to Get Started?</h2>
           <p className="mt-2 text-center text-sm sm:text-base max-w-2xl mx-auto">We\'re currently placing kiosks across the area and would love to partner with you. Fill out the form below to get in touch or book a quick 10‑minute call.</p>
 
-          <form className="mt-6 sm:mt-8 space-y-4 sm:space-y-6">
+          <form 
+            className="mt-6 sm:mt-8 space-y-4 sm:space-y-6" 
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!formData.contactName.trim() || !formData.email.trim()) {
+                addNotification('error', 'Missing Information', 'Please provide your name and email.');
+                return;
+              }
+              if (!formData.additionalInfo.trim()) {
+                addNotification('error', 'Missing Information', 'Please provide additional information.');
+                return;
+              }
+              setSubmitting(true);
+              try {
+                const message = `Kiosk Location Name: ${formData.businessName || 'N/A'}\nKiosk Type: ${formData.businessType || 'N/A'}\nPhone: ${formData.phone || 'N/A'}\nKiosk Location Address: ${formData.address || 'N/A'}\nUser Role: Host\n\nAdditional Information:\n${formData.additionalInfo.trim()}`;
+                
+                await ContactService.sendContactFormToAdmins({
+                  name: formData.contactName.trim(),
+                  email: formData.email.trim(),
+                  company: formData.businessName.trim() || undefined,
+                  budget: undefined,
+                  interest: formData.businessType.trim() || 'Kiosk Inquiry',
+                  message: message
+                });
+                addNotification('success', 'Message Sent', 'Your message has been sent. We will get back to you within 24 business hours.');
+                setFormData({ businessName: '', contactName: '', businessType: '', email: '', phone: '', address: '', additionalInfo: '' });
+              } catch (error) {
+                console.error('Error submitting contact form:', error);
+                addNotification('error', 'Error', 'Failed to send message. Please try again later.');
+              } finally {
+                setSubmitting(false);
+              }
+            }}
+          >
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Business Name</label>
-              <input className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[48px]" placeholder="Your Business Name" />
+              <input 
+                value={formData.businessName}
+                onChange={(e) => setFormData(prev => ({ ...prev, businessName: e.target.value }))}
+                className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[48px]" 
+                placeholder="Your Business Name" 
+              />
             </div>
             
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Contact Name</label>
-                <input className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[48px]" placeholder="Your Name" />
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Contact Name *</label>
+                <input 
+                  value={formData.contactName}
+                  onChange={(e) => setFormData(prev => ({ ...prev, contactName: e.target.value }))}
+                  required
+                  className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[48px]" 
+                  placeholder="Your Name" 
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Business Type</label>
-                <select className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[48px]">
-                  <option>Select a business type</option>
-                  <option>Retail</option>
-                  <option>Restaurant</option>
-                  <option>Fitness</option>
-                  <option>Entertainment</option>
-                  <option>Other</option>
+                <select 
+                  value={formData.businessType}
+                  onChange={(e) => setFormData(prev => ({ ...prev, businessType: e.target.value }))}
+                  className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[48px]"
+                >
+                  <option value="">Select a business type</option>
+                  <option value="Retail">Retail</option>
+                  <option value="Restaurant">Restaurant</option>
+                  <option value="Fitness">Fitness</option>
+                  <option value="Entertainment">Entertainment</option>
+                  <option value="Other">Other</option>
                 </select>
               </div>
             </div>
             
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
-                <input type="email" className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[48px]" placeholder="you@example.com" />
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email *</label>
+                <input 
+                  type="email" 
+                  value={formData.email}
+                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                  required
+                  className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[48px]" 
+                  placeholder="you@example.com" 
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Phone</label>
-                <input className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[48px]" placeholder="(555) 555-5555" />
+                <input 
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[48px]" 
+                  placeholder="(555) 555-5555" 
+                />
               </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Business Address</label>
-              <input className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[48px]" placeholder="Street, City, State, ZIP" />
+              <input 
+                value={formData.address}
+                onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+                className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[48px]" 
+                placeholder="Street, City, State, ZIP" 
+              />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Additional Information</label>
-              <textarea className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none min-h-[120px]" rows={4} placeholder="Tell us more about your location, hours, space, or any questions you have."></textarea>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Additional Information *</label>
+              <textarea 
+                value={formData.additionalInfo}
+                onChange={(e) => setFormData(prev => ({ ...prev, additionalInfo: e.target.value }))}
+                required
+                className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg bg-white dark:bg-gray-900 dark:border-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none min-h-[120px]" 
+                rows={4} 
+                placeholder="Tell us more about your location, hours, space, or any questions you have."
+              ></textarea>
             </div>
             <div className="flex justify-center sm:justify-end">
-              <button type="submit" className="btn-primary px-6 py-3 text-base w-full sm:w-auto">Submit Inquiry</button>
+              <button 
+                type="submit" 
+                disabled={submitting}
+                className="btn-primary px-6 py-3 text-base w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting ? 'Submitting...' : 'Submit Inquiry'}
+              </button>
             </div>
           </form>
         </div>

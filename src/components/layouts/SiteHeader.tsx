@@ -12,31 +12,67 @@ export default function SiteHeader() {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [partnersLinkVisible, setPartnersLinkVisible] = useState(true);
+  const [kiosksLinkVisible, setKiosksLinkVisible] = useState(true);
 
-  // Load partners link visibility setting
+  // Load navigation visibility settings
   useEffect(() => {
-    const loadPartnersLinkSetting = async () => {
+    const loadNavigationSettings = async () => {
       try {
-        const { data, error } = await supabase
+        // Load partners link visibility (must be public due to RLS)
+        const { data: partnersData, error: partnersError } = await supabase
           .from('system_settings')
           .select('value')
           .eq('key', 'partners_link_visible')
+          .eq('is_public', true)
           .single();
 
-        if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
-          console.error('Error loading partners link setting:', error);
-          return;
+        if (partnersError && partnersError.code !== 'PGRST116') { // PGRST116 is "not found"
+          console.error('Error loading partners link setting:', partnersError);
+        } else if (partnersData) {
+          setPartnersLinkVisible(partnersData.value);
         }
 
-        if (data) {
-          setPartnersLinkVisible(data.value);
+        // Load kiosks link visibility (must be public due to RLS)
+        const { data: kiosksData, error: kiosksError } = await supabase
+          .from('system_settings')
+          .select('value')
+          .eq('key', 'kiosks_link_visible')
+          .eq('is_public', true)
+          .single();
+
+        if (kiosksError) {
+          if (kiosksError.code !== 'PGRST116') { // PGRST116 is "not found"
+            console.error('Error loading kiosks link setting:', kiosksError);
+          }
+          // If not found, default to true (show the link)
+        } else if (kiosksData !== null && kiosksData !== undefined) {
+          // Handle JSONB boolean values - ensure we get the actual boolean
+          let value = kiosksData.value;
+          
+          // If value is a string that looks like JSON, try to parse it
+          if (typeof value === 'string' && (value.startsWith('"') || value === 'true' || value === 'false')) {
+            try {
+              value = JSON.parse(value);
+            } catch {
+              // If parsing fails, keep the original value
+            }
+          }
+          
+          // Explicitly check for false - be very strict about this
+          // Only set to false if the value is explicitly false
+          if (value === false) {
+            setKiosksLinkVisible(false);
+          } else {
+            // For any other value (true, null, undefined, "true", etc.), show the link
+            setKiosksLinkVisible(true);
+          }
         }
       } catch (error) {
-        console.error('Error loading partners link setting:', error);
+        console.error('Error loading navigation settings:', error);
       }
     };
 
-    loadPartnersLinkSetting();
+    loadNavigationSettings();
   }, []);
 
   // Handle hash changes for pricing section
@@ -138,16 +174,18 @@ export default function SiteHeader() {
           >
             Home
           </Link>
-          <Link 
-            to="/kiosks" 
-            className={`transition-colors ${
-              isActive('/kiosks') 
-                ? 'text-primary-600 dark:text-primary-400 font-semibold' 
-                : 'text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
-            }`}
-          >
-            Kiosks
-          </Link>
+          {kiosksLinkVisible && (
+            <Link 
+              to="/kiosks" 
+              className={`transition-colors ${
+                isActive('/kiosks') 
+                  ? 'text-primary-600 dark:text-primary-400 font-semibold' 
+                  : 'text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
+              }`}
+            >
+              Kiosks
+            </Link>
+          )}
           <a 
             href="/#pricing" 
             onClick={handlePricingClick}
@@ -246,17 +284,19 @@ export default function SiteHeader() {
             >
               Home
             </Link>
-            <Link 
-              to="/kiosks" 
-              onClick={() => setMobileMenuOpen(false)}
-              className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
-                isActive('/kiosks') 
-                  ? 'text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20' 
-                  : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800'
-              }`}
-            >
-              Kiosks
-            </Link>
+            {kiosksLinkVisible && (
+              <Link 
+                to="/kiosks" 
+                onClick={() => setMobileMenuOpen(false)}
+                className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                  isActive('/kiosks') 
+                    ? 'text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20' 
+                    : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800'
+                }`}
+              >
+                Kiosks
+              </Link>
+            )}
             <a 
               href="/#pricing" 
               onClick={(e) => {

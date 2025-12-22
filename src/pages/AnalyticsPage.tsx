@@ -685,47 +685,7 @@ function EstimatedImpressionsSection({ userId, dateRange }: { userId?: string; d
   return (
     <div className="mb-12">
       <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Estimated Impressions Analytics</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6">
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 p-4 sm:p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Estimated Impressions Per Day</h3>
-          <div className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            {formatNumber(estimates.estimatedImpressionsPerDay)}
-          </div>
-          <p className="text-gray-600 dark:text-gray-400 text-sm">
-            Based on {estimates.totalSlots} total slots × {IMPRESSIONS_PER_SLOT_PER_DAY} impressions/slot/day
-          </p>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 p-4 sm:p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Estimated Impressions ({dateRange})</h3>
-          <div className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            {formatNumber(estimates.estimatedImpressionsForRange)}
-          </div>
-          <p className="text-gray-600 dark:text-gray-400 text-sm">
-            Projected impressions for selected period
-          </p>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 p-4 sm:p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Active Campaigns</h3>
-          <div className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            {estimates.activeCampaignsCount}
-          </div>
-          <p className="text-gray-600 dark:text-gray-400 text-sm">
-            Currently running campaigns
-          </p>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 p-4 sm:p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Total Slots</h3>
-          <div className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            {formatNumber(estimates.totalSlots)}
-          </div>
-          <p className="text-gray-600 dark:text-gray-400 text-sm">
-            Across all active campaigns
-          </p>
-        </div>
-      </div>
+      
 
       {estimates.activeCampaignsCount === 0 && (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">

@@ -26,6 +26,7 @@ import AssetArchiveTester from '../components/admin/AssetArchiveTester';
 import SocialLinksManagement from '../components/admin/SocialLinksManagement';
 import HowItWorksManagement from '../components/admin/HowItWorksManagement';
 import FAQsManagement from '../components/admin/FAQsManagement';
+import SubscriptionManagement from '../components/admin/SubscriptionManagement';
 
 export default function AdminPortal() {
   return (
@@ -55,6 +56,7 @@ export default function AdminPortal() {
         <Route path="/social-links" element={<SocialLinksManagement />} />
         <Route path="/how-it-works" element={<HowItWorksManagement />} />
         <Route path="/faqs" element={<FAQsManagement />} />
+        <Route path="/subscriptions" element={<SubscriptionManagement />} />
         <Route path="/settings" element={<SystemSettings />} />
       </Routes>
     </AdminLayout>

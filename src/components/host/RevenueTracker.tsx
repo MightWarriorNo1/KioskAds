@@ -125,40 +125,6 @@ export default function RevenueTracker() {
     }
   };
 
-  const calculateCTR = () => {
-    if (revenueSummary.total_impressions === 0) return 0;
-    return (revenueSummary.total_clicks / revenueSummary.total_impressions) * 100;
-  };
-
-  const calculateCPM = () => {
-    if (revenueSummary.total_impressions === 0) return 0;
-    return (revenueSummary.total_revenue / revenueSummary.total_impressions) * 1000;
-  };
-
-  const getTopPerformingKiosks = () => {
-    const kioskStats = new Map<string, { name: string; revenue: number; impressions: number; clicks: number }>();
-    
-    revenueData.forEach(record => {
-      if (!record.kiosk) return; // Skip records without kiosk data
-      
-      const existing = kioskStats.get(record.kiosk_id) || {
-        name: record.kiosk?.name || 'Unknown Kiosk',
-        revenue: 0,
-        impressions: 0,
-        clicks: 0
-      };
-      
-      existing.revenue += Number(record.revenue) || 0;
-      existing.impressions += Number(record.impressions) || 0;
-      existing.clicks += Number(record.clicks) || 0;
-      
-      kioskStats.set(record.kiosk_id, existing);
-    });
-
-    return Array.from(kioskStats.values())
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 5);
-  };
 
   const exportRevenueData = () => {
     if (revenueData.length === 0) {
@@ -239,11 +205,11 @@ export default function RevenueTracker() {
       </div>
 
       {/* Revenue Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-2 gap-6">
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Revenue</p>
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Commission</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 {(() => {
                   // Always prefer database data if available (even if zero)
@@ -271,36 +237,7 @@ export default function RevenueTracker() {
           </div>
         </Card>
 
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Your Commission</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {(() => {
-                  // Always prefer database data if available (even if zero)
-                  if (revenueData && revenueData.length > 0) {
-                    return `$${revenueSummary.total_commission.toFixed(2)}`;
-                  } else if (stripeOverview) {
-                    // For Stripe fallback, use net amount (net field) for commission
-                    // Filter by date range
-                    const daysBack = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : timeRange === '90d' ? 90 : 365;
-                    const cutoffDate = new Date();
-                    cutoffDate.setDate(cutoffDate.getDate() - daysBack);
-                    const tx = (stripeOverview.recent_balance_transactions || [])
-                      .filter(t => t.currency === 'usd' && new Date(t.created * 1000) >= cutoffDate);
-                    const totalNet = tx.reduce((s, t) => s + (Number(t.net) || 0), 0);
-                    return `$${totalNet.toFixed(2)}`;
-                  }
-                  return '$0.00';
-                })()}
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{getTimeRangeLabel()}</p>
-            </div>
-            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <TrendingUp className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-            </div>
-          </div>
-        </Card>
+  
 
         <Card className="p-6">
           <div className="flex items-center justify-between">
@@ -426,9 +363,6 @@ export default function RevenueTracker() {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Kiosk</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Impressions</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Clicks</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Revenue</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Commission</th>
               </tr>
             </thead>
@@ -442,15 +376,7 @@ export default function RevenueTracker() {
                     <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
                       Stripe (Connected)
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
-                      0
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
-                      0
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
-                      ${Number(t.amount || 0).toFixed(2)}
-                    </td>
+                    
                     <td className="px-6 py-4 text-sm text-green-600 dark:text-green-400">
                       ${Number(t.net || 0).toFixed(2)}
                     </td>
@@ -527,19 +453,28 @@ export default function RevenueTracker() {
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                  {(stripeOverview.recent_transfers_from_platform || []).slice(0, 5).map(t => (
-                    <tr key={t.id}>
-                      <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
-                        {new Date(t.created * 1000).toLocaleString()}
-                      </td>
-                      <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
-                        ${Number(t.amount || 0).toFixed(2)}
-                      </td>
-                      <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300">
-                        {t.description || '-'}
-                      </td>
-                    </tr>
-                  ))}
+                  {(stripeOverview.recent_transfers_from_platform || []).slice(0, 5).map(t => {
+                    // Find corresponding balance transaction to get net value (same as commission)
+                    const correspondingBalanceTx = (stripeOverview.recent_balance_transactions || []).find(
+                      bt => bt.created === t.created && bt.currency === t.currency
+                    );
+                    // Use net value from balance transaction if found, otherwise use transfer amount
+                    const displayAmount = correspondingBalanceTx?.net ?? t.amount;
+                    
+                    return (
+                      <tr key={t.id}>
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
+                          {new Date(t.created * 1000).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
+                          ${Number(displayAmount || 0).toFixed(2)}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300">
+                          {t.description || '-'}
+                        </td>
+                      </tr>
+                    );
+                  })}
                   {(!stripeOverview.recent_transfers_from_platform || stripeOverview.recent_transfers_from_platform.length === 0) && (
                     <tr>
                       <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-400" colSpan={3}>No recent transfers</td>

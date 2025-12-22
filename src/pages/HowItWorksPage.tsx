@@ -105,7 +105,7 @@ export default function HowItWorksPage() {
   // If page is hidden, show 404-like message
   if (isHidden) {
     return (
-      <div className="min-h-screen bg-[rgb(var(--surface))] dark:bg-gray-900 flex items-center justify-center px-4">
+      <div className="min-h-screen bg-[rgb(var(--bg))] dark:bg-gradient-to-br dark:from-slate-900 dark:via-blue-900 dark:to-slate-800 flex items-center justify-center px-4">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Page Not Available</h1>
           <p className="text-gray-600 dark:text-gray-400">This page is currently unavailable.</p>
@@ -116,15 +116,16 @@ export default function HowItWorksPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[rgb(var(--surface))] dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-[rgb(var(--bg))] dark:bg-gradient-to-br dark:from-slate-900 dark:via-blue-900 dark:to-slate-800 flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[rgb(var(--surface))] dark:bg-gray-900 py-8 px-4">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-[rgb(var(--bg))] dark:bg-gradient-to-br dark:from-slate-900 dark:via-blue-900 dark:to-slate-800">
+      <SiteHeader />
+      <div className="max-w-4xl mx-auto py-8 px-4">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">{title}</h1>
           {description && (
@@ -178,6 +179,7 @@ export default function HowItWorksPage() {
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

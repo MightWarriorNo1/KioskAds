@@ -26,6 +26,7 @@ import {
   Share2,
   HelpCircle,
   PlayCircle,
+  CreditCard,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import NotificationToast from '../NotificationToast';
@@ -57,6 +58,7 @@ const navigation = [
   { name: 'Social Links', href: '/admin/social-links', icon: Share2 },
   { name: 'How It Works', href: '/admin/how-it-works', icon: PlayCircle },
   { name: 'FAQs', href: '/admin/faqs', icon: HelpCircle },
+  { name: 'Subscription Management', href: '/admin/subscriptions', icon: CreditCard },
   { name: 'System Settings', href: '/admin/settings', icon: SettingsIcon },
 ];
 

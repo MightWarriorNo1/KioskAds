@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { ChevronDown, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import SiteHeader from '../components/layouts/SiteHeader';
+import Footer from '../components/shared/Footer';
 
 interface FAQSection {
   id: string;
@@ -58,15 +60,16 @@ export default function FAQsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[rgb(var(--surface))] dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-[rgb(var(--bg))] dark:bg-gradient-to-br dark:from-slate-900 dark:via-blue-900 dark:to-slate-800 flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[rgb(var(--surface))] dark:bg-gray-900 py-8 px-4">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-[rgb(var(--bg))] dark:bg-gradient-to-br dark:from-slate-900 dark:via-blue-900 dark:to-slate-800">
+      <SiteHeader />
+      <div className="max-w-4xl mx-auto py-8 px-4">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Frequently Asked Questions</h1>
           <p className="text-sm text-gray-600 dark:text-gray-400">Find answers to common questions about our services and policies</p>
@@ -126,6 +129,7 @@ export default function FAQsPage() {
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Ticket, Plus, Edit, Copy, Search, BarChart3, Clock, DollarSign, RefreshCw, X } from 'lucide-react';
+import { Ticket, Plus, Edit, Copy, Search, BarChart3, Clock, DollarSign, RefreshCw, X, Trash2 } from 'lucide-react';
 import { useNotification } from '../../contexts/NotificationContext';
 import { AdminService, CouponWithScopes } from '../../services/adminService';
 
@@ -67,6 +67,21 @@ export default function CouponManager() {
     } catch (error) {
       console.error('Error updating coupon:', error);
       addNotification('error', 'Error', 'Failed to update coupon');
+    }
+  };
+
+  const handleDeleteCoupon = async (coupon: CouponWithScopes) => {
+    if (!confirm(`Are you sure you want to delete coupon "${coupon.code}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await AdminService.deleteCoupon(coupon.id);
+      addNotification('success', 'Coupon Deleted', 'Coupon has been deleted successfully');
+      loadCoupons();
+    } catch (error) {
+      console.error('Error deleting coupon:', error);
+      addNotification('error', 'Error', 'Failed to delete coupon');
     }
   };
 
@@ -381,6 +396,13 @@ export default function CouponManager() {
                           title="Edit coupon"
                         >
                           <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCoupon(coupon)}
+                          className="text-red-600 hover:text-red-900"
+                          title="Delete coupon"
+                        >
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </td>

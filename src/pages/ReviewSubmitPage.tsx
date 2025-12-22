@@ -608,7 +608,7 @@ export default function ReviewSubmitPage() {
                       onChange={(e) => setEnableMonthlySubscription(e.target.checked)}
                       className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
                     />
-                    <div className="flex-1">
+                    {/* <div className="flex-1">
                       <div className="flex items-center space-x-2">
                         <Repeat className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                         <span className="text-sm md:text-base font-medium text-gray-900 dark:text-white">
@@ -618,7 +618,7 @@ export default function ReviewSubmitPage() {
                       <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mt-1">
                         Your campaign will automatically renew monthly at the same rate. You can cancel anytime.
                       </p>
-                    </div>
+                    </div> */}
                   </label>
                 </div>
                 <div className="flex justify-between items-center">
