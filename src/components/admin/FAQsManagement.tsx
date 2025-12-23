@@ -30,7 +30,13 @@ export default function FAQsManagement() {
       
       if (faqsSetting?.value) {
         try {
-          const parsed = JSON.parse(faqsSetting.value);
+          // Handle both cases: value might be an object (from JSONB) or a string (legacy)
+          let parsed;
+          if (typeof faqsSetting.value === 'string') {
+            parsed = JSON.parse(faqsSetting.value);
+          } else {
+            parsed = faqsSetting.value;
+          }
           setFaqSections(Array.isArray(parsed) ? parsed : []);
         } catch {
           setFaqSections([]);
@@ -57,7 +63,8 @@ export default function FAQsManagement() {
     try {
       setSaving(true);
       
-      await AdminService.updateSystemSetting('faqs_content', JSON.stringify(faqSections));
+      // Pass the array directly - updateSystemSetting will handle JSONB storage correctly
+      await AdminService.updateSystemSetting('faqs_content', faqSections, true);
 
       addNotification('success', 'Success', 'FAQs saved successfully');
     } catch (error) {

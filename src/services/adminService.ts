@@ -2441,8 +2441,11 @@ export class AdminService {
         processedValue = value;
       }
       
-      // Mark social links as public so they can be accessed by Footer on public pages
-      const shouldBePublic = isPublic || key.startsWith('social_link_');
+      // Mark social links, FAQs, and How It Works settings as public so they can be accessed on public pages
+      const shouldBePublic = isPublic || 
+        key.startsWith('social_link_') || 
+        key === 'faqs_content' ||
+        key.startsWith('how_it_works_');
       
       console.log('AdminService.updateSystemSetting - Updating setting:', {
         key,

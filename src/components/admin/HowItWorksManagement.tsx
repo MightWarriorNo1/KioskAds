@@ -69,17 +69,17 @@ export default function HowItWorksManagement() {
       setSaving(true);
       
       await Promise.all([
-        AdminService.updateSystemSetting('how_it_works_title', title),
-        AdminService.updateSystemSetting('how_it_works_description', description),
-        AdminService.updateSystemSetting('how_it_works_hidden', isHidden),
+        AdminService.updateSystemSetting('how_it_works_title', title, true),
+        AdminService.updateSystemSetting('how_it_works_description', description, true),
+        AdminService.updateSystemSetting('how_it_works_hidden', isHidden, true),
         // Client video settings
-        AdminService.updateSystemSetting('how_it_works_client_video_title', clientVideoTitle),
-        AdminService.updateSystemSetting('how_it_works_client_video_description', clientVideoDescription),
-        AdminService.updateSystemSetting('how_it_works_client_youtube_url', clientYoutubeUrl),
+        AdminService.updateSystemSetting('how_it_works_client_video_title', clientVideoTitle, true),
+        AdminService.updateSystemSetting('how_it_works_client_video_description', clientVideoDescription, true),
+        AdminService.updateSystemSetting('how_it_works_client_youtube_url', clientYoutubeUrl, true),
         // Host video settings
-        AdminService.updateSystemSetting('how_it_works_host_video_title', hostVideoTitle),
-        AdminService.updateSystemSetting('how_it_works_host_video_description', hostVideoDescription),
-        AdminService.updateSystemSetting('how_it_works_host_youtube_url', hostYoutubeUrl)
+        AdminService.updateSystemSetting('how_it_works_host_video_title', hostVideoTitle, true),
+        AdminService.updateSystemSetting('how_it_works_host_video_description', hostVideoDescription, true),
+        AdminService.updateSystemSetting('how_it_works_host_youtube_url', hostYoutubeUrl, true)
       ]);
 
       addNotification('success', 'Success', 'How It Works page settings saved successfully');

@@ -35,7 +35,13 @@ export default function FAQsPage() {
 
       if (data?.value) {
         try {
-          const parsed = JSON.parse(data.value);
+          // Handle both cases: value might be an object (from JSONB) or a string (legacy)
+          let parsed;
+          if (typeof data.value === 'string') {
+            parsed = JSON.parse(data.value);
+          } else {
+            parsed = data.value;
+          }
           setFaqSections(Array.isArray(parsed) ? parsed : []);
         } catch {
           // If parsing fails, use default

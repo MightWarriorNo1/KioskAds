@@ -32,23 +32,18 @@ export default function MarketingOverlays() {
         });
       });
       
-      // Filter active tools that are currently valid
-      const now = new Date();
+      // Filter active tools - match AnnouncementBar behavior: only check is_active
+      // Date filtering is handled by the admin when setting is_active, so we trust that flag
       const activeTools = toolsData.filter(tool => {
         const isActive = tool.is_active;
-        const startDateValid = !tool.start_date || new Date(tool.start_date) <= now;
-        const endDateValid = !tool.end_date || new Date(tool.end_date) >= now;
         
         console.log(`MarketingOverlays: Tool ${tool.id} filtering:`, {
           isActive,
-          startDateValid,
-          endDateValid,
-          startDate: tool.start_date,
-          endDate: tool.end_date,
-          now: now.toISOString()
+          type: tool.type,
+          title: tool.title
         });
         
-        return isActive && startDateValid && endDateValid;
+        return isActive;
       });
       
       console.log('MarketingOverlays: Active tools after filtering:', activeTools);

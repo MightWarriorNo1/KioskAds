@@ -2,21 +2,14 @@ import { useState, useEffect } from 'react';
 import { TrendingUp } from 'lucide-react';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { AnalyticsService } from '../../services/analyticsService';
+import { CampaignService, Campaign } from '../../services/campaignService';
+import { MediaService } from '../../services/mediaService';
 
-interface AnalyticsSummary {
-  uniqueAssets: number;
-  totalPlays: number;
-  totalDuration: number;
-}
-
-interface AssetPerformance {
-  assetId: string;
-  assetName: string;
-  plays: number;
-  duration: number;
-  period: string;
-  fileType: string;
+interface CampaignAnalytics {
+  campaign: Campaign;
+  numberOfAds: number;
+  impressionsPerDay: number;
+  impressionsForRange: number;
 }
 
 export default function HostAnalytics() {
@@ -24,12 +17,7 @@ export default function HostAnalytics() {
   const { user } = useAuth();
   const [timeRange, setTimeRange] = useState('7d');
   const [isLoading, setIsLoading] = useState(true);
-  const [summary, setSummary] = useState<AnalyticsSummary>({
-    uniqueAssets: 0,
-    totalPlays: 0,
-    totalDuration: 0
-  });
-  const [assetPerformance, setAssetPerformance] = useState<AssetPerformance[]>([]);
+  const [campaignAnalytics, setCampaignAnalytics] = useState<CampaignAnalytics[]>([]);
 
   // Fetch analytics data on component mount
   useEffect(() => {
@@ -51,67 +39,48 @@ export default function HostAnalytics() {
         setIsLoading(true);
       }
       
-      // Get date range based on selected time range - Safari compatible
-      const getDateRange = (range: string) => {
-        const now = new Date();
-        const days = range === '7d' ? 7 : range === '30d' ? 30 : range === '90d' ? 90 : 365;
-        const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-        
-        // Safari-compatible date formatting
-        const formatDateForSafari = (date: Date) => {
-          const year = date.getFullYear();
-          const month = String(date.getMonth() + 1).padStart(2, '0');
-          const day = String(date.getDate()).padStart(2, '0');
-          return `${year}-${month}-${day}`;
-        };
-        
-        return {
-          startDate: formatDateForSafari(startDate),
-          endDate: formatDateForSafari(now)
-        };
-      };
+      if (!user?.id) return;
 
-      const { startDate, endDate } = getDateRange(timeRange);
+      // Fetch campaigns for the host user
+      const campaigns = await CampaignService.getUserCampaigns(user.id);
       
-      // Fetch CSV analytics data for host user
-      const csvData = await AnalyticsService.getCSVAnalyticsData(user!.id, startDate, endDate);
+      // Filter for active campaigns only
+      const activeCampaigns = campaigns.filter(c => c.status === 'active');
       
-      // Calculate summary metrics from real CSV data
-      const uniqueAssets = new Set(csvData.map(row => row.file_name)).size;
-      const totalPlays = csvData.reduce((sum, row) => sum + (row.plays || 0), 0);
-      const totalDuration = csvData.reduce((sum, row) => sum + (row.plays || 0) * 15, 0);
-      
-      setSummary({
-        uniqueAssets,
-        totalPlays,
-        totalDuration
-      });
-      
-      // Group data by asset and calculate performance
-      const assetMap = new Map();
-      csvData.forEach(row => {
-        if (row.file_name) {
-          const key = row.file_name;
-          if (!assetMap.has(key)) {
-            assetMap.set(key, {
-              assetId: row.id || row.file_name,
-              assetName: row.file_name,
-              plays: 0,
-              duration: 0,
-              period: `${row.data_date} - ${row.data_date}`,
-              fileType: row.file_name.split('.').pop()?.toUpperCase() || 'UNKNOWN'
-            });
+      // Get media assets count for each campaign and calculate impressions
+      const analyticsData: CampaignAnalytics[] = await Promise.all(
+        activeCampaigns.map(async (campaign) => {
+          try {
+            // Get media assets for this campaign
+            const mediaAssets = await MediaService.getCampaignAssets(campaign.id);
+            const numberOfAds = mediaAssets.length;
+            
+            // Calculate impressions per day: 288 impressions per ad per day (1440 minutes / 5 minutes)
+            const impressionsPerDay = calculateEstimatedImpressionsPerDay(numberOfAds);
+            
+            // Calculate impressions for the selected time range
+            const days = timeRange === '1d' ? 1 : timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90;
+            const impressionsForRange = impressionsPerDay * days;
+            
+            return {
+              campaign,
+              numberOfAds,
+              impressionsPerDay,
+              impressionsForRange
+            };
+          } catch (error) {
+            console.error(`Error fetching assets for campaign ${campaign.id}:`, error);
+            return {
+              campaign,
+              numberOfAds: 0,
+              impressionsPerDay: 0,
+              impressionsForRange: 0
+            };
           }
-          const asset = assetMap.get(key);
-          asset.plays += row.plays || 0;
-          asset.duration += (row.plays || 0) * 15;
-          asset.period = `${row.data_date} - ${row.data_date}`;
-        }
-      });
+        })
+      );
       
-      // Set asset performance data
-      setAssetPerformance(Array.from(assetMap.values())
-        .sort((a, b) => b.plays - a.plays));
+      setCampaignAnalytics(analyticsData);
       
     } catch (error) {
       console.error('Error fetching analytics data:', error);
@@ -125,6 +94,8 @@ export default function HostAnalytics() {
 
   const handleTimeRangeChange = (newRange: string) => {
     setTimeRange(newRange);
+    // Refetch data with new time range
+    fetchAnalyticsData(false);
     addNotification('info', 'Time Range Updated', `Analytics data updated for ${newRange}`);
   };
 
@@ -142,12 +113,18 @@ export default function HostAnalytics() {
     return numberOfAds * impressionsPerAdPerDay;
   };
 
+  // Calculate totals
+  const totalImpressionsPerDay = campaignAnalytics.reduce((sum, item) => sum + item.impressionsPerDay, 0);
+  const totalImpressionsForRange = campaignAnalytics.reduce((sum, item) => sum + item.impressionsForRange, 0);
+  const totalNumberOfAds = campaignAnalytics.reduce((sum, item) => sum + item.numberOfAds, 0);
+  const totalCampaigns = campaignAnalytics.length;
+
   if (isLoading) {
     return (
       <div className="space-y-6">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading analytics data...</p>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading analytics data...</p>
         </div>
       </div>
     );
@@ -159,7 +136,7 @@ export default function HostAnalytics() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Analytics</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">Analytics reports and performance insights from AWS S3 data</p>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">Expected impressions based on active campaigns (5-minute intervals)</p>
         </div>
         <div className="flex items-center space-x-4">
           {/* Time Range Buttons */}
@@ -196,61 +173,66 @@ export default function HostAnalytics() {
           Analytics Summary - {timeRange === '1d' ? '1 Day' : timeRange === '7d' ? '7 Days' : timeRange === '30d' ? '30 Days' : '90 Days'}
         </h2>
         <p className="text-gray-600 dark:text-gray-400 mb-6">
-          Shows total plays and duration for each unique Asset ID within the selected time period
+          Expected impressions based on active campaigns. Each ad runs every 5 minutes (288 impressions per ad per day).
         </p>
         
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="text-center">
-            <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{summary.uniqueAssets}</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">Unique Assets</div>
+            <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{totalCampaigns}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Active Campaigns</div>
           </div>
           <div className="text-center">
-            <div className="text-3xl font-bold text-green-600 dark:text-green-400">{summary.totalPlays.toLocaleString()}</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">Total Plays</div>
+            <div className="text-3xl font-bold text-green-600 dark:text-green-400">{totalNumberOfAds.toLocaleString()}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Total Ads</div>
           </div>
           <div className="text-center">
-            <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">{summary.totalDuration.toFixed(3)}s</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">Total Duration</div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">{calculateEstimatedImpressionsPerDay(summary.uniqueAssets).toLocaleString()}</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">Est. Impressions/Day</div>
+            <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">{totalImpressionsPerDay.toLocaleString()}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Impressions/Day</div>
             <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">(Based on 5-min intervals)</div>
+          </div>
+          <div className="text-center">
+            <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">{totalImpressionsForRange.toLocaleString()}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Impressions ({timeRange === '1d' ? '1 Day' : timeRange === '7d' ? '7 Days' : timeRange === '30d' ? '30 Days' : '90 Days'})</div>
           </div>
         </div>
       </div>
 
-      {/* Asset Performance Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {assetPerformance.map((asset) => (
-          <div key={asset.assetId} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <div className="text-center mb-4">
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400 mb-2">{asset.plays.toLocaleString()} Plays</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                <strong>Name:</strong> {asset.assetName}
+      {/* Campaign Analytics Cards */}
+      {campaignAnalytics.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {campaignAnalytics.map((item) => (
+            <div key={item.campaign.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{item.campaign.name}</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  {item.campaign.start_date} - {item.campaign.end_date}
+                </p>
               </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                <strong>Period:</strong> {asset.period}
+              
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Number of Ads:</span>
+                  <span className="text-sm font-semibold text-gray-900 dark:text-white">{item.numberOfAds}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Impressions/Day:</span>
+                  <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{item.impressionsPerDay.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-700">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Impressions ({timeRange === '1d' ? '1 Day' : timeRange === '7d' ? '7 Days' : timeRange === '30d' ? '30 Days' : '90 Days'}):</span>
+                  <span className="text-lg font-bold text-green-600 dark:text-green-400">{item.impressionsForRange.toLocaleString()}</span>
+                </div>
               </div>
             </div>
-            
-            {/* Ad Preview Placeholder */}
-            <div className="bg-blue-600 rounded-lg p-4 text-center text-white">
-              <div className="text-lg font-bold mb-2">I AM YOUR AD</div>
-              <div className="text-sm">Ad Preview</div>
-              <div className="text-xs mt-1">Asset: {asset.assetName}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {assetPerformance.length === 0 && (
+          ))}
+        </div>
+      ) : (
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center">
-          <div className="text-gray-500 dark:text-gray-400 text-lg">No CSV analytics data found</div>
+          <div className="text-gray-500 dark:text-gray-400 text-lg">No active campaigns found</div>
           <div className="text-gray-400 dark:text-gray-500 text-sm mt-2">
-            CSV data from AWS S3 needs to be imported into the system. 
+            Start a campaign to see expected impressions analytics.
             <br />
-            Contact your administrator to import CSV analytics data from S3 bucket.
+            Each ad in your campaign will run every 5 minutes, generating 288 impressions per day per ad.
           </div>
         </div>
       )}

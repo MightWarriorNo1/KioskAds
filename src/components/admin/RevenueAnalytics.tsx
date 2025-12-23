@@ -1299,11 +1299,12 @@ export default function RevenueAnalytics() {
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             Total Amount
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Host Commission
-                          </th>
+                          
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             Platform Revenue
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Host Commission
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             Status
@@ -1372,11 +1373,12 @@ export default function RevenueAnalytics() {
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-white">
                               {formatCurrency(transaction.amount)}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-orange-600 dark:text-orange-400">
-                              {transaction.hostCommission ? formatCurrency(transaction.hostCommission) : 'N/A'}
-                            </td>
+                            
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 dark:text-blue-400">
                               {transaction.platformRevenue ? formatCurrency(transaction.platformRevenue) : formatCurrency(transaction.amount)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-orange-600 dark:text-orange-400">
+                              {transaction.hostCommission ? formatCurrency(transaction.hostCommission) : 'N/A'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
