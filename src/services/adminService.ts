@@ -3444,7 +3444,7 @@ Ad Management System`,
   // Delete user (handles cascading deletes properly)
   static async deleteUser(userId: string): Promise<void> {
     try {
-      // First, check if user exists and is not an admin
+      // First, check if user exists
       const { data: user, error: fetchError } = await supabase
         .from('profiles')
         .select('id, role')
@@ -3454,34 +3454,61 @@ Ad Management System`,
       if (fetchError) throw fetchError;
       if (!user) throw new Error('User not found');
 
-      // Prevent deletion of admin users
-      if (user.role === 'admin') {
-        throw new Error('Cannot delete admin users');
-      }
+      const userRole = user.role;
 
-      // Try direct deletion first (should work with the new RLS policy)
-      const { error: deleteError } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', userId);
-
-      if (deleteError) {
-        // If direct deletion fails, try using the RPC function as fallback
-        console.warn('Direct delete failed, trying RPC function:', deleteError);
-        
+      // For admin users, use RPC function directly (has SECURITY DEFINER privileges)
+      // For other users, try direct deletion first
+      let deleteError: any = null;
+      
+      if (userRole === 'admin') {
+        // Use RPC function for admin users to ensure it works with elevated privileges
         const { error: rpcError } = await supabase.rpc('delete_user_profile', {
           user_id: userId
         });
-
+        
         if (rpcError) {
-          // If both methods fail, throw the original error
-          throw deleteError;
+          deleteError = rpcError;
         }
+      } else {
+        // Try direct deletion first for non-admin users
+        const { error: directDeleteError } = await supabase
+          .from('profiles')
+          .delete()
+          .eq('id', userId);
+
+        if (directDeleteError) {
+          // If direct deletion fails, try using the RPC function as fallback
+          console.warn('Direct delete failed, trying RPC function:', directDeleteError);
+          
+          const { error: rpcError } = await supabase.rpc('delete_user_profile', {
+            user_id: userId
+          });
+
+          if (rpcError) {
+            deleteError = rpcError;
+          }
+        }
+      }
+
+      if (deleteError) {
+        throw new Error(`Failed to delete user: ${deleteError.message}`);
+      }
+
+      // Verify the user was actually deleted
+      const { data: verifyUser, error: verifyError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', userId)
+        .maybeSingle();
+
+      // If verifyError is null and verifyUser exists, deletion failed
+      if (verifyUser) {
+        throw new Error('User deletion failed: User still exists after deletion attempt. This may be due to RLS policy restrictions.');
       }
 
       // Log the admin action
       await this.logAdminAction('delete_user', 'profiles', userId, {
-        user_role: user.role
+        user_role: userRole
       });
 
     } catch (error) {

@@ -21,6 +21,7 @@ interface CampaignData {
   totalSlots: number;
   baseRate: number;
   subscriptionDuration?: number; // Custom number of months
+  isRecurringSubscription?: boolean; // Recurring monthly subscription
   mediaFile?: File;
   slotsPerWeek?: number;
   uploadedMediaAsset?: any;

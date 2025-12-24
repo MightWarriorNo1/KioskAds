@@ -845,6 +845,11 @@ export default function UserManagement() {
                     <p className="text-sm text-red-800 mt-1">
                       {selectedUser.full_name} ({selectedUser.email})
                     </p>
+                    {selectedUser.role === 'admin' && (
+                      <p className="text-xs text-yellow-700 mt-2 font-medium">
+                        ⚠️ Warning: This is an admin user. Deleting this user will remove all admin privileges.
+                      </p>
+                    )}
                     <p className="text-xs text-red-700 mt-2">
                       This action cannot be undone. All user data will be permanently deleted.
                     </p>
@@ -865,7 +870,7 @@ export default function UserManagement() {
                 <button
                   onClick={deleteUser}
                   disabled={saving}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center space-x-2 text-sm lg:text-base"
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 text-sm lg:text-base"
                 >
                   {saving ? (
                     <RefreshCw className="h-4 w-4 animate-spin" />

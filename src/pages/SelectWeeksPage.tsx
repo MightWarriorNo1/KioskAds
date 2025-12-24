@@ -50,7 +50,7 @@ export default function SelectWeeksPage() {
   // Subscription state
   const [subSlots, setSubSlots] = React.useState<number>(1);
   const [subscriptionDuration, setSubscriptionDuration] = React.useState<number>(1); // Custom number of months
-  const [customMonths, setCustomMonths] = React.useState<string>(''); // For custom input
+  const [isRecurringSubscription, setIsRecurringSubscription] = React.useState<boolean>(false); // Recurring monthly subscription
   const [subStartMonday, setSubStartMonday] = React.useState<string | null>(null);
 
   const cells = React.useMemo(() => getMonthGrid(calendarMonth), [calendarMonth]);
@@ -104,8 +104,9 @@ export default function SelectWeeksPage() {
     const diffTime = d.getTime() - selected.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
-    // Block for the selected subscription duration (e.g., 1 month = 30 days, 3 months = 90 days, 6 months = 180 days)
-    const blockDays = subscriptionDuration * 30;
+    // For recurring subscriptions, block indefinitely (or a large number)
+    // For one-time subscriptions, block for the selected duration
+    const blockDays = isRecurringSubscription ? 9999 : subscriptionDuration * 30;
     return diffDays >= 0 && diffDays <= blockDays;
   };
 
@@ -453,70 +454,50 @@ export default function SelectWeeksPage() {
 
                   <div>
                     <label className="block text-sm font-semibold mb-3 text-gray-900 dark:text-white">
-                      Subscription Duration
+                      Subscription Type
                     </label>
-                    <div className="flex flex-wrap items-end gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
                       {/* 1 Month Option */}
                       <button
                         onClick={() => {
                           setSubscriptionDuration(1);
-                          setCustomMonths('');
+                          setIsRecurringSubscription(false);
                         }}
                         className={`p-4 rounded-xl border-2 transition-all ${
-                          subscriptionDuration === 1 && !customMonths
+                          subscriptionDuration === 1 && !isRecurringSubscription
                             ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 ring-2 ring-blue-200 dark:ring-blue-800'
                             : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600'
                         }`}
                       >
-                        <div className={`text-lg font-bold ${subscriptionDuration === 1 && !customMonths ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-white'}`}>
+                        <div className={`text-lg font-bold ${subscriptionDuration === 1 && !isRecurringSubscription ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-white'}`}>
                           1 Month
                         </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">One-time payment</div>
                       </button>
                       
-                      {/* Custom Months Input */}
-                      <div className="flex-1 min-w-[200px]">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      {/* Monthly Subscription Button */}
+                      <button
+                        onClick={() => {
+                          setSubscriptionDuration(1);
+                          setIsRecurringSubscription(true);
+                        }}
+                        className={`p-4 rounded-xl border-2 transition-all ${
+                          isRecurringSubscription
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 ring-2 ring-blue-200 dark:ring-blue-800'
+                            : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600'
+                        }`}
+                      >
+                        <div className={`text-lg font-bold ${isRecurringSubscription ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-white'}`}>
                           Monthly Subscription
-                        </label>
-                        <div className="flex gap-2">
-                          <input
-                            type="number"
-                            min="1"
-                            max="24"
-                            value={customMonths}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              setCustomMonths(value);
-                              const numValue = parseInt(value, 10);
-                              if (!isNaN(numValue) && numValue > 0) {
-                                setSubscriptionDuration(numValue);
-                              }
-                            }}
-                            onBlur={(e) => {
-                              const numValue = parseInt(e.target.value, 10);
-                              if (isNaN(numValue) || numValue < 1) {
-                                setCustomMonths('');
-                                setSubscriptionDuration(1);
-                              } else {
-                                setSubscriptionDuration(Math.min(numValue, 24)); // Max 24 months
-                                setCustomMonths(String(Math.min(numValue, 24)));
-                              }
-                            }}
-                            placeholder="Enter number of months"
-                            className={`w-full px-4 py-3 border-2 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 bg-white dark:bg-slate-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 ${
-                              customMonths && subscriptionDuration > 1
-                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                                : 'border-gray-300 dark:border-gray-600'
-                            }`}
-                          />
                         </div>
-                        {customMonths && subscriptionDuration > 1 && (
-                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                            {subscriptionDuration} month{subscriptionDuration > 1 ? 's' : ''} selected
-                          </p>
-                        )}
-                      </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Auto-renews every 30 days</div>
+                      </button>
                     </div>
+                    {isRecurringSubscription && (
+                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                        Your card will be automatically charged every 30 days. Your ad will continue running until you cancel or Admin cancels it.
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -525,7 +506,11 @@ export default function SelectWeeksPage() {
             </div>
 
             <div className="rounded border border-gray-200 dark:border-gray-700 p-4 text-sm text-gray-600 dark:text-gray-300 mb-6">
-              Subscription Selection — Select any date from tomorrow onwards to start your subscription. The next {subscriptionDuration * 30} days will be blocked to prevent conflicts.
+              {isRecurringSubscription ? (
+                <>Subscription Selection — Select any date from tomorrow onwards to start your recurring monthly subscription. Your subscription will automatically renew every 30 days until cancelled.</>
+              ) : (
+                <>Subscription Selection — Select any date from tomorrow onwards to start your subscription. The next {subscriptionDuration * 30} days will be blocked to prevent conflicts.</>
+              )}
             </div>
 
                          <div className="mb-3 text-sm font-semibold flex items-center space-x-2">
@@ -588,7 +573,7 @@ export default function SelectWeeksPage() {
                  </div>
                  <div className="flex items-center space-x-2">
                    <span className="inline-block w-3 h-3 sm:w-4 sm:h-4 bg-red-100 dark:bg-red-900/20 rounded border flex-shrink-0"/>
-                   <span className="whitespace-nowrap">Blocked ({subscriptionDuration} month{subscriptionDuration > 1 ? 's' : ''})</span>
+                   <span className="whitespace-nowrap">Blocked ({isRecurringSubscription ? 'Ongoing' : `${subscriptionDuration} month${subscriptionDuration > 1 ? 's' : ''}`})</span>
                  </div>
                  <div className="flex items-center space-x-2">
                    <span className="inline-block w-3 h-3 sm:w-4 sm:h-4 bg-gray-100 dark:bg-gray-800 rounded border flex-shrink-0"/>
@@ -607,7 +592,11 @@ export default function SelectWeeksPage() {
                     <div>
                       <div className="font-semibold text-green-800 dark:text-green-200">Start Month Selected</div>
                       <div className="text-sm text-green-600 dark:text-green-400">
-                        Your subscription will begin on {toDate(subStartMonday).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} and run for {subscriptionDuration} month{subscriptionDuration > 1 ? 's' : ''}
+                        {isRecurringSubscription ? (
+                          <>Your recurring monthly subscription will begin on {toDate(subStartMonday).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} and will automatically renew every 30 days until cancelled.</>
+                        ) : (
+                          <>Your subscription will begin on {toDate(subStartMonday).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} and run for {subscriptionDuration} month{subscriptionDuration > 1 ? 's' : ''}</>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -639,6 +628,7 @@ export default function SelectWeeksPage() {
                   totalSlots: subSlots,
                   baseRate: weeklyRate,
                   subscriptionDuration: subscriptionDuration,
+                  isRecurringSubscription: isRecurringSubscription,
                   useCustomAd: useCustomAd
                 };
                 

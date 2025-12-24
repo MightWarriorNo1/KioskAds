@@ -1,68 +1,51 @@
-import { useState, useEffect } from 'react';
-import { Save, Eye, EyeOff, Youtube, User, Building2 } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Save, Eye, EyeOff, Youtube } from 'lucide-react';
 import { AdminService } from '../../services/adminService';
 import { useNotification } from '../../contexts/NotificationContext';
 
 export default function HowItWorksManagement() {
   const { addNotification } = useNotification();
   const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
   
-  // Client video settings
-  const [clientVideoTitle, setClientVideoTitle] = useState('');
-  const [clientVideoDescription, setClientVideoDescription] = useState('');
-  const [clientYoutubeUrl, setClientYoutubeUrl] = useState('');
-  
-  // Host video settings
-  const [hostVideoTitle, setHostVideoTitle] = useState('');
-  const [hostVideoDescription, setHostVideoDescription] = useState('');
-  const [hostYoutubeUrl, setHostYoutubeUrl] = useState('');
+  // Video settings
+  const [videoTitle, setVideoTitle] = useState('');
+  const [videoDescription, setVideoDescription] = useState('');
+  const [youtubeUrl, setYoutubeUrl] = useState('');
   
   const [isHidden, setIsHidden] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     try {
       setLoading(true);
       const settings = await AdminService.getSystemSettings();
       
       const titleSetting = settings.find(s => s.key === 'how_it_works_title');
-      const descSetting = settings.find(s => s.key === 'how_it_works_description');
       const hiddenSetting = settings.find(s => s.key === 'how_it_works_hidden');
       
-      // Client video settings
-      const clientTitleSetting = settings.find(s => s.key === 'how_it_works_client_video_title');
-      const clientDescSetting = settings.find(s => s.key === 'how_it_works_client_video_description');
-      const clientUrlSetting = settings.find(s => s.key === 'how_it_works_client_youtube_url');
-      
-      // Host video settings
-      const hostTitleSetting = settings.find(s => s.key === 'how_it_works_host_video_title');
-      const hostDescSetting = settings.find(s => s.key === 'how_it_works_host_video_description');
-      const hostUrlSetting = settings.find(s => s.key === 'how_it_works_host_youtube_url');
+      // Video settings
+      const videoTitleSetting = settings.find(s => s.key === 'how_it_works_video_title');
+      const videoDescSetting = settings.find(s => s.key === 'how_it_works_video_description');
+      const videoUrlSetting = settings.find(s => s.key === 'how_it_works_video_url');
 
       setTitle(titleSetting?.value || 'How It Works');
-      setDescription(descSetting?.value || '');
       setIsHidden(hiddenSetting?.value === true || hiddenSetting?.value === 'true');
       
-      setClientVideoTitle(clientTitleSetting?.value || '');
-      setClientVideoDescription(clientDescSetting?.value || '');
-      setClientYoutubeUrl(clientUrlSetting?.value || '');
-      
-      setHostVideoTitle(hostTitleSetting?.value || '');
-      setHostVideoDescription(hostDescSetting?.value || '');
-      setHostYoutubeUrl(hostUrlSetting?.value || '');
+      setVideoTitle(videoTitleSetting?.value || '');
+      setVideoDescription(videoDescSetting?.value || '');
+      setYoutubeUrl(videoUrlSetting?.value || '');
     } catch (error) {
       console.error('Error loading how it works settings:', error);
       addNotification('error', 'Error', 'Failed to load settings');
     } finally {
       setLoading(false);
     }
-  };
+  }, [addNotification]);
+
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
 
   const handleSave = async () => {
     try {
@@ -70,16 +53,11 @@ export default function HowItWorksManagement() {
       
       await Promise.all([
         AdminService.updateSystemSetting('how_it_works_title', title, true),
-        AdminService.updateSystemSetting('how_it_works_description', description, true),
         AdminService.updateSystemSetting('how_it_works_hidden', isHidden, true),
-        // Client video settings
-        AdminService.updateSystemSetting('how_it_works_client_video_title', clientVideoTitle, true),
-        AdminService.updateSystemSetting('how_it_works_client_video_description', clientVideoDescription, true),
-        AdminService.updateSystemSetting('how_it_works_client_youtube_url', clientYoutubeUrl, true),
-        // Host video settings
-        AdminService.updateSystemSetting('how_it_works_host_video_title', hostVideoTitle, true),
-        AdminService.updateSystemSetting('how_it_works_host_video_description', hostVideoDescription, true),
-        AdminService.updateSystemSetting('how_it_works_host_youtube_url', hostYoutubeUrl, true)
+        // Video settings
+        AdminService.updateSystemSetting('how_it_works_video_title', videoTitle, true),
+        AdminService.updateSystemSetting('how_it_works_video_description', videoDescription, true),
+        AdminService.updateSystemSetting('how_it_works_video_url', youtubeUrl, true)
       ]);
 
       addNotification('success', 'Success', 'How It Works page settings saved successfully');
@@ -125,24 +103,11 @@ export default function HowItWorksManagement() {
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Description
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={4}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Enter a description for the How It Works page..."
-            />
-          </div>
-
-          {/* Client Video Section */}
+          {/* Video Section */}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
             <div className="flex items-center gap-2 mb-4">
-              <User className="h-5 w-5 text-blue-600" />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Client Video</h3>
+              <Youtube className="h-5 w-5 text-blue-600" />
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Video</h3>
             </div>
             
             <div className="space-y-4 pl-7">
@@ -152,10 +117,10 @@ export default function HowItWorksManagement() {
                 </label>
                 <input
                   type="text"
-                  value={clientVideoTitle}
-                  onChange={(e) => setClientVideoTitle(e.target.value)}
+                  value={videoTitle}
+                  onChange={(e) => setVideoTitle(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter video title for clients..."
+                  placeholder="Enter video title..."
                 />
               </div>
               
@@ -164,11 +129,11 @@ export default function HowItWorksManagement() {
                   Video Description
                 </label>
                 <textarea
-                  value={clientVideoDescription}
-                  onChange={(e) => setClientVideoDescription(e.target.value)}
+                  value={videoDescription}
+                  onChange={(e) => setVideoDescription(e.target.value)}
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter video description for clients..."
+                  placeholder="Enter video description..."
                 />
               </div>
               
@@ -179,61 +144,8 @@ export default function HowItWorksManagement() {
                 </label>
                 <input
                   type="url"
-                  value={clientYoutubeUrl}
-                  onChange={(e) => setClientYoutubeUrl(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="https://www.youtube.com/watch?v=..."
-                />
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  Enter a full YouTube URL (e.g., https://www.youtube.com/watch?v=VIDEO_ID)
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Host Video Section */}
-          <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Building2 className="h-5 w-5 text-green-600" />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Host Video</h3>
-            </div>
-            
-            <div className="space-y-4 pl-7">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Video Title
-                </label>
-                <input
-                  type="text"
-                  value={hostVideoTitle}
-                  onChange={(e) => setHostVideoTitle(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter video title for hosts..."
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Video Description
-                </label>
-                <textarea
-                  value={hostVideoDescription}
-                  onChange={(e) => setHostVideoDescription(e.target.value)}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter video description for hosts..."
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  <Youtube className="inline h-4 w-4 mr-1" />
-                  YouTube Video URL
-                </label>
-                <input
-                  type="url"
-                  value={hostYoutubeUrl}
-                  onChange={(e) => setHostYoutubeUrl(e.target.value)}
+                  value={youtubeUrl}
+                  onChange={(e) => setYoutubeUrl(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="https://www.youtube.com/watch?v=..."
                 />

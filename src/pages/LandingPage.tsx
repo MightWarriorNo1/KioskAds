@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { MapPin, Clock, Check, Star ,Aperture, Camera, Videotape} from 'lucide-react';
+import { MapPin, Clock, Check, Star ,Aperture, Camera, Videotape, UserPlus, Upload, Eye, BarChart, ArrowRight} from 'lucide-react';
 import SiteHeader from '../components/layouts/SiteHeader';
 import MarketingToolsManager from '../components/marketing/MarketingToolsManager';
 import MarketingOverlays from '../components/marketing/MarketingOverlays';
@@ -66,6 +66,151 @@ export default function LandingPage() {
                 className="relative mx-auto w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-none lg:w-96 lg:h-[28rem] h-80 sm:h-96 md:h-[28rem] rounded-2xl object-cover shadow-elevated border border-slate-300 dark:border-slate-700"
               />
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* $99 Advertising Campaign Section */}
+      <section className="px-4 sm:px-6 py-16 sm:py-20 bg-gray-50 dark:bg-gray-800/30">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-8 sm:mb-12">
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-primary-100 text-primary-700 dark:bg-gray-800 dark:text-primary-300 mb-4">
+              Special Offer
+            </span>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-4 sm:mb-6 text-black dark:text-white">
+              $99 Advertising Campaign
+            </h2>
+            <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-6 sm:mb-8">
+              Get started with our affordable advertising campaign. Perfect for small businesses looking to reach local customers through our digital kiosk network.
+            </p>
+          </div>
+          
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 mb-8 sm:mb-12">
+            <div className="card p-6 sm:p-8 text-center hover:shadow-lg transition-shadow duration-300">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mx-auto mb-4 shadow-lg">
+                <MapPin className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
+              </div>
+              <h3 className="text-xl sm:text-2xl font-bold mb-2 sm:mb-3 text-black dark:text-white">Prime Locations</h3>
+              <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">
+                Your ad displayed on high-traffic digital kiosks in strategic locations
+              </p>
+            </div>
+            
+            <div className="card p-6 sm:p-8 text-center hover:shadow-lg transition-shadow duration-300">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center mx-auto mb-4 shadow-lg">
+                <Clock className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
+              </div>
+              <h3 className="text-xl sm:text-2xl font-bold mb-2 sm:mb-3 text-black dark:text-white">30-Day Campaign</h3>
+              <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">
+                Full month of advertising exposure to maximize your reach
+              </p>
+            </div>
+            
+            <div className="card p-6 sm:p-8 text-center hover:shadow-lg transition-shadow duration-300 sm:col-span-2 lg:col-span-1">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center mx-auto mb-4 shadow-lg">
+                <BarChart className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
+              </div>
+              <h3 className="text-xl sm:text-2xl font-bold mb-2 sm:mb-3 text-black dark:text-white">Performance Tracking</h3>
+              <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">
+                Monitor your campaign performance with detailed analytics
+              </p>
+            </div>
+          </div>
+          
+          <div className="text-center">
+            <Link 
+              to="/signin" 
+              className="inline-flex items-center gap-2 btn-primary px-6 sm:px-8 py-3 font-semibold"
+            >
+              Start Your $99 Campaign
+              <ArrowRight className="h-5 w-5" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works Section */}
+      <section className="px-4 sm:px-6 py-16 sm:py-20 bg-gray-50 dark:bg-gray-800/30">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12 sm:mb-16">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-4 sm:mb-6 text-black dark:text-white">
+              How It Works
+            </h2>
+            <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+              Get your ads on digital kiosks in just a few simple steps
+            </p>
+          </div>
+          
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
+            <div className="card p-6 sm:p-8 text-center hover:shadow-lg transition-shadow duration-300">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg">
+                <UserPlus className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
+              </div>
+              <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-400 flex items-center justify-center mx-auto mb-4 font-bold text-sm sm:text-base">
+                1
+              </div>
+              <h3 className="text-xl sm:text-2xl font-bold mb-2 sm:mb-3 text-black dark:text-white">
+                Create Your Account
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">
+                Sign up in minutes and choose your advertising goals
+              </p>
+            </div>
+            
+            <div className="card p-6 sm:p-8 text-center hover:shadow-lg transition-shadow duration-300">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg">
+                <MapPin className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
+              </div>
+              <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-400 flex items-center justify-center mx-auto mb-4 font-bold text-sm sm:text-base">
+                2
+              </div>
+              <h3 className="text-xl sm:text-2xl font-bold mb-2 sm:mb-3 text-black dark:text-white">
+                Select Kiosks
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">
+                Choose from our network of high-traffic digital kiosk locations
+              </p>
+            </div>
+            
+            <div className="card p-6 sm:p-8 text-center hover:shadow-lg transition-shadow duration-300">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg">
+                <Upload className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
+              </div>
+              <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-400 flex items-center justify-center mx-auto mb-4 font-bold text-sm sm:text-base">
+                3
+              </div>
+              <h3 className="text-xl sm:text-2xl font-bold mb-2 sm:mb-3 text-black dark:text-white">
+                Upload Your Ad
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">
+                Upload your creative content or use our professional design services
+              </p>
+            </div>
+            
+            <div className="card p-6 sm:p-8 text-center hover:shadow-lg transition-shadow duration-300">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg">
+                <Eye className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
+              </div>
+              <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-400 flex items-center justify-center mx-auto mb-4 font-bold text-sm sm:text-base">
+                4
+              </div>
+              <h3 className="text-xl sm:text-2xl font-bold mb-2 sm:mb-3 text-black dark:text-white">
+                Go Live & Monitor
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">
+                Your campaign goes live and track performance with real-time analytics
+              </p>
+            </div>
+          </div>
+          
+          <div className="text-center mt-8 sm:mt-12">
+            <Link 
+              to="/how-it-works" 
+              className="inline-flex items-center gap-2 btn-secondary px-6 sm:px-8 py-3"
+            >
+              Learn More
+              <ArrowRight className="h-5 w-5" />
+            </Link>
           </div>
         </div>
       </section>
