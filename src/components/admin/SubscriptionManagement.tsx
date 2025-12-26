@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { CreditCard, Search, X, RefreshCw, User, Building2, Calendar, AlertCircle } from 'lucide-react';
 import { useNotification } from '../../contexts/NotificationContext';
 import { BillingService, Subscription } from '../../services/billingService';
-import { supabase } from '../../lib/supabaseClient';
+import { AdminService } from '../../services/adminService';
 
 interface SubscriptionWithUser extends Subscription {
   user: {
@@ -32,51 +32,21 @@ export default function SubscriptionManagement() {
     try {
       setLoading(true);
       
-      // Fetch all subscriptions
-      const { data: subscriptionsData, error: subscriptionsError } = await supabase
-        .from('subscriptions')
-        .select(`
-          *,
-          linked_campaigns:subscription_campaigns(campaign_id)
-        `)
-        .order('created_at', { ascending: false });
+      // Use AdminService to fetch all subscriptions (bypasses RLS)
+      const subscriptionsData = await AdminService.getAllSubscriptions();
 
-      if (subscriptionsError) throw subscriptionsError;
-
-      if (!subscriptionsData || subscriptionsData.length === 0) {
-        setSubscriptions([]);
-        return;
-      }
-
-      // Get unique user IDs
-      const userIds = [...new Set(subscriptionsData.map((sub: any) => sub.user_id))];
-
-      // Fetch user profiles for those user IDs, filtering by client/host roles
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, full_name, email, role, company_name')
-        .in('id', userIds)
-        .in('role', ['client', 'host']);
-
-      if (profilesError) throw profilesError;
-
-      // Create a map of user_id to profile
-      const profileMap = new Map((profilesData || []).map((profile: any) => [profile.id, profile]));
-
-      // Transform the data and join with profiles
-      const transformedSubscriptions: SubscriptionWithUser[] = subscriptionsData
-        .filter((sub: any) => profileMap.has(sub.user_id))
-        .map((sub: any) => ({
-          id: sub.id,
-          user_id: sub.user_id,
-          status: sub.status,
-          auto_renewal: sub.auto_renewal,
-          start_date: sub.start_date,
-          end_date: sub.end_date,
-          created_at: sub.created_at,
-          user: profileMap.get(sub.user_id)!,
-          linked_campaigns: sub.linked_campaigns?.map((lc: any) => lc.campaign_id) || []
-        }));
+      // Transform to match SubscriptionWithUser interface
+      const transformedSubscriptions: SubscriptionWithUser[] = subscriptionsData.map((sub: any) => ({
+        id: sub.id,
+        user_id: sub.user_id,
+        status: sub.status,
+        auto_renewal: sub.auto_renewal,
+        start_date: sub.start_date,
+        end_date: sub.end_date,
+        created_at: sub.created_at,
+        user: sub.user,
+        linked_campaigns: sub.linked_campaigns || []
+      }));
 
       setSubscriptions(transformedSubscriptions);
     } catch (error) {
@@ -152,7 +122,7 @@ export default function SubscriptionManagement() {
       const months = Math.round(diffDays / 30);
       
       if (months === 1) {
-        return '1-Month';
+        return 'Monthly';
       } else {
         return `${months}-Month`;
       }

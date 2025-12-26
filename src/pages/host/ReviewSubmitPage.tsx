@@ -100,6 +100,7 @@ export default function HostReviewSubmitPage() {
       const firstKioskCost = totalSlots * baseRate * subscriptionDuration;
       const additionalKiosks = numKiosks - 1;
       const discountedRate = baseRate * (1 - (discountPercent || 0) / 100);
+      const durationDiscount = 0; // No subscription duration discount applied
       const additionalCost = totalSlots * discountedRate * subscriptionDuration * (1 - durationDiscount) * additionalKiosks;
       return Math.round((firstKioskCost + additionalCost) * 100) / 100;
     }
@@ -116,15 +117,17 @@ export default function HostReviewSubmitPage() {
       if (!startDate || !endDate) {
         throw new Error('Invalid campaign dates');
       }
-      // Calculate months from date range
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      const months = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30));
-      const campaignName = `${kiosks.length > 1 ? `${kiosks[0]?.name} +${kiosks.length - 1}` : kiosks[0]?.name} - ${months} month${months > 1 ? 's' : ''} campaign`;
+      // Use subscriptionDuration instead of calculating from dates
+      const campaignName = isRecurringSubscription
+        ? `${kiosks.length > 1 ? `${kiosks[0]?.name} +${kiosks.length - 1}` : kiosks[0]?.name} - Monthly subscription campaign`
+        : `${kiosks.length > 1 ? `${kiosks[0]?.name} +${kiosks.length - 1}` : kiosks[0]?.name} - ${subscriptionDuration} month${subscriptionDuration > 1 ? 's' : ''} campaign`;
       const totalCost = calculateTotalCost();
+      const campaignDescription = isRecurringSubscription
+        ? `Campaign for ${kiosks.map(k => k.name).join(', ')} running on a monthly subscription basis`
+        : `Campaign for ${kiosks.map(k => k.name).join(', ')} running for ${subscriptionDuration} month${subscriptionDuration > 1 ? 's' : ''}`;
       const newCampaign = await CampaignService.createCampaign({
         name: campaignName,
-        description: `Campaign for ${kiosks.map(k => k.name).join(', ')} running for ${months} month${months > 1 ? 's' : ''}`,
+        description: campaignDescription,
         start_date: startDate,
         end_date: endDate,
         budget: totalCost,
@@ -244,12 +247,11 @@ export default function HostReviewSubmitPage() {
             <div className="space-y-3 text-sm">
               <div className="flex items-center space-x-2"><MapPin className="h-4 w-4" /><span>{kiosks.map(k => k.name).join(', ')}</span></div>
               <div className="flex items-center space-x-2"><Calendar className="h-4 w-4" /><span>
-                {selectedWeeks.length > 0 ? (() => {
-                  const start = new Date(selectedWeeks[0]?.startDate);
-                  const end = new Date(selectedWeeks[selectedWeeks.length - 1]?.endDate);
-                  const months = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30));
-                  return `${months} month${months > 1 ? 's' : ''}`;
-                })() : 'N/A'}
+                {selectedWeeks.length > 0 ? (
+                  isRecurringSubscription
+                    ? 'Monthly subscription'
+                    : `${subscriptionDuration} month${subscriptionDuration > 1 ? 's' : ''}`
+                ) : 'N/A'}
               </span></div>
               <div className="flex items-center space-x-2"><Calendar className="h-4 w-4" /><span>Start Date: {selectedWeeks[0]?.startDate ? selectedWeeks[0].startDate : 'N/A'}</span></div>
               <div className="flex items-center space-x-2"><Calendar className="h-4 w-4" /><span>End Date: {selectedWeeks[selectedWeeks.length - 1]?.endDate ? selectedWeeks[selectedWeeks.length - 1].endDate : 'N/A'}</span></div>
@@ -303,8 +305,12 @@ export default function HostReviewSubmitPage() {
             deliveryTime: 'Instant'
           }}
           campaignDetails={{
-            name: `${kiosks.length > 1 ? `${kiosks[0]?.name} +${kiosks.length - 1}` : kiosks[0]?.name} - ${subscriptionDuration} month${subscriptionDuration > 1 ? 's' : ''} campaign`,
-            description: `Campaign for ${kiosks.map(k => k.name).join(', ')} running for ${subscriptionDuration} month${subscriptionDuration > 1 ? 's' : ''}`,
+            name: isRecurringSubscription
+              ? `${kiosks.length > 1 ? `${kiosks[0]?.name} +${kiosks.length - 1}` : kiosks[0]?.name} - Monthly subscription campaign`
+              : `${kiosks.length > 1 ? `${kiosks[0]?.name} +${kiosks.length - 1}` : kiosks[0]?.name} - ${subscriptionDuration} month${subscriptionDuration > 1 ? 's' : ''} campaign`,
+            description: isRecurringSubscription
+              ? `Campaign for ${kiosks.map(k => k.name).join(', ')} running on a monthly subscription basis`
+              : `Campaign for ${kiosks.map(k => k.name).join(', ')} running for ${subscriptionDuration} month${subscriptionDuration > 1 ? 's' : ''}`,
             startDate: selectedWeeks[0]?.startDate || '',
             endDate: selectedWeeks[selectedWeeks.length - 1]?.endDate || '',
             kiosks: kiosks.map(k => ({ id: k.id, name: k.name })),

@@ -124,6 +124,7 @@ export default function ReviewSubmitPage() {
       const firstKioskCost = totalSlots * baseRate * subscriptionDuration;
       const additionalKiosks = numKiosks - 1;
       const discountedRate = baseRate * (1 - (discountPercent || 0) / 100);
+      const durationDiscount = 0; // No subscription duration discount applied
       const additionalCost = totalSlots * discountedRate * subscriptionDuration * (1 - durationDiscount) * additionalKiosks;
       return Math.round((firstKioskCost + additionalCost) * 100) / 100;
     }
@@ -698,16 +699,16 @@ export default function ReviewSubmitPage() {
         }}
         campaignDetails={{
           name: (() => {
-            const start = new Date(selectedWeeks[0]?.startDate || '');
-            const end = new Date(selectedWeeks[selectedWeeks.length - 1]?.endDate || '');
-            const months = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30));
-            return `${kiosks.length > 1 ? `${kiosks[0]?.name} +${kiosks.length - 1}` : kiosks[0]?.name} - ${months} month${months > 1 ? 's' : ''} campaign`;
+            if (isRecurringSubscription) {
+              return `${kiosks.length > 1 ? `${kiosks[0]?.name} +${kiosks.length - 1}` : kiosks[0]?.name} - Monthly subscription campaign`;
+            }
+            return `${kiosks.length > 1 ? `${kiosks[0]?.name} +${kiosks.length - 1}` : kiosks[0]?.name} - ${subscriptionDuration} month${subscriptionDuration > 1 ? 's' : ''} campaign`;
           })(),
           description: (() => {
-            const start = new Date(selectedWeeks[0]?.startDate || '');
-            const end = new Date(selectedWeeks[selectedWeeks.length - 1]?.endDate || '');
-            const months = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30));
-            return `Campaign for ${kiosks.map(k => k.name).join(', ')} running for ${months} month${months > 1 ? 's' : ''}`;
+            if (isRecurringSubscription) {
+              return `Campaign for ${kiosks.map(k => k.name).join(', ')} running on a monthly subscription basis`;
+            }
+            return `Campaign for ${kiosks.map(k => k.name).join(', ')} running for ${subscriptionDuration} month${subscriptionDuration > 1 ? 's' : ''}`;
           })(),
           startDate: selectedWeeks[0]?.startDate || '',
           endDate: selectedWeeks[selectedWeeks.length - 1]?.endDate || '',

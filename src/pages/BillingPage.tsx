@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { FileText, ArrowRight, RefreshCw } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { FileText, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/layouts/DashboardLayout';
 import { BillingService, BillingCampaign, Subscription, PaymentHistory } from '../services/billingService';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabaseClient';
 
 export default function BillingPage() {
   const { user } = useAuth();
@@ -12,16 +13,13 @@ export default function BillingPage() {
   const [activeCampaigns, setActiveCampaigns] = useState<BillingCampaign[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
+  const [campaignNames, setCampaignNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const tabs = ['Active Campaigns', 'Subscriptions', 'Payment History'];
 
-  useEffect(() => {
-    fetchBillingData();
-  }, [user]);
-
-  const fetchBillingData = async () => {
+  const fetchBillingData = useCallback(async () => {
     if (!user) return;
     
     try {
@@ -35,12 +33,39 @@ export default function BillingPage() {
       setActiveCampaigns(campaigns);
       setSubscriptions(subs);
       setPaymentHistory(payments);
+
+      // Fetch campaign names for linked campaigns
+      const allCampaignIds = new Set<string>();
+      subs.forEach(sub => {
+        sub.linked_campaigns.forEach(campaignId => {
+          allCampaignIds.add(campaignId);
+        });
+      });
+
+      if (allCampaignIds.size > 0) {
+        const { data: campaignsData, error: campaignsError } = await supabase
+          .from('campaigns')
+          .select('id, name')
+          .in('id', Array.from(allCampaignIds));
+
+        if (!campaignsError && campaignsData) {
+          const namesMap: Record<string, string> = {};
+          campaignsData.forEach(campaign => {
+            namesMap[campaign.id] = campaign.name || `Campaign ${campaign.id.substring(0, 8)}`;
+          });
+          setCampaignNames(namesMap);
+        }
+      }
     } catch (error) {
       console.error('Error fetching billing data:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    fetchBillingData();
+  }, [fetchBillingData]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -199,7 +224,17 @@ export default function BillingPage() {
           <div key={subscription.id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 p-6">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h3 className="font-semibold text-gray-900 dark:text-white mb-1">Subscription</h3>
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
+                  {subscription.auto_renewal ? 'Monthly (Recurring)' : 
+                   subscription.end_date ? (() => {
+                     const startDate = new Date(subscription.start_date);
+                     const endDate = new Date(subscription.end_date);
+                     const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+                     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                     const months = Math.round(diffDays / 30);
+                     return months === 1 ? 'Monthly' : `${months}-Month`;
+                   })() : 'Monthly'} Subscription
+                </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-300">Started: {formatDate(subscription.start_date)}</p>
               </div>
               <span className={`${getStatusColor(subscription.status)} text-white text-xs px-2 py-1 rounded capitalize`}>
@@ -214,10 +249,12 @@ export default function BillingPage() {
             </div>
             {subscription.linked_campaigns.length > 0 && (
               <div className="mb-4">
-                <h4 className="font-medium text-gray-900 mb-2">Linked Campaigns</h4>
+                <h4 className="font-medium text-gray-900 dark:text-white mb-2">Linked Campaigns</h4>
                 {subscription.linked_campaigns.map((campaignId, index) => (
                   <div key={index} className="flex items-center justify-between bg-gray-50 dark:bg-gray-700 p-3 rounded">
-                    <span className="text-sm text-gray-700">Campaign {campaignId}</span>
+                    <span className="text-sm text-gray-900 dark:text-white font-medium">
+                      {campaignNames[campaignId] || `Campaign ${campaignId.substring(0, 8)}...`}
+                    </span>
                     <span className="bg-green-600 text-white text-xs px-2 py-1 rounded">Active</span>
                   </div>
                 ))}
@@ -231,7 +268,7 @@ export default function BillingPage() {
             {subscription.status === 'active' && (
               <button 
                 onClick={() => handleCancelSubscription(subscription.id)}
-                className="w-full bg-red-600 text-white dark:text-gray-900 py-2 px-4 rounded-lg hover:bg-red-700 transition-colors"
+                className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors font-medium"
               >
                 Cancel Subscription
               </button>

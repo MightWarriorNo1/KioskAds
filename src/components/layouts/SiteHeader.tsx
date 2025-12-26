@@ -13,6 +13,7 @@ export default function SiteHeader() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [partnersLinkVisible, setPartnersLinkVisible] = useState(true);
   const [kiosksLinkVisible, setKiosksLinkVisible] = useState(true);
+  const [howItWorksLinkVisible, setHowItWorksLinkVisible] = useState(true);
 
   // Load navigation visibility settings
   useEffect(() => {
@@ -65,6 +66,40 @@ export default function SiteHeader() {
           } else {
             // For any other value (true, null, undefined, "true", etc.), show the link
             setKiosksLinkVisible(true);
+          }
+        }
+
+        // Load how it works link visibility (must be public due to RLS)
+        const { data: howItWorksData, error: howItWorksError } = await supabase
+          .from('system_settings')
+          .select('value')
+          .eq('key', 'how_it_works_hidden')
+          .eq('is_public', true)
+          .single();
+
+        if (howItWorksError) {
+          if (howItWorksError.code !== 'PGRST116') { // PGRST116 is "not found"
+            console.error('Error loading how it works link setting:', howItWorksError);
+          }
+          // If not found, default to true (show the link)
+        } else if (howItWorksData !== null && howItWorksData !== undefined) {
+          // Handle JSONB boolean values - ensure we get the actual boolean
+          let value = howItWorksData.value;
+          
+          // If value is a string that looks like JSON, try to parse it
+          if (typeof value === 'string' && (value.startsWith('"') || value === 'true' || value === 'false')) {
+            try {
+              value = JSON.parse(value);
+            } catch {
+              // If parsing fails, keep the original value
+            }
+          }
+          
+          // If hidden is true, hide the link; otherwise show it
+          if (value === true || value === 'true') {
+            setHowItWorksLinkVisible(false);
+          } else {
+            setHowItWorksLinkVisible(true);
           }
         }
       } catch (error) {
@@ -209,6 +244,7 @@ export default function SiteHeader() {
               Our Partners
             </Link>
           )}
+          {howItWorksLinkVisible && (
           <Link 
             to="/how-it-works" 
             className={`transition-colors ${
@@ -219,6 +255,7 @@ export default function SiteHeader() {
           >
             How It Works
           </Link>
+          )}
           <Link 
             to="/faqs" 
             className={`transition-colors ${
@@ -324,6 +361,7 @@ export default function SiteHeader() {
                 Our Partners
               </Link>
             )}
+            {howItWorksLinkVisible && (
             <Link 
               to="/how-it-works" 
               onClick={() => setMobileMenuOpen(false)}
@@ -335,6 +373,7 @@ export default function SiteHeader() {
             >
               How It Works
             </Link>
+            )}
             <Link 
               to="/faqs" 
               onClick={() => setMobileMenuOpen(false)}

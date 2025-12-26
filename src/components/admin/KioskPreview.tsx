@@ -19,9 +19,6 @@ export default function KioskPreview({
   const [showControls, setShowControls] = useState(false);
   const [hasError, setHasError] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
-
-  // Debug logging
-  console.log('KioskPreview Props:', { mediaUrl, mediaType, title, className });
   
   // Check if mediaUrl is valid
   const isValidUrl = mediaUrl && (mediaUrl.startsWith('http') || mediaUrl.startsWith('blob:') || mediaUrl.startsWith('data:'));

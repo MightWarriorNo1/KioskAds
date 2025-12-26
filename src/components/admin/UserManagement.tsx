@@ -206,7 +206,7 @@ export default function UserManagement() {
       const months = Math.round(diffDays / 30);
       
       if (months === 1) {
-        return '1-Month';
+        return 'Monthly';
       } else {
         return `${months}-Month`;
       }

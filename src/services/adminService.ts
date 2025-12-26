@@ -936,6 +936,57 @@ export class AdminService {
     }
   }
 
+  // Get all subscriptions for admin view
+  static async getAllSubscriptions(): Promise<any[]> {
+    try {
+      // Fetch all subscriptions with linked campaigns
+      const { data: subscriptionsData, error: subscriptionsError } = await supabase
+        .from('subscriptions')
+        .select(`
+          *,
+          linked_campaigns:subscription_campaigns(campaign_id)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (subscriptionsError) throw subscriptionsError;
+
+      if (!subscriptionsData || subscriptionsData.length === 0) return [];
+
+      // Get unique user IDs
+      const userIds = [...new Set(subscriptionsData.map((sub: any) => sub.user_id))];
+
+      // Fetch user profiles for those user IDs, filtering by client/host roles
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, role, company_name')
+        .in('id', userIds)
+        .in('role', ['client', 'host']);
+
+      if (profilesError) throw profilesError;
+
+      // Create a map of user_id to profile
+      const profileMap = new Map((profilesData || []).map((profile: any) => [profile.id, profile]));
+
+      // Transform the data and join with profiles
+      return subscriptionsData
+        .filter((sub: any) => profileMap.has(sub.user_id))
+        .map((sub: any) => ({
+          id: sub.id,
+          user_id: sub.user_id,
+          status: sub.status,
+          auto_renewal: sub.auto_renewal,
+          start_date: sub.start_date,
+          end_date: sub.end_date,
+          created_at: sub.created_at,
+          user: profileMap.get(sub.user_id)!,
+          linked_campaigns: sub.linked_campaigns?.map((lc: any) => lc.campaign_id) || []
+        }));
+    } catch (error) {
+      console.error('Error fetching all subscriptions:', error);
+      throw error;
+    }
+  }
+
   // Get all campaigns for admin view
   static async getAllCampaigns(): Promise<AdminCampaignItem[]> {
     try {

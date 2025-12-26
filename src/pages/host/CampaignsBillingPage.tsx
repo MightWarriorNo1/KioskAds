@@ -26,6 +26,7 @@ import { useNotification } from '../../contexts/NotificationContext';
 import { BillingService, BillingCampaign, Subscription, PaymentHistory } from '../../services/billingService';
 import { CampaignService, Campaign } from '../../services/campaignService';
 import { HostService, HostPayout } from '../../services/hostService';
+import { supabase } from '../../lib/supabaseClient';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 
@@ -41,6 +42,7 @@ export default function HostCampaignsBillingPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
   const [payouts, setPayouts] = useState<HostPayout[]>([]);
+  const [campaignNames, setCampaignNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
@@ -71,6 +73,31 @@ export default function HostCampaignsBillingPage() {
       setSubscriptions(subsData);
       setPaymentHistory(paymentsData);
       setPayouts(payoutsData);
+
+      // Fetch campaign names for linked campaigns
+      const allCampaignIds = new Set<string>();
+      subsData.forEach(sub => {
+        if (sub.linked_campaigns) {
+          sub.linked_campaigns.forEach((campaignId: string) => {
+            allCampaignIds.add(campaignId);
+          });
+        }
+      });
+
+      if (allCampaignIds.size > 0) {
+        const { data: campaignsData, error: campaignsError } = await supabase
+          .from('campaigns')
+          .select('id, name')
+          .in('id', Array.from(allCampaignIds));
+
+        if (!campaignsError && campaignsData) {
+          const namesMap: Record<string, string> = {};
+          campaignsData.forEach(campaign => {
+            namesMap[campaign.id] = campaign.name || `Campaign ${campaign.id.substring(0, 8)}`;
+          });
+          setCampaignNames(namesMap);
+        }
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
       addNotification('error', 'Error', 'Failed to load data');
@@ -178,6 +205,28 @@ export default function HostCampaignsBillingPage() {
       default:
         return <Clock className="h-4 w-4" />;
     }
+  };
+
+  const getSubscriptionType = (subscription: Subscription): string => {
+    if (subscription.auto_renewal) {
+      return 'Monthly (Recurring)';
+    }
+    
+    if (subscription.end_date) {
+      const startDate = new Date(subscription.start_date);
+      const endDate = new Date(subscription.end_date);
+      const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const months = Math.round(diffDays / 30);
+      
+      if (months === 1) {
+        return 'Monthly';
+      } else {
+        return `${months}-Month`;
+      }
+    }
+    
+    return 'Monthly';
   };
 
   // Calculate summary statistics
@@ -457,6 +506,64 @@ export default function HostCampaignsBillingPage() {
                           </span>
                         </div>
                       </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            {/* Subscriptions */}
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Subscriptions</h3>
+              {subscriptions.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CreditCard className="h-6 w-6 text-gray-400" />
+                  </div>
+                  <p className="text-gray-600 dark:text-gray-400">No subscriptions</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {subscriptions.map((subscription) => (
+                    <div key={subscription.id} className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <h4 className="font-medium text-gray-900 dark:text-white mb-1">
+                            {getSubscriptionType(subscription)} Subscription
+                          </h4>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">Started: {formatDate(subscription.start_date)}</p>
+                        </div>
+                        <span className={`${getStatusColor(subscription.status)} text-white text-xs px-2 py-1 rounded capitalize`}>
+                          {subscription.status}
+                        </span>
+                      </div>
+                      <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400 mb-4">
+                        <div>Start Date: {formatDate(subscription.start_date)}</div>
+                        {subscription.end_date && <div>End Date: {formatDate(subscription.end_date)}</div>}
+                        <div>Status: {subscription.status}</div>
+                        <div>Auto-renewal: {subscription.auto_renewal ? 'Yes' : 'No'}</div>
+                      </div>
+                      {subscription.linked_campaigns && subscription.linked_campaigns.length > 0 && (
+                        <div className="mb-4">
+                          <h5 className="font-medium text-gray-900 dark:text-white mb-2">Linked Campaigns</h5>
+                          {subscription.linked_campaigns.map((campaignId, index) => (
+                            <div key={index} className="flex items-center justify-between bg-gray-100 dark:bg-gray-700 p-2 rounded mb-2">
+                              <span className="text-sm text-gray-900 dark:text-white font-medium">
+                                {campaignNames[campaignId] || `Campaign ${campaignId.substring(0, 8)}...`}
+                              </span>
+                              <span className="bg-green-600 text-white text-xs px-2 py-1 rounded">Active</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {subscription.status === 'active' && (
+                        <button 
+                          onClick={() => handleCancelSubscription(subscription.id)}
+                          className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors font-medium"
+                        >
+                          Cancel Subscription
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
