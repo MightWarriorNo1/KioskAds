@@ -193,6 +193,28 @@ export default function UserManagement() {
     }
   };
 
+  const getSubscriptionType = (subscription: Subscription): string => {
+    if (subscription.auto_renewal) {
+      return 'Monthly (Recurring)';
+    }
+    
+    if (subscription.end_date) {
+      const startDate = new Date(subscription.start_date);
+      const endDate = new Date(subscription.end_date);
+      const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const months = Math.round(diffDays / 30);
+      
+      if (months === 1) {
+        return '1-Month';
+      } else {
+        return `${months}-Month`;
+      }
+    }
+    
+    return 'Monthly';
+  };
+
   const saveUserChanges = async () => {
     if (!selectedUser) return;
 
@@ -948,6 +970,9 @@ export default function UserManagement() {
                                 : 'bg-gray-600 text-white'
                             }`}>
                               {subscription.status.toUpperCase()}
+                            </span>
+                            <span className="px-2 py-1 rounded text-xs font-medium bg-purple-600 text-white">
+                              {getSubscriptionType(subscription)}
                             </span>
                             {subscription.auto_renewal && subscription.status === 'active' && (
                               <span className="px-2 py-1 rounded text-xs font-medium bg-blue-600 text-white">

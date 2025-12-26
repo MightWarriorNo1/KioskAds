@@ -12,8 +12,19 @@ export default function HowItWorksPage() {
   const [videoDescription, setVideoDescription] = useState('');
   const [youtubeUrl, setYoutubeUrl] = useState('');
   
+  // Second video settings
+  const [video2Title, setVideo2Title] = useState('');
+  const [video2Description, setVideo2Description] = useState('');
+  const [youtube2Url, setYoutube2Url] = useState('');
+  
   const [isHidden, setIsHidden] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Helper function to remove all double quotes from text
+  const removeQuotes = (text: string | null | undefined): string => {
+    if (!text) return '';
+    return String(text).replace(/"/g, '');
+  };
 
   const loadPageSettings = useCallback(async () => {
     try {
@@ -28,7 +39,10 @@ export default function HowItWorksPage() {
           'how_it_works_hidden',
           'how_it_works_video_title',
           'how_it_works_video_description',
-          'how_it_works_video_url'
+          'how_it_works_video_url',
+          'how_it_works_video2_title',
+          'how_it_works_video2_description',
+          'how_it_works_video2_url'
         ])
         .eq('is_public', true);
 
@@ -37,13 +51,18 @@ export default function HowItWorksPage() {
       const settings = data || [];
       const settingsMap = new Map(settings.map(s => [s.key, s.value]));
 
-      setTitle(settingsMap.get('how_it_works_title') || 'How It Works');
+      setTitle(removeQuotes(settingsMap.get('how_it_works_title')) || 'How It Works');
       setIsHidden(settingsMap.get('how_it_works_hidden') === true || settingsMap.get('how_it_works_hidden') === 'true');
       
       // Video settings
-      setVideoTitle(settingsMap.get('how_it_works_video_title') || '');
-      setVideoDescription(settingsMap.get('how_it_works_video_description') || '');
+      setVideoTitle(removeQuotes(settingsMap.get('how_it_works_video_title')));
+      setVideoDescription(removeQuotes(settingsMap.get('how_it_works_video_description')));
       setYoutubeUrl(settingsMap.get('how_it_works_video_url') || '');
+      
+      // Second video settings
+      setVideo2Title(removeQuotes(settingsMap.get('how_it_works_video2_title')));
+      setVideo2Description(removeQuotes(settingsMap.get('how_it_works_video2_description')));
+      setYoutube2Url(settingsMap.get('how_it_works_video2_url') || '');
     } catch (error) {
       console.error('Error loading how it works page settings:', error);
     } finally {
@@ -75,14 +94,15 @@ export default function HowItWorksPage() {
   };
 
   const videoId = getYouTubeVideoId(youtubeUrl);
+  const video2Id = getYouTubeVideoId(youtube2Url);
 
   // If page is hidden, show 404-like message
   if (isHidden) {
     return (
-      <div className="min-h-screen bg-[rgb(var(--bg))] dark:bg-gradient-to-br dark:from-slate-900 dark:via-blue-900 dark:to-slate-800 flex items-center justify-center px-4">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Page Not Available</h1>
-          <p className="text-gray-600 dark:text-gray-400">This page is currently unavailable.</p>
+      <div className='min-h-screen bg-[rgb(var(--bg))] dark:bg-gradient-to-br dark:from-slate-900 dark:via-blue-900 dark:to-slate-800 flex items-center justify-center px-4'>
+        <div className='text-center'>
+          <h1 className='text-2xl font-bold text-gray-900 dark:text-white mb-2'>Page Not Available</h1>
+          <p className='text-gray-600 dark:text-gray-400'>This page is currently unavailable.</p>
         </div>
       </div>
     );
@@ -90,47 +110,71 @@ export default function HowItWorksPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[rgb(var(--bg))] dark:bg-gradient-to-br dark:from-slate-900 dark:via-blue-900 dark:to-slate-800 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      <div className='min-h-screen bg-[rgb(var(--bg))] dark:bg-gradient-to-br dark:from-slate-900 dark:via-blue-900 dark:to-slate-800 flex items-center justify-center'>
+        <Loader2 className='h-8 w-8 animate-spin text-gray-400' />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[rgb(var(--bg))] dark:bg-gradient-to-br dark:from-slate-900 dark:via-blue-900 dark:to-slate-800">
+    <div className='min-h-screen bg-[rgb(var(--bg))] dark:bg-gradient-to-br dark:from-slate-900 dark:via-blue-900 dark:to-slate-800'>
       <SiteHeader />
-      <div className="max-w-4xl mx-auto py-8 px-4">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">{title}</h1>
+      <div className='max-w-4xl mx-auto py-8 px-4'>
+        <div className='text-center mb-8'>
+          <h1 className='text-3xl font-bold text-gray-900 dark:text-white mb-4'>{title}</h1>
         </div>
 
         {videoId && (
-          <div className="mb-8">
+          <div className='mb-8'>
             {videoTitle && (
-              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
+              <h2 className='text-2xl font-semibold text-gray-900 dark:text-white mb-4'>
                 {videoTitle}
               </h2>
             )}
-            {videoDescription && (
-              <p className="text-gray-600 dark:text-gray-400 mb-4">
-                {videoDescription}
-              </p>
-            )}
-            <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+            <div className='relative w-full' style={{ paddingBottom: '56.25%' }}>
               <iframe
-                className="absolute top-0 left-0 w-full h-full rounded-lg"
+                className='absolute top-0 left-0 w-full h-full rounded-lg'
                 src={`https://www.youtube.com/embed/${videoId}`}
                 title={videoTitle || title}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture'
                 allowFullScreen
               />
             </div>
+            {videoDescription && (
+              <p className='text-white text-xl mt-4'>
+                {videoDescription}
+              </p>
+            )}
           </div>
         )}
 
-        {!videoId && (
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-6 mb-8">
-            <p className="text-yellow-800 dark:text-yellow-200 text-sm">
+        {video2Id && (
+          <div className='mb-8'>
+            {video2Title && (
+              <h2 className='text-2xl font-semibold text-gray-900 dark:text-white mb-4'>
+                {video2Title}
+              </h2>
+            )}
+            <div className='relative w-full' style={{ paddingBottom: '56.25%' }}>
+              <iframe
+                className='absolute top-0 left-0 w-full h-full rounded-lg'
+                src={`https://www.youtube.com/embed/${video2Id}`}
+                title={video2Title || title}
+                allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture'
+                allowFullScreen
+              />
+            </div>
+            {video2Description && (
+              <p className='text-white text-xl mt-4'>
+                {video2Description}
+              </p>
+            )}
+          </div>
+        )}
+
+        {!videoId && !video2Id && (
+          <div className='bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-6 mb-8'>
+            <p className='text-yellow-800 dark:text-yellow-200 text-sm'>
               No video has been configured for this page. Please contact an administrator.
             </p>
           </div>

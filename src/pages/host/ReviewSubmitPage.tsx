@@ -7,6 +7,7 @@ import { useNotification } from '../../contexts/NotificationContext';
 import { PricingService } from '../../services/pricingService';
 import PurchaseModal from '../../components/client/PurchaseModal';
 import { BillingService } from '../../services/billingService';
+import { supabase } from '../../lib/supabaseClient';
 
 interface SelectedWeek {
   startDate: string;
@@ -68,6 +69,7 @@ export default function HostReviewSubmitPage() {
   const totalSlots = campaignData.totalSlots || 1;
   const baseRate = campaignData.baseRate || 40.00;
   const subscriptionDuration = campaignData.subscriptionDuration || 1; // Default to 1 month if not provided
+  const isRecurringSubscription = campaignData.isRecurringSubscription || false; // Recurring monthly subscription
   const uploadedMediaAsset = campaignData.uploadedMediaAsset;
   const selectedCustomAd = campaignData.selectedCustomAd;
 
@@ -147,6 +149,36 @@ export default function HostReviewSubmitPage() {
       } catch (e) {
         console.warn('Failed to record payment history', e);
       }
+      
+      // Create subscription for all campaigns (monthly recurring or 1-month)
+      try {
+        // Determine if this is a recurring subscription or one-time
+        const autoRenewal = isRecurringSubscription;
+        
+        const subscription = await BillingService.createSubscription(user.id, {
+          auto_renewal: autoRenewal,
+          start_date: startDate,
+          end_date: endDate
+        });
+        
+        if (subscription) {
+          // Link subscription to campaign
+          const { error: linkError } = await supabase
+            .from('subscription_campaigns')
+            .insert([{
+              subscription_id: subscription.id,
+              campaign_id: newCampaign.id
+            }]);
+          
+          if (linkError) {
+            console.warn('Failed to link subscription to campaign:', linkError);
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to create subscription:', e);
+        // Non-blocking - campaign is created, subscription can be set up later
+      }
+      
       addNotification('success', 'Campaign Created!', `Your campaign "${campaignName}" has been created successfully and is now pending approval.`);
       navigate('/host/campaigns');
     } catch (error) {

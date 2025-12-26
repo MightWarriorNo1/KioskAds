@@ -202,6 +202,28 @@ export default function ProfilePage() {
     }
   };
 
+  const getSubscriptionType = (subscription: Subscription): string => {
+    if (subscription.auto_renewal) {
+      return 'Monthly (Recurring)';
+    }
+    
+    if (subscription.end_date) {
+      const startDate = new Date(subscription.start_date);
+      const endDate = new Date(subscription.end_date);
+      const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const months = Math.round(diffDays / 30);
+      
+      if (months === 1) {
+        return '1-Month';
+      } else {
+        return `${months}-Month`;
+      }
+    }
+    
+    return 'Monthly';
+  };
+
   const handleCancelSubscription = async (subscriptionId: string) => {
     if (!user) return;
     
@@ -210,7 +232,7 @@ export default function ProfilePage() {
       const success = await BillingService.cancelSubscription(subscriptionId);
       
       if (success) {
-        addNotification('success', 'Subscription Cancelled', 'Your monthly subscription has been cancelled successfully.');
+        addNotification('success', 'Subscription Cancelled', 'Your subscription has been cancelled successfully.');
         await loadSubscriptions();
         setShowCancelConfirm(null);
       } else {
@@ -349,9 +371,9 @@ export default function ProfilePage() {
 
       {/* Subscription Management Section */}
       <div className="mb-8">
-        <Card title="Subscription Management" subtitle="Manage your monthly subscriptions.">
+        <Card title="Subscription Management" subtitle="Manage all your subscriptions (monthly recurring and 1-month).">
           {subscriptions.length === 0 ? (
-            <p className="text-gray-600 dark:text-gray-400">You don't have any active subscriptions.</p>
+            <p className="text-gray-600 dark:text-gray-400">You don't have any subscriptions.</p>
           ) : (
             <div className="space-y-4">
               {subscriptions.map((subscription) => (
@@ -372,6 +394,9 @@ export default function ProfilePage() {
                             : 'bg-gray-600 text-white'
                         }`}>
                           {subscription.status.toUpperCase()}
+                        </span>
+                        <span className="px-2 py-1 rounded text-xs font-medium bg-purple-600 text-white">
+                          {getSubscriptionType(subscription)}
                         </span>
                         {subscription.auto_renewal && subscription.status === 'active' && (
                           <span className="px-2 py-1 rounded text-xs font-medium bg-blue-600 text-white">
@@ -400,7 +425,7 @@ export default function ProfilePage() {
                                   Cancel Subscription?
                                 </p>
                                 <p className="text-xs text-gray-600 dark:text-gray-400">
-                                  This will cancel your monthly subscription. You can resubscribe at any time.
+                                  This will cancel your subscription. You can resubscribe at any time.
                                 </p>
                               </div>
                             </div>

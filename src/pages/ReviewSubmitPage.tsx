@@ -76,6 +76,7 @@ export default function ReviewSubmitPage() {
   const totalSlots = campaignData.totalSlots || 1;
   const baseRate = campaignData.baseRate || 40.00;
   const subscriptionDuration = campaignData.subscriptionDuration || 1; // Default to 1 month if not provided
+  const isRecurringSubscription = campaignData.isRecurringSubscription || false; // Recurring monthly subscription
   const uploadedMediaAsset = campaignData.uploadedMediaAsset;
   const selectedCustomAd = campaignData.selectedCustomAd;
 
@@ -242,32 +243,36 @@ export default function ReviewSubmitPage() {
         console.warn('Failed to record payment history', e);
       }
       
-      // Create monthly subscription if enabled
-      if (enableMonthlySubscription) {
-        try {
-          const subscription = await BillingService.createSubscription(user.id, {
-            auto_renewal: true,
-            start_date: startDate,
-            end_date: endDate
-          });
+      // Create subscription for all campaigns (monthly recurring or 1-month)
+      try {
+        // Determine if this is a recurring subscription or one-time
+        // If isRecurringSubscription is true, it's monthly recurring
+        // If subscriptionDuration is 1 and not recurring, it's a 1-month subscription
+        // Otherwise, it's a multi-month subscription
+        const autoRenewal = isRecurringSubscription || enableMonthlySubscription;
+        
+        const subscription = await BillingService.createSubscription(user.id, {
+          auto_renewal: autoRenewal,
+          start_date: startDate,
+          end_date: endDate
+        });
+        
+        if (subscription) {
+          // Link subscription to campaign
+          const { error: linkError } = await supabase
+            .from('subscription_campaigns')
+            .insert([{
+              subscription_id: subscription.id,
+              campaign_id: newCampaign.id
+            }]);
           
-          if (subscription) {
-            // Link subscription to campaign
-            const { error: linkError } = await supabase
-              .from('subscription_campaigns')
-              .insert([{
-                subscription_id: subscription.id,
-                campaign_id: newCampaign.id
-              }]);
-            
-            if (linkError) {
-              console.warn('Failed to link subscription to campaign:', linkError);
-            }
+          if (linkError) {
+            console.warn('Failed to link subscription to campaign:', linkError);
           }
-        } catch (e) {
-          console.warn('Failed to create monthly subscription:', e);
-          // Non-blocking - campaign is created, subscription can be set up later
         }
+      } catch (e) {
+        console.warn('Failed to create subscription:', e);
+        // Non-blocking - campaign is created, subscription can be set up later
       }
       
       addNotification('success', 'Campaign Created!', `Your campaign "${campaignName}" has been created successfully${enableMonthlySubscription ? ' with monthly auto-renewal enabled' : ''} and is now pending approval.`);
@@ -603,12 +608,7 @@ export default function ReviewSubmitPage() {
                 {/* Monthly Subscription Option */}
                 <div className="mb-3">
                   <label className="flex items-center space-x-3 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={enableMonthlySubscription}
-                      onChange={(e) => setEnableMonthlySubscription(e.target.checked)}
-                      className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
-                    />
+                    
                     {/* <div className="flex-1">
                       <div className="flex items-center space-x-2">
                         <Repeat className="h-4 w-4 text-blue-600 dark:text-blue-400" />

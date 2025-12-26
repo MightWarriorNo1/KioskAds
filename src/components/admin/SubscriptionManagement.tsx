@@ -139,6 +139,28 @@ export default function SubscriptionManagement() {
     }
   };
 
+  const getSubscriptionType = (subscription: SubscriptionWithUser): string => {
+    if (subscription.auto_renewal) {
+      return 'Monthly (Recurring)';
+    }
+    
+    if (subscription.end_date) {
+      const startDate = new Date(subscription.start_date);
+      const endDate = new Date(subscription.end_date);
+      const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const months = Math.round(diffDays / 30);
+      
+      if (months === 1) {
+        return '1-Month';
+      } else {
+        return `${months}-Month`;
+      }
+    }
+    
+    return 'Monthly';
+  };
+
   // Filter subscriptions
   const filteredSubscriptions = subscriptions.filter((sub) => {
     const matchesSearch = 
@@ -169,7 +191,7 @@ export default function SubscriptionManagement() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Subscription Management</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-2">
-            Manage monthly subscriptions for clients and hosts
+            Manage all subscriptions (monthly recurring and 1-month) for clients and hosts
           </p>
         </div>
         <button
@@ -295,6 +317,9 @@ export default function SubscriptionManagement() {
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Type
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Start Date
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -340,6 +365,11 @@ export default function SubscriptionManagement() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(subscription.status)}`}>
                         {subscription.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400">
+                        {getSubscriptionType(subscription)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">

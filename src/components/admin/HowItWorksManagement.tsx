@@ -12,6 +12,11 @@ export default function HowItWorksManagement() {
   const [videoDescription, setVideoDescription] = useState('');
   const [youtubeUrl, setYoutubeUrl] = useState('');
   
+  // Second video settings
+  const [video2Title, setVideo2Title] = useState('');
+  const [video2Description, setVideo2Description] = useState('');
+  const [youtube2Url, setYoutube2Url] = useState('');
+  
   const [isHidden, setIsHidden] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -28,6 +33,11 @@ export default function HowItWorksManagement() {
       const videoTitleSetting = settings.find(s => s.key === 'how_it_works_video_title');
       const videoDescSetting = settings.find(s => s.key === 'how_it_works_video_description');
       const videoUrlSetting = settings.find(s => s.key === 'how_it_works_video_url');
+      
+      // Second video settings
+      const video2TitleSetting = settings.find(s => s.key === 'how_it_works_video2_title');
+      const video2DescSetting = settings.find(s => s.key === 'how_it_works_video2_description');
+      const video2UrlSetting = settings.find(s => s.key === 'how_it_works_video2_url');
 
       setTitle(titleSetting?.value || 'How It Works');
       setIsHidden(hiddenSetting?.value === true || hiddenSetting?.value === 'true');
@@ -35,6 +45,10 @@ export default function HowItWorksManagement() {
       setVideoTitle(videoTitleSetting?.value || '');
       setVideoDescription(videoDescSetting?.value || '');
       setYoutubeUrl(videoUrlSetting?.value || '');
+      
+      setVideo2Title(video2TitleSetting?.value || '');
+      setVideo2Description(video2DescSetting?.value || '');
+      setYoutube2Url(video2UrlSetting?.value || '');
     } catch (error) {
       console.error('Error loading how it works settings:', error);
       addNotification('error', 'Error', 'Failed to load settings');
@@ -57,7 +71,11 @@ export default function HowItWorksManagement() {
         // Video settings
         AdminService.updateSystemSetting('how_it_works_video_title', videoTitle, true),
         AdminService.updateSystemSetting('how_it_works_video_description', videoDescription, true),
-        AdminService.updateSystemSetting('how_it_works_video_url', youtubeUrl, true)
+        AdminService.updateSystemSetting('how_it_works_video_url', youtubeUrl, true),
+        // Second video settings
+        AdminService.updateSystemSetting('how_it_works_video2_title', video2Title, true),
+        AdminService.updateSystemSetting('how_it_works_video2_description', video2Description, true),
+        AdminService.updateSystemSetting('how_it_works_video2_url', youtube2Url, true)
       ]);
 
       addNotification('success', 'Success', 'How It Works page settings saved successfully');
@@ -120,7 +138,7 @@ export default function HowItWorksManagement() {
                   value={videoTitle}
                   onChange={(e) => setVideoTitle(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter video title..."
+                  placeholder="Enter video title"
                 />
               </div>
               
@@ -133,7 +151,7 @@ export default function HowItWorksManagement() {
                   onChange={(e) => setVideoDescription(e.target.value)}
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter video description..."
+                  placeholder="Enter video description"
                 />
               </div>
               
@@ -146,6 +164,59 @@ export default function HowItWorksManagement() {
                   type="url"
                   value={youtubeUrl}
                   onChange={(e) => setYoutubeUrl(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="https://www.youtube.com/watch?v=..."
+                />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Enter a full YouTube URL (e.g., https://www.youtube.com/watch?v=VIDEO_ID)
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Second Video Section */}
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Youtube className="h-5 w-5 text-blue-600" />
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Video 2</h3>
+            </div>
+            
+            <div className="space-y-4 pl-7">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Video Title
+                </label>
+                <input
+                  type="text"
+                  value={video2Title}
+                  onChange={(e) => setVideo2Title(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter video title"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Video Description
+                </label>
+                <textarea
+                  value={video2Description}
+                  onChange={(e) => setVideo2Description(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter video description"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <Youtube className="inline h-4 w-4 mr-1" />
+                  YouTube Video URL
+                </label>
+                <input
+                  type="url"
+                  value={youtube2Url}
+                  onChange={(e) => setYoutube2Url(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="https://www.youtube.com/watch?v=..."
                 />
@@ -185,8 +256,8 @@ export default function HowItWorksManagement() {
 
       <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
         <p className="text-blue-800 dark:text-blue-200 text-sm">
-          <strong>Note:</strong> The "How It Works" page is accessible at <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">/how-it-works</code>. 
-          When hidden, the page will show a "Page Not Available" message to visitors.
+          <strong>Note:</strong> The How It Works page is accessible at <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">/how-it-works</code>. 
+          When hidden, the page will show a Page Not Available message to visitors.
         </p>
       </div>
     </div>

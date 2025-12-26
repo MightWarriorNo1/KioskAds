@@ -53,6 +53,7 @@ export default function AddMediaDurationPage() {
   const totalSlots = campaignData.totalSlots || 1;
   const baseRate = campaignData.baseRate || 40.00;
   const subscriptionDuration = campaignData.subscriptionDuration || 1; // Default to 1 month if not provided
+  const isRecurringSubscription = campaignData.isRecurringSubscription || false; // Recurring monthly subscription
   const useCustomAd = campaignData.useCustomAd;
 
   const [slotsPerWeek, setSlotsPerWeek] = useState(1);
@@ -457,12 +458,16 @@ export default function AddMediaDurationPage() {
                     Total Duration: {totalSlots * 15} seconds
                   </div>
                   <div className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded mt-2">
-                    {selectedWeeks.length > 0 ? (() => {
-                      const start = new Date(selectedWeeks[0]?.startDate);
-                      const end = new Date(selectedWeeks[selectedWeeks.length - 1]?.endDate);
-                      const months = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30));
-                      return `${months} month${months > 1 ? 's' : ''} selected`;
-                    })() : 'No period selected'}
+                    {selectedWeeks.length > 0 ? (
+                      isRecurringSubscription 
+                        ? 'Monthly Subscription Selected'
+                        : (() => {
+                            const start = new Date(selectedWeeks[0]?.startDate);
+                            const end = new Date(selectedWeeks[selectedWeeks.length - 1]?.endDate);
+                            const months = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30));
+                            return `${months} month${months > 1 ? 's' : ''} selected`;
+                          })()
+                    ) : 'No period selected'}
                   </div>
                 </div>
               </div>
